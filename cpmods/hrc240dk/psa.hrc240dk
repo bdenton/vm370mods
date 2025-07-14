@@ -1,0 +1,17 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * Add a PSA field to hold the IPL device address which
+./ * might be different from the SYSRES device address
+./ * (having CKPT, WARM, and ERR) that is kept in SYSIPLDV
+./ * Note: this update replaces PSA.INSTWRD2
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ R 00218000 $ 00218100 100
+*        SYSIPLDV is maintained in all three PSA's.            HRC240DK 00218100
+SYSIPLDV DS    1H -      P*3  CKPT/WRM/ERR device address      HRC240DK 00218200
+./ R 00257000 $ 00257100 100
+*        PSAIPLDV and PSANUCAD maintained in all three PSA's   HRC240DK 00257100
+PSAIPLDV DC    H'0' -         Nucleus IPL device address       HRC240DK 00257200
+PSANUCAD DC    H'0' -         IPL'd nucleus starting cylinder  HRC240DK 00257300

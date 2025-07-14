@@ -1,0 +1,96 @@
+LOCAL MODIFICATION: HRC246DK
+
+Prompt For Target Nucleus Save Device.
+
+Affected Files:
+===============
+
+DMKSAV   ASSEMBLE
+LDT      DMKSAVIN (new file)
+CPLOAD   EXEC     (optional)
+
+Prerequisites:
+==============
+
+HRC240DK V01 Alternate CP nucleus enhancements
+HRC245DK V01 Add DMKOPRWR for emergency operator input
+
+Description:
+============
+
+This update adds a new entry point to DMKSAV to provide
+interactive processing for the CP nucleus save function.
+
+If you have ever made the mistake of writing a new nucleus   
+to the wrong alternate nucleus device (and wiping out your
+currrent good production nucleus), you will want to include
+this update in your next build.
+
+Details:
+========
+
+DMKSAV ASSEMBLE
+---------------
+
+The new DMKSAV entry point (DMKSAVIN) seta a flag to enable
+ineractive processing of the DMKSAVNC nucleus write function.
+This interaction proceeds as follows:
+
+   New CP nucleus will be written to [cuu].
+   Enter a new address (cuu) or press ENTER: 
+      operator then enters desired nucleus address
+
+If the device is not accessible, the following is displayed:
+
+   Device [cuu] is not operational.   
+   Enter CP nucleus device address (cuu): 
+      operator enters another address
+
+If the volume label cannot be read from the device, the following 
+is displayed:
+
+   Device [cuu] cannot read volume label.  
+   Enter CP nucleus device address (cuu): 
+      operator enters another address
+
+If the volume has not been configured to have a CP nucleus in DMKSYS
+(either the SYSRES or ALTNUC macros), the follwing is displayed:
+
+   Device [cuu] Volid [......] not in Nucleus Table
+   Enter CP nucleus device address (cuu): 
+      operator enters another address
+
+Finally, once all checks have passed, a final prompt is isssued
+giving the operator one last chance for action prior to the
+nucleus being writen to the volume.
+
+   Press ENTER to write CP nucleus to [cuu] Volid [......]
+   
+The operator then presses ENTER and the new nucleus will be written
+to the specified device.
+
+============================================================================
+
+LDT DMKSAVIN (new file)
+------------
+
+This is a new file that must replace 'LDT DMKSAVNC' as the last entry
+in the CP nucleus load list (e.g. CPLOAD EXEC, VRLOAD EXEC) in order
+to enable the processing in this update.
+
+============================================================================
+
+CPLOAD EXEC (optional)
+-----------
+
+THe processing of this update is only enabled if the CP nucleus load list
+(e.g. CPLOAD EXEC, VRLOAD EXEC) is modified by replacing the last line in 
+the load list...
+
+Replace
+   &1 &2 &3 LDT DMKSAVNC
+with
+   &1 &2 &3 LDT DMKSAVIN
+
+============================================================================
+

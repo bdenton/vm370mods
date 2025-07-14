@@ -1,0 +1,199 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * !!!!  Entry conditions from DMKSAVRS to DMKCPINT have !!!!
+./ * !!!!  changed to include the starting cylinder of the !!!!
+./ * !!!!  IPLed nucleus in the high-order 2 bytes of R10  !!!!
+./ *
+./ * Writes the nucleus to the DMKSYSRSS device address. The 
+./ * device type and cylinder range are determined by looking
+./ * the device's volid in the DMKSYSNT table.
+./ *
+./ * Reads the nucleus from the IPL device. The device type 
+./ * and cylinder range are fouind by looking up the IPL volid
+./ * in the DMKSYSNT table.
+./ *
+./ * PREREQUISITES:
+./ * HRC102DK V02 Add upper bound for nucleus write/read
+./ * HRC202DK V03 Generral message cleanup
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ * 14-Aug-2024 WDENTON  Rework to make HRC102DK a prerequisite
+./ * 15-Nov-2024 WDENTON  Reorganize NUCTAB processing
+./ *
+./ D 00044000
+./ R 00046000 00047580 $ 00046500 100
+*        DMKSYSNT - Table of IPLable nucleus configs           HRC240DK 00046500
+*                   (VOLSER, device type, beg/end cylinders    HRC240DK 00046600
+./ I 00049000 $ 00049100
+*        DMKCKPCD - Copy of creation date/time for queries     HRC240DK 00049100
+./ R 00132000 $ 00132100
+         EXTRN DMKCPINT,DMKCKPT,DMKSYSRS,DMKSYSNT,DMKCKPCD     HRC240DK 00132100
+./ R 00195000 $ 00195100 100
+         BNZ   SETCCW            ...still saving               HRC240DK 00195100
+         ICM   R10,B'1100',START ...CPI needs nucleus start    HRC240DK 00195200
+         BR    R12               ...xfer to CPINT to start up  HRC240DK 00195300
+./ R 00389000 $ 00389100 100
+         SPACE 1                                               HRC240DK 00389100
+         BAL   R14,GETNUCDV   Get/validate the nucleus device  HRC240DK 00389200
+*                             Returns R10 -> NUCTAB entry      HRC240DK 00389300
+         SPACE 2                                               HRC240DK 00389400
+         USING NUCTAB,R10                                      HRC240DK 00389500
+         LA    R9,NUDVCLAS    Nucleus dev class/type in table  HRC240DK 00389600
+./ R 00416000 00419000 $ 00416100 100
+         LA    R9,NUCYLBEG    Cylinder loc from Nucleus Table  HRC240DK 00416100
+./ D 00423000 00439000
+./ I 00586000 $ 00586050 10
+         L     R1,=A(DMKCPICD) Copy date/time from here..      HRC240DK 00586050
+         L     R9,=A(DMKCKPCD) .. to here                      HRC240DK 00586060
+         MVC   0(17,R9),0(R1)  ...                             HRC240DK 00586070
+./ R 00623000 00624000 $ 00622501 20
+         EJECT ,                                               HRC240DK 00622501 
+* +---------------------------------------------------------+  HRC240DK 00622521
+* |                                                         |  HRC240DK 00622541
+* |      GETNUCDV - Locate and validate the device that     |  HRC240DK 00622561
+* |                 the new CP nucleus will be written to   |  HRC240DK 00622581
+* |      Returns:                                           |  HRC240DK 00622601
+* |            Success:                                     |  HRC240DK 00622621
+* |               R1  =  target device address              |  HRC240DK 00622641
+* |               R10 -> NUCTAB entry                       |  HRC240DK 00622661
+* |               DISK = target device address              |  HRC240DK 00622681
+* |            Failure:                                     |  HRC240DK 00622701
+* |               Error message issued and processing       |  HRC240DK 00622721
+* |               terminated with disabled wait PSW         |  HRC240DK 00622741
+* |                                                         |  HRC240DK 00622761
+* +---------------------------------------------------------+  HRC240DK 00622781
+         SPACE 1                                               HRC240DK 00622801
+GETNUCDV DS    0H                                              HRC240DK 00622821
+         STM   R0,R15,NUCSAVE                                  HRC240DK 00622841
+         SPACE 1                                               HRC240DK 00622861
+         L     R1,=A(DMKSYSRS)     Default address is SYSRES   HRC240DK 00622881
+         LH    R1,0(,R1)             defined in DMKSYS         HRC240DK 00622901
+         SPACE 1                                               HRC240DK 00622921
+ASKLP1   DS    0H                                              HRC240DK 00622941
+         ST    R1,DISK            Save candidate               HRC240DK 00622961
+         CALL  DMKCVTBH           Place address in message     HRC240DK 00622981
+         STCM  R1,7,NUCM1CUU      ...                          HRC240DK 00623001
+         SPACE 1                                               HRC240DK 00623021
+*              New CP nucleus will be written to [cuu].        HRC240DK 00623041     
+         LA    R1,NUCMSG1         Write the announce           HRC240DK 00623061
+         BAL   R14,CONIO          ...                          HRC240DK 00623081
+         SPACE 1                                               HRC240DK 00623101
+*                                                              HRC240DK 00623121
+*        Issue sense CCW to see if device exists               HRC240DK 00623141
+*                                                              HRC240DK 00623161
+ASKT1    DS    0H                                              HRC240DK 00623181
+         LA    R1,SNS             Issue Sense CCW (x'04')      HRC240DK 00623201  
+         ST    R1,CAW               to see if device is there  HRC240DK 00623221  
+         L     R1,DISK                candidate device address HRC240DK 00623241  
+ASKT1A   DS    0H                                              HRC240DK 00623261
+         SIO   0(R1)              Access candidate device      HRC240DK 00623281 
+         BC    6,ASKT1A           retry Busy & CSW Stored      HRC240DK 00623301
+         BC    1,NDISK            NotOp (CC3) is bad           HRC240DK 00623321
+         TIO   0(R1)              Clear the device             HRC240DK 00623341
+         BNZ   *-4                ...                          HRC240DK 00623361
+         TM    SNSIN,INTREQ       Intervention required?       HRC240DK 00623381
+         BO    NDISK              ..yes, die now               HRC240DK 00623401
+         SPACE 1                                               HRC240DK 00623421
+*                                                              HRC240DK 00623441
+*        Read the volume label                                 HRC240DK 00623461
+*        -- First have to set CR2 channel mask                 HRC240DK 00623481
+*           to allow for interupts                             HRC240DK 00623501
+*                                                              HRC240DK 00623521
+ASKT2    DS    0H                                              HRC240DK 00623541
+         LR    R2,R1              Get channel number           HRC240DK 00623561
+         SRL   R2,8               ...                          HRC240DK 00623581
+         LA    R0,1               Set up the mask for shifting HRC240DK 00623601
+         SR    R1,R1              ...                          HRC240DK 00623621
+         SRDL  R0,1(R2)           Shift the 1 to right place   HRC240DK 00623641
+         ST    R1,CREG2             and save as the CR2 value  HRC240DK 00623661
+*                                                              HRC240DK 00623681
+*        note.. Here, VM R6 only allows having                 HRC240DK 00623701
+*        nucleus devices on Channels 0-5.. why??               HRC240DK 00623721
+*        Dont think we want that on current systems            HRC240DK 00623741
+*                                                              HRC240DK 00623761
+         LCTL  C2,C2,CREG2        Allow for interrupts         HRC240DK 00623781
+         SR    R8,R8              Clear retry counter          HRC240DK 00623801
+         LA    R14,LABCCW         Read the volume label        HRC240DK 00623821
+         BAL   R15,SCPZCAW        ...                          HRC240DK 00623841
+         SPACE 1                                               HRC240DK 00623861
+*                                                              HRC240DK 00623881
+*        Find entry in Nucleus Table                           HRC240DK 00623901
+*                                                              HRC240DK 00623921
+ASKT3    DS    0H                                              HRC240DK 00623941
+         USING NUCTAB,R10                                      HRC240DK 00623961
+         L     R10,=A(DMKSYSNT)   Find volume in nucleus table HRC240DK 00623981
+FINDNUC  DS    0H                                              HRC240DK 00624001
+         CLC   NUVOLSER,VOLID+4   Match VOLSER of DMKSYSRS dev HRC240DK 00624021
+         BE    ASKDONE            ... got it: return to main   HRC240DK 00624041
+         LA    R10,NUCTABLN(,R10) Next entry                   HRC240DK 00624061
+         CLI   0(R10),X'FF'       End of table?                HRC240DK 00624081
+         BNE   FINDNUC            ..no, keep checking          HRC240DK 00624101
+         B     SCPBADLB           ..yes, issue error & die     HRC240DK 00624121
+         SPACE 1                                               HRC240DK 00624141
+*                                                              HRC240DK 00624161
+*        Got the target device to hold nucleus.                HRC240DK 00624181
+*        -- Return device address in R1 (also in DISK)         HRC240DK 00624201
+*        -- Return Nucleus Table entry addr in R10             HRC240DK 00624221
+*                                                              HRC240DK 00624241
+ASKDONE  DS    0H                                              HRC240DK 00624261
+         L     R1,DISK            Return target device addr    HRC240DK 00624281
+         ST    R1,NUCSVR1           in R1                      HRC240DK 00624301
+         ST    R10,NUCSVR10       Return R10 -> NucTab entry   HRC240DK 00624321
+         LM    R0,R15,NUCSAVE     Restore other regs           HRC240DK 00624341
+         BR    R14                  and return                 HRC240DK 00624361
+         SPACE 3                                               HRC240DK 00624381
+* +---------------------------------------------------------+  HRC240DK 00624401
+* |      CONIO - Write to operator console                  |  HRC240DK 00624421
+* |      Input: R1 -> AL1(length),C'message'                |  HRC240DK 00624441
+* +---------------------------------------------------------+  HRC240DK 00624461
+         SPACE 1                                               HRC240DK 00624481
+CONIO    DS    0H                                              HRC240DK 00624501
+         STM   R14,R2,CONSAVE     Save a few regs              HRC240DK 00624521
+         XR    R0,R0              Get message length           HRC240DK 00624541
+         IC    R0,0(,R1)          ...                          HRC240DK 00624561
+         LA    R1,1(,R1)          and address                  HRC240DK 00624581
+         SR    R2,R2              No special parms             HRC240DK 00624601
+         CALL  DMKOPRWT           Call standalone writer       HRC240DK 00624621
+         LM    R14,R2,CONSAVE     restore regs                 HRC240DK 00624641
+         BR    R14                and return                   HRC240DK 00624661
+         EJECT ,                                               HRC240DK 00624681
+./ I 00628000 $ 00628100 10
+NUCSAVE  DS    0F             GETNUCDV save area               HRC240DK 00628100
+NUCSVR0  DC    F'0'           R0                               HRC240DK 00628110
+NUCSVR1  DC    F'0'           R1                               HRC240DK 00628120
+NUCSVR2  DC    F'0'           R2                               HRC240DK 00628130
+NUCSVR3  DC    F'0'           R3                               HRC240DK 00628140
+NUCSVR4  DC    F'0'           R4                               HRC240DK 00628150
+NUCSVR5  DC    F'0'           R5                               HRC240DK 00628160
+NUCSVR6  DC    F'0'           R6                               HRC240DK 00628170
+NUCSVR7  DC    F'0'           R7                               HRC240DK 00628180
+NUCSVR8  DC    F'0'           R8                               HRC240DK 00628190
+NUCSVR9  DC    F'0'           R9                               HRC240DK 00628200
+NUCSVR10 DC    F'0'           R10                              HRC240DK 00628210
+NUCSVR11 DC    F'0'           R11                              HRC240DK 00628220
+NUCSVR12 DC    F'0'           R12                              HRC240DK 00628230
+NUCSVR13 DC    F'0'           R13                              HRC240DK 00628240
+NUCSVR14 DC    F'0'           R14                              HRC240DK 00628250
+NUCSVR15 DC    F'0'           R15                              HRC240DK 00628260
+CONSAVE  DS    0F             CONIO save area                  HRC240DK 00628270
+CONSVR14 DC    F'0'           R14                              HRC240DK 00628280
+CONSVR15 DC    F'0'           R15                              HRC240DK 00628290
+CONSVR0  DC    F'0'           R0                               HRC240DK 00628300
+CONSVR1  DC    F'0'           R1                               HRC240DK 00628310
+CONSVR2  DC    F'0'           R2                               HRC240DK 00628320
+*                                                              HRC240DK 00628330
+./ R 00659000 $ 00659100 100
+         MVC   VOLMSG1,VOLID+4 Put IPL volid in error msg      HRC240DK 00659100
+./ R 00667490 $ 00667100
+         DC    C'Volid '''                                     HRC240DK 00667100
+./ I 00668100 $ 00668200 100
+         DC    C''' not a configured IPL volume'               HRC240DK 00668200
+./ I 00679200 $ 00679210 10
+         SPACE 1                                               HRC240DK 00679210
+NUCMSG1  DC    AL1(NUCMSG1L)                                   HRC240DK 00679220
+         DC    C'New CP nucleus will be written to ['          HRC240DK 00679230
+NUCM1CUU DC    C'cuu',C'].'                                    HRC240DK 00679240
+NUCMSG1L EQU   *-NUCMSG1-1                                     HRC240DK 00679250
+./ I 00685000 $ 00685100 100
+         SYSLOCS ,                                             HRC240DK 00685100

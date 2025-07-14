@@ -1,0 +1,62 @@
+         MACRO                                                          00010000
+         ALTNUC &VOLSER=,&DEVTYPE=,&CYLS=                               00020000
+.* Specifies an alternate nucleus VOLSER, device type & cylinder range  00030000
+         GBLA  &OWNCNT                                                  00040000
+         GBLC  &OWNLST(255),&SYSTYP                                     00050000
+         GBLC  &NUCVOL(255),&NUCTYP(255)                                00060000
+         GBLA  &NUCCNT,&NUCBEG(255),&NUCEND(255)                        00070000
+         LCLA  &BEG,&END,&IX                                            00080000
+         LCLC  &DVTYP                                                   00090000
+         AIF   ('&VOLSER' EQ '').ERR1                                   00100000
+.SERLP   ANOP  ,                                                        00110000
+&IX      SETA  &IX+1                                                    00120000
+         AIF   (&IX GT &OWNCNT).ERR2                                    00130000
+         AIF   ('&OWNLST(&IX)' NE '&VOLSER').SERLP                      00140000
+&IX      SETA  0                                                        00150000
+.NUCLP   ANOP  ,                                                        00160000
+&IX      SETA  &IX+1                                                    00170000
+         AIF   (&IX GT &NUCCNT).SEROK                                   00180000
+         AIF   ('&NUCVOL(&IX)' NE '&VOLSER').NUCLP                      00190000
+         AGO   .ERR3                                                    00200000
+.SEROK   ANOP  ,                                                        00210000
+         AIF   ('&DEVTYPE' EQ '').DEFTYP                                00220000
+&DVTYP   SETC  '&DEVTYPE'                                               00230000
+         AIF   (('&DEVTYPE' EQ '2314') OR ('&DEVTYPE' EQ '2319')).TYPOK 00240000
+         AIF   (('&DEVTYPE' EQ '3330') OR ('&DEVTYPE' EQ '2305')).TYPOK 00250000
+         AIF   (('&DEVTYPE' EQ '3333') OR ('&DEVTYPE' EQ '3340')).TYPOK 00260000
+         AIF   ('&DEVTYPE' EQ '3350').TYPOK                             00270000
+         AIF   ('&DEVTYPE' EQ '3375').TYPOK                    HRC106DK 00280000
+         AIF   ('&DEVTYPE' EQ '3380').TYPOK                    HRC106DK 00290000
+         AGO   .ERR4                                                    00300000
+.DEFTYP  ANOP  ,                                                        00310000
+&DVTYP   SETC  '&SYSTYP'                                                00320000
+.TYPOK   ANOP  ,                                                        00330000
+         AIF   ('&CYLS' EQ '').ERR5                                     00340000
+         AIF   (N'&CYLS EQ 1).CYL1                                      00350000
+         AIF   (N'&CYLS NE 2).ERR6                                      00360000
+&BEG     SETA  &CYLS(1)                                                 00370000
+&END     SETA  &BEG+&CYLS(2)-1                                          00380000
+         AGO   .CYLOK                                                   00390000
+.CYL1    ANOP  ,                                                        00400000
+&BEG     SETA  &CYLS                                                    00410000
+&END     SETA  &CYLS+1                                                  00420000
+         MNOTE 0,'Default nucleus space set to 2 cylinders'             00430000
+.CYLOK   ANOP  ,                                                        00440000
+&NUCCNT  SETA  &NUCCNT+1                                                00450000
+&NUCVOL(&NUCCNT) SETC '&VOLSER'                                         00460000
+&NUCTYP(&NUCCNT) SETC '&DVTYP'                                          00470000
+&NUCBEG(&NUCCNT) SETA &BEG                                              00480000
+&NUCEND(&NUCCNT) SETA &END                                              00490000
+         MEXIT                                                          00500000
+.ERR1    MNOTE 8,'ALTNUC macro requires the VOLSER parameter'           00510000
+         MEXIT                                                          00520000
+.ERR2    MNOTE 8,'Alternate nucleus VOLSER must be in SYSOWN list'      00530000
+         MEXIT                                                          00540000
+.ERR3    MNOTE 8,'Duplicate VOLSER. One nucleus allowed per volume'     00550000
+         MEXIT                                                          00560000
+.ERR4    MNOTE 8,'Invalid DEVTYPE parameter for Alternate Nucleus'      00570000
+         MEXIT                                                          00580000
+.ERR5    MNOTE 8,'ALTNUC macro requires the CYLS parameter'             00590000
+         MEXIT                                                          00600000
+.ERR6    MNOTE 8,'Invalid CYLS parameter on the ALTNUC macro'           00610000
+         MEND                                                           00620000

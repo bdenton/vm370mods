@@ -1,0 +1,37 @@
+LOCAL MODIFICATION: HRC247DK
+
+Allow lowercase a-f in the hex2bin conversion
+
+Affected Files:
+===============
+
+DMKCVT   ASSEMBLE
+
+Prerequisites:
+==============
+
+None
+
+Description:
+============
+
+This update modifies DMKCVTHB (convert alpha hex to binary)
+ro accept lower case 'a' to 'f' in the input hex string 
+that is to be converted to binary. The need for this was
+prompted by the modifications to DMKSAV and  DMKOPR that
+allowed the operrator to enter the address of the volume
+that was to be the target of the CP nucleus save operation.
+
+Details:
+========
+
+DMKCVT ASSEMBLE
+---------------
+
+A code for the entry point (DMKCVTHB) is enhanced to allow
+lower case a-f in the hex input string. All other external
+input/output specifications of this entry point remain the
+same.
+
+============================================================================
+

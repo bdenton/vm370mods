@@ -1,0 +1,15 @@
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Add new flag to the VMBLOK to indicate one or more PF keys
+./ * are set to the RETRIEVE/RECALL function. The new flag is 
+./ * added to the VMHRCFLG flag byte that was added by HRC018DK
+./ *
+./ * PREREQUISITES:
+./ * HRC018DK V01 Implement extended HRC SET functions   
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ R 00284460 $ 00284455 40 
+VMGRFRTV EQU   X'40'          PFKey RETRIEVE is active         HRC241DK 00284455
+         SPACE 1                                               HRC241DK 00284495

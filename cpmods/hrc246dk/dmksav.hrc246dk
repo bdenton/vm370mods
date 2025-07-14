@@ -1,0 +1,195 @@
+./ * HRC246DK - Prompt for nucleus save target device
+./ *
+./ * Changes DMKSAVNC to prompt the user for the device to   
+./ * write the new CP Nucleus to. A number of validations   
+./ * are performed:                              
+./ *     -- Does the device exist
+./ *     -- Does the device have a volume label?
+./ *     -- Is the volume contained in the Nucleus Table
+./ * If any of these tests fail, the user is informed and
+./ * given the opportunity to enter a different device address.
+./ *
+./ * A new entry point (DMKSAVIN) was added to only enable this
+./ * interaction if specifically requested. The CP load list
+./ * will need to be modified to change the "LDT" card to point
+./ * to this new entry point. The original entry (DMKSAVNC) will
+./ * continue to behave as before this update by writing the CP
+./ * nucleus to the SYSRES device configured in DMKSYS.
+./ *
+./ * PREREQUISITES:
+./ * HRC240DK V01 Alternate CP nucleus
+./ * HRC245DK V01 Add input functionality to DMKOPR     
+./ *
+./ * HISTORY:
+./ * 13-Nov-2024 WDENTON  Initial version
+./ * 31-Jan-2025 WDENTON  Add DMKSAVIN entry point
+./ *
+./ I 00021000 $ 00021100
+*        DMKSAVIN - Interactive version of DMKSAVNC            HRC246DK 00021100
+./ I 00040000 $ 00040100
+*        DMKOPRWR - Emergency operator prompt/reply            HRC246DK 00040100
+./ I 00131000 $ 00131100
+         ENTRY DMKSAVIN       Interactive version of DMKSAVNC  HRC246DK 00131100
+./ R 00137000 $ 00137001 100
+         EXTRN DMKOPRWT,DMKOPRWR                               HRC246DK 00137001
+         EXTRN DMKCVTHB       Convert hex input                HRC246DK 00137101
+./ I 00376000 $ 00376025 25    
+         SPACE 3                                               HRC246DK 00376025
+*                                                              HRC246DK 00376050
+*                                                              HRC246DK 00376075
+DMKSAVIN DS    0H             Interactive version of DMKSAVNC  HRC246DK 00376100
+         BALR  R3,0           Temp base register               HRC246DK 00376125
+         USING *,R3           ...                              HRC246DK 00376150
+         MVI   CONOPT1,X'80'  Set Interactive-Mode flag        HRC246DK 00376175
+*                                                              HRC246DK 00376200
+*        and fall thru to the nucleus save routine             HRC246DK 00376225
+./ I 00440000 $ 00440100
+         DROP  R3             Change base reg                  HRC246DK 00440100
+./ I 00589000 $ 00589100
+         BNZ   IOERR352       Tell about error                 HRC246DK 00589100
+./ I 00616000 $ 00616100 50
+         BR    R15            ..yes, return CC ^= 0            HRC246DK 00616100
+IOERR352 DS    0H                                              HRC246DK 00616150
+./ R 00623101 00623121 $ 00623083 2
+         TM    CONOPT1,X'80'  Interactive-Mode active?         HRC246DK 00623083
+         BZ    ASKT1          no, no console i/o               HRC246DK 00623085   
+         LA    R5,NUCMSG2     use this prompt message          HRC246DK 00623087
+*              Enter a new address (cuu) or press ENTER:       HRC246DK 00623089
+ASKREDO  DS    0H                                              HRC246DK 00623091
+         LR    R1,R5          Write the prompt msg             HRC246DK 00623093
+         BAL   R14,CONIOP     ... and read response            HRC246DK 00623095
+*                             Returns R0=length                HRC246DK 00623097
+*                                     R1=addr                  HRC246DK 00623099
+         LTR   R0,R0          Just pressed enter?              HRC246DK 00623101
+         BNZ   ASKCVT         ..no, go convert it to binary    HRC246DK 00623103
+         TM    0(R5),X'80'    null input allowed?              HRC246DK 00623105
+         BO    ASKREDO        ..no, reask                      HRC246DK 00623107
+         B     ASKT1          ..yes, go check device           HRC246DM 00623109
+ASKCVT   DS    0H                                              HRC246DK 00623111
+         CALL  DMKCVTHB       Convert input to binary          HRC246DK 00623113
+         BNZ   ASKREDO        ..reprompt if non-hex            HRC246DK 00623115
+         ST    R1,DISK        save value                       HRC246DK 00623117
+         SPACE 1                                               HRC246DK 00623119
+*                                                              HRC246DK 00623121
+./ R 00623321 $ 00623323
+         BC    1,ASKT1ERR     NotOp (CC3) is bad               HRC246DK 00623323
+./ R 00623401 00623441 $ 00623403 3
+         BNO   ASKT2          ..no, do next test               HRC246DK 00623403
+         SPACE 1                                               HRC246DK 00623406
+ASKT1ERR DS    0H                                              HRC246DK 00623409
+         TM    CONOPT1,X'80'  Interactive-Mode??               HRC246DK 00623412
+         BNO   NDISK          no, just die now                 HRC246DK 00623415
+         CALL  DMKCVTBH       Put address in message           HRC246DK 00623418
+         STCM  R1,7,NUCM3CUU  ...                              HRC246DK 00623421
+         SPACE 1                                               HRC246DK 00623424
+*              Device [cuu] does not exist.                    HRC246DK 00623427
+         LA    R1,NUCMSG3     Write the announce               HRC246DK 00623430
+ASKTERR  DS    0H                                              HRC246DK 00623433
+         BAL   R14,CONIOA     send with alarm                  HRC246DK 00623436
+         LA    R5,NUCMSG6     use this prompt message          HRC246DK 00623439
+*             Enter CP nucleus device address (cuu):           HRC246DK 00623442
+         B     ASKREDO        and start over                   HRC246DK 00623445
+         SPACE 1                                               HRC246DK 00623458
+*                                                              HRC246DK 00623451
+./ R 00623861 00623881 $ 00623863 3
+         BZ    ASKT3          got it, try next test            HRC246DK 00623863
+ASKT2ERR DS    0H                                              HRC246DK 00623866
+         TM    CONOPT1,X'80'  Interactive-Mode?                HRC246DK 00623869
+         BNO   IOERR352       no, just die                     HRC246DK 00623872
+         CALL  DMKCVTBH       Put address in message           HRC246DK 00623875
+         STCM  R1,7,NUCM4CUU  ...                              HRC246DK 00623878
+         SPACE 1                                               HRC246DK 00623881
+*              Device [cuu]  has no volume label.              HRC246DK 00623884
+         LA    R1,NUCMSG4     Write the error                  HRC246DK 00623887
+         B     ASKTERR        .. error finish above            HRC246DK 00623890
+         SPACE 1                                               HRC246DK 00623893
+*                                                              HRC246DK 00623896
+./ R 00624121 00624181 $ 00624114 3
+ASKT3ERR DS    0H                                              HRC246DK 00624114
+         TM    CONOPT1,X'80'      Interactive-Mode?            HRC246DK 00624117
+         BNO   SCPBADLB           no, just die                 HRC246DK 00624120
+         L     R1,DISK            Get back dev addr            HRC246DK 00624123
+         CALL  DMKCVTBH           Put address in message       HRC246DK 00624126
+         STCM  R1,7,NUCM5CUU      ...                          HRC246DK 00624129
+         MVC   NUCM5VOL,VOLID+4   also include volser          HRC246DK 00624132
+         SPACE 1                                               HRC246DK 00624135
+*            Device [cuu], Volid [......] not in Nucleus Table HRC246DK 00624138
+         LA    R1,NUCMSG5         Write the error              HRC246DK 00624141
+         B     ASKTERR            .. error finish above        HRC246DK 00624144
+         SPACE 3                                               HRC246DK 00624147
+*                                                              HRC246DK 00624150
+*        Got the target device to hold nucleus.                HRC246DK 00624153
+*        -- Issue a 'last chance' message                      HRC246DK 00624156
+./ R 00624261 $ 00624251 2
+ASKDONE  DS    0H                                              HRC246DK 00624251 
+         TM    CONOPT1,X'80'      Interactive-Mode?            HRC246DK 00624253
+         BNO   ASKRETN            no, bypass last prompt       HRC246DK 00624255
+         L     R1,DISK            Get back dev addr            HRC246DK 00624257
+         CALL  DMKCVTBH           Put address in message       HRC246DK 00624259
+         STCM  R1,7,NUCM9CUU      ...                          HRC246DK 00624261
+         MVC   NUCM9VOL,VOLID+4   also include volser          HRC246DK 00624263
+         SPACE 1                                               HRC246DK 00624265
+*        Press ENTER to write CP nucleus to [cuu] Volid [..... HRC246DK 00624267
+         LA    R1,NUCMSG9         Write the error              HRC246DK 00624269
+         BAL   R14,CONIOP         and ignore response          HRC246DK 00624271 
+         SPACE 1                                               HRC246DK 00624273
+ASKRETN  DS    0H                                              HRC246DK 00624275
+./ R 00624481 00624501 $ 00624471 5
+         SPACE 1                                               HRC246DK 00624471
+CONIOA   DS    0H                 Write with alarm option      HRC246DK 00624476
+         MVI   CONOPT,ALARM       ...                          HRC246DK 00624481
+         B     CONIO              ...                          HRC246DK 00624486
+CONIOP   DS    0H                 Write prompt then read       HRC246DK 00624491 
+         OI    CONOPT1,1          ...                          HRC246DK 00624496
+CONIO    DS    0H                 Common process               HRC246DK 00624501
+./ R 00624541 00624561 $ 00624543 20
+         IC    R0,0(,R1)          Get message length           HRC246DK 00624543
+         N     R0,=A(X'7F')       ... less null flag           HRC246DK 00624563
+./ R 00624621 $ 00624604 3
+         IC    R2,CONOPT          Processing option            HRC246DK 00624604
+         TM    CONOPT1,1          Need input?                  HRC246DK 00624607
+         BNO   CONWRT             ..no, just do the write      HRC246DK 00624610
+         CALL  DMKOPRWR           ..yes, prompt & read         HRC246DK 00624613
+         STM   R0,R1,CONSVR0         and return R0+R1          HRC246DK 00624616
+         B     CONRET                                          HRC246DK 00624619
+CONWRT   DS    0H                                              HRC246DK 00624622
+         CALL  DMKOPRWT           Write to operator            HRC246DK 00624625
+CONRET   DS    0H                                              HRC246DK 00624628
+         MVI   CONOPT,0           Clear options for next call  HRC246DK 00624631
+         NI    CONOPT1,254        ...                          HRC246DK 00624634
+./ I 00624661 $ 00624663 3
+         SPACE 1                                               HRC246DK 00624663
+CONOPT   DC    X'00'              Write options                HRC246DK 00624666
+CONOPT1  DS    X'00'              Read options                 HRC246DK 00624669
+./ * D 00656010 00675000
+./ I 00679250 $ 00679260 10
+*                                                              HRC246DK 00679250
+NUCMSG2  DC    AL1(NUCMSG2L)                                   HRC246DK 00679260
+         DC    C'Enter a new address (cuu) or press ENTER: '   HRC246DK 00679270
+NUCMSG2L EQU   *-NUCMSG2-1                                     HRC246DK 00679280
+*                                                              HRC246DK 00679290
+NUCMSG3  DC    AL1(NUCMSG3L)                                   HRC246DK 00679300
+         DC    C'Device ['                                     HRC246DK 00679310
+NUCM3CUU DC    C'cuu',C'] is not operational.'                 HRC246DK 00679320
+NUCMSG3L EQU   *-NUCMSG3-1                                     HRC246DK 00679330
+*                                                              HRC246DK 00679340
+NUCMSG4  DC    AL1(NUCMSG4L)                                   HRC246DK 00679350
+         DC    C'Device ['                                     HRC246DK 00679360
+NUCM4CUU DC    C'cuu',C'] cannot read volume label.'           HRC246DK 00679370
+NUCMSG4L EQU   *-NUCMSG4-1                                     HRC246DK 00679380
+*                                                              HRC246DK 00679390
+NUCMSG5  DC    AL1(NUCMSG5L)                                   HRC246DK 00679400
+         DC    C'Device ['                                     HRC246DK 00679410
+NUCM5CUU DC    C'cuu',C'], Volid ['                            HRC246DK 00679420
+NUCM5VOL DC    C'......',C'] not in Nucleus Table'             HRC246DK 00679430
+NUCMSG5L EQU   *-NUCMSG5-1                                     HRC246DK 00679440
+*                                                              HRC246DK 00679450
+NUCMSG6  DC    AL1(X'80'+NUCMSG6L)   flag for no enter key     HRC246DK 00679460
+         DC    C'Enter CP nucleus device address (cuu): '      HRC246DK 00679470
+NUCMSG6L EQU   *-NUCMSG6-1                                     HRC246DK 00679480
+*                                                              HRC246DK 00679490
+NUCMSG9  DC    AL1(NUCMSG9L)                                   HRC246DK 00679500
+         DC    C'Press ENTER to write CP nucleus to ['         HRC246DK 00679510
+NUCM9CUU DC    C'cuu',C'] Volid ['                             HRC246DK 00679520
+NUCM9VOL DC    C'......',C']'                                  HRC246DK 00679530
+NUCMSG9L EQU   *-NUCMSG9-1                                     HRC246DK 00679540

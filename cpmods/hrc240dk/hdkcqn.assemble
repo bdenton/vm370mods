@@ -1,0 +1,558 @@
+CQN      TITLE 'HDKCQN            (CP)    VM/370    VERSION 6, LEVEL 0' 00010000
+         ISEQ  73,80          Validate sequence numbers                 00020000
+**********************************************************************  00030000
+*                                                                       00040000
+* MODULE NAME -                                                         00050000
+*                                                                       00060000
+*        HDKCQN                                                         00070000
+*                                                                       00080000
+* FUNCTION -                                                            00090000
+*                                                                       00100000
+*        Construct and send responses for alternate                     00110000
+*        nucleus query extensions                                       00120000
+*                                                                       00130000
+* ATTRIBUTES -                                                          00140000
+*                                                                       00150000
+*        REENTRANT, PAGEABLE, CALLED VIA SVC                            00160000
+*                                                                       00170000
+* ENTRY POINTS -                                                        00180000
+*                                                                       00190000
+*        HDKCQNUC - Alternate nucleus query functions                   00200000
+*                                                                       00210000
+**********************************************************************  00220000
+         EJECT ,                                                        00230000
+         COPY  OPTIONS                                                  00240000
+         COPY  LOCAL                                                    00250000
+         SPACE 3                                                        00260000
+HDKCQN   CSECT ,                                                        00270000
+MODID    DC    CL8'HDKCQN'        Module Id                             00280000
+         DC    AL2(MODEND-HDKCQN) Module length                         00290000
+         DC    C'&SYSDATE'        Compile date                          00300000
+         DC    C'-&SYSTIME'       Compile time                          00310000
+         SPACE 3                                                        00320000
+         USING PSA,0                                                    00330000
+         USING VMBLOK,R11                                               00340000
+         USING SAVEAREA,R13                                             00350000
+         SPACE 1                                                        00360000
+         EXTRN DMKCVTBD,DMKCVTBH                                        00370000
+         EXTRN DMKSYSNT                                                 00380000
+         EXTRN DMKSCNFD,DMKSCNRD,DMKSCNVS                               00390000
+         EXTRN DMKIOSQR                                                 00400000
+         EXTRN DMKERMSG                                                 00410000
+         TITLE 'HDKCQN:HDKCQNUC   (CP)    VM/370    VERSION 6, LEVEL 0' 00420000
+**********************************************************************  00430000
+*                                                                       00440000
+* METHOD NAME -                                                         00450000
+*                                                                       00460000
+*        HDKCQNUC                                                       00470000
+*                                                                       00480000
+* FUNCTION -                                                            00490000
+*                                                                       00500000
+*        Process any query commands related to the CP nucleus           00510000
+*                                                                       00520000
+* ENTRY CONDITIONS -                                                    00530000
+*                                                                       00540000
+*        R6  = Branch table index value                                 00550000
+*        R9  = Address of the command line buffer                       00560000
+*        R11 = Address of the VMBLOK                                    00570000
+*        R12 = Address of HDKCQNUC entry point                          00580000
+*        R13 = Address of standard SAVEAREA                             00590000
+*                                                                       00600000
+* EXIT CONDITIONS -                                                     00610000
+*                                                                       00620000
+*        Normal:                                                        00630000
+*              R2 = 0                                                   00640000
+*                                                                       00650000
+*        Error:                                                         00660000
+*              R2 = Error message code number                           00670000
+*                                                                       00680000
+* NOTES/COMMENTS -                                                      00690000
+*                                                                       00700000
+*        1. Since the SAVEAREA created on the call from CFMQU           00710000
+*           is not used, it will be released via SVC 16. Thus,          00720000
+*           when this routine returns, it will go back to the           00730000
+*           CFM main command processor instead of the CFMQU             00740000
+*           QUERY commandU. (CFM's registers were already               00750000
+*           saved by CFMQU                                              00760000
+*                                                                       00770000
+*        2. This module can process multiple QERY options. The          00780000
+*           proper routine is entered via a branch table indexed        00790000
+*           by the incoming R6 that was set up by CFMQU the             00800000
+*           main QUERY command processor;                               00810000
+*                                                                       00820000
+**********************************************************************  00830000
+         EJECT ,                                                        00840000
+*                                                                       00850000
+*        Start by releasing the current save area so we                 00860000
+*        will appear to be called from the CFM main                     00870000
+*        command processor                                              00880000
+*                                                                       00890000
+         ENTRY HDKCQNUC                                                 00900000
+HDKCQNUC DS    0H             Entry from CFMQU                          00910000
+         USING *,R12          (temp local addressability)               00920000
+         SVC   16             Release the SAVEAERA.. use CFMQU's        00930000
+         SPACE 1                                                        00940000
+         STM   R0,R11,SAVEREGS    Save incomine registers               00950000
+         SL    R12,=A(HDKCQNUC-HDKCQN) Set module addressability        00960000
+         USING HDKCQN,R12         and a permanent base                  00970000
+         SPACE 1                                                        00980000
+         XC    SAVEWRK1(4),SAVEWRK1 Clear some work space               00990000
+         B     QNVECTOR(R6)         and jump to processing routine      01000000
+QNVECTOR DS    0H                                                       01010000
+         B     QRYNUC         Q NUCLEUS                                 01020000
+         SPACE 3                                                        01030000
+*                                                                       01040000
+*        Common exit point to write a message and exit                  01050000
+*                                                                       01060000
+QRYWRITE DS    0H                                                       01070000
+         CALL  DMKQCNWT,PARM=NORET+DFRET                                01080000
+         SPACE 1                                                        01090000
+*                                                                       01100000
+*        Exit point to return success                                   01110000
+*                                                                       01120000
+QRYEXIT0 DS    0H                                                       01130000
+         SLR   R2,R2          ZERO RETRN REG                            01140000
+         SPACE 1                                                        01150000
+*                                                                       01160000
+*        Exit point to return error message code in R2                  01170000
+*                                                                       01180000
+QRYEXIT  DS    0H                                                       01190000
+         N     R2,XRIGHT16    AND OFF ALL BUT ERROR CODE                01200000
+         ST    R2,SAVER2      STORE RETURN CODE                         01210000
+         EXIT  ,              RETURN                                    01220000
+         EJECT ,                                                        01230000
+**********************************************************************  01240000
+*                                                                       01250000
+* QUERY NUCLEUS                                                         01260000
+*                                                                       01270000
+* COMMAND FORMAT                                                        01280000
+*                                                                       01290000
+*        +---------+-----------+                                        01300000
+*        |  QUERY  |  NUCleus  |                                        01310000
+*        +---------+-----------+                                        01320000
+*                                                                       01330000
+* RESPONSE                                                              01340000
+*                                                                       01350000
+*        For all nucleus locations defined in DMKSYS:                   01360000
+*            CP NUCLEUS LOCATIONS:                                      01370000
+*            VOLSER UNIT TYPE   RANGE   CREATE DATE/TIME                01380000
+*            volser cuu* 33xx nnnn-nnnn mm/dd/yy hh:mm:ss               01390000
+*            . . .                                                      01400000
+*            * Currently IPLed nucleus                                  01410000
+*                                                                       01420000
+*        If a nucleus has never been loaded:                            01430000
+*            volser cuu  33xx nnnn-nnnn no nucleus loaded               01440000
+*                                                                       01450000
+*        If update HRC240DK has not been applied to DMKCKP:             01460000
+*            volser cuu  33xx nnnn-nnnn missing HRC240DK                01470000
+*                                                                       01480000
+*        If the nucleus location on disk does not                       01490000
+*        match the DMKSSY Nucleus Table definition:                     01500000
+*            volser cuu  33xx nnnn-nnnn wrong location                  01510000
+*                                                                       01520000
+*        If the Nucleus Table in DMKSYS is empty:                       01530000
+*            No nucleus locations defined!                              01540000
+*                                                                       01550000
+**********************************************************************  01560000
+         SPACE 2                                                        01570000
+QRYNUC   DS    0H                                                       01580000
+         CALL  DMKSCNFD          Look for next parm                     01590000
+         BZ    ERR026            ... no options allowed                 01600000
+         SPACE 1                                                        01610000
+*        Get a little bit of temp storage                               01620000
+         LA    R0,QNWORKL        ...                                    01630000
+         CALL  DMKFREE           ...                                    01640000
+         ST    R1,SAVEWRK1       (save its address)                     01650000
+         LR    R9,R1             ... temp access via R9                 01660000
+         USING QNUCWORK,R9       ...                                    01670000
+         SPACE 1                                                        01680000
+*                                                                       01690000
+*        First count the number of entries in the DMKSYSNT table        01700000
+*                                                                       01710000
+         L     R6,=A(DMKSYSNT)   Count # of defined nucs                01720000
+         USING NUCTAB,R6         ..                                     01730000
+         SR    R3,R3             .. (count in R3)                       01740000
+NUCCNTLP DS    0H                ..                                     01750000
+         CLI   0(R6),X'FF'       ..                                     01760000
+         BE    NUCCNTEN          ..                                     01770000
+         LA    R3,1(,R3)         ..                                     01780000
+         LA    R6,NUCTABLN(,R6)  ..                                     01790000
+         B     NUCCNTLP          ..                                     01800000
+*                                                                       01810000
+*        Then calculate the length of the query output                  01820000
+*                                                                       01830000
+NUCCNTEN DS    0H                                                       01840000
+         LTR   R3,R3             Any nucs defined in DMKSYS?            01850000
+         BZ    NUCNONE1          ..no, simple output then               01860000
+         LA    R1,NUCLOVHD       Basic message content length           01870000
+         LR    R2,R3             and add detail lines                   01880000
+         MH    R2,=AL2(NUCLDETL) ...                                    01890000
+         AR    R1,R2             ...                                    01900000
+         B     *+8               go allocate buffer                     01910000
+NUCNONE1 DS    0H                                                       01920000
+         LA    R1,NUCLNONE       Msg length when none defined           01930000
+         LA    R0,7(,R1)         Size in Dwords                         01940000
+         SRL   R0,3                                                     01950000
+         ST    R0,QRYBUFFL       (save dw size for FRET later)          01960000
+         CALL  DMKFREE                                                  01970000
+         ST    R1,QRYBUFF        Save buffer addr                       01980000
+         LR    R7,R1             Use R7 to build output                 01990000
+         SPACE 1                                                        02000000
+         DROP  R9                DON't need work area for a while       02010000
+         SPACE 1                                                        02020000
+*                                                                       02030000
+*        Initialize query output with heading lines                     02040000
+*                                                                       02050000
+         LA    R1,NUCMSGHD       Main header                            02060000
+         LA    R2,L'NUCMSGHD     ...                                    02070000
+         BAL   R4,NUCADDLN       ...                                    02080000
+         LTR   R3,R3             Any nucs defined in DMKSYS?            02090000
+         BZ    NUCNONE2          ..no, simple output then               02100000
+         LA    R1,NUCMSGCH       Column header                          02110000
+         LA    R2,L'NUCMSGCH     ...                                    02120000
+         BAL   R4,NUCADDLN       ...                                    02130000
+         SPACE 1                                                        02140000
+*                                                                       02150000
+*        Build each detail line of the query output                     02160000
+*                                                                       02170000
+         L     R6,=A(DMKSYSNT)   Now scan NUCTAB & report               02180000
+NUCBLDLP DS    0H                                                       02190000
+         CLI   0(R6),X'FF'       End of table?                          02200000
+         BE    NUCBLDEN          yes... write buffer                    02210000
+         SPACE 1                                                        02220000
+         MVI   0(R7),C' '           Clear output line                   02230000
+         MVC   1(LNUCDETL,R7),0(R7) ...                                 02240000
+         MVI   LNUCDETL(R7),X'15'                                       02250000
+         USING NUCMSGDT,R7                                              02260000
+         SPACE 1                                                        02270000
+         MVC   NUCDTVOL,NUVOLSER  Volser to output                      02280000
+         SPACE 1                                                        02290000
+         LA    R0,6              Find addr of that volume               02300000
+         LA    R1,NUVOLSER       ...                                    02310000
+         CALL  DMKSCNVS          ... 1st the RDEVBLOK                   02320000
+         BNZ   NUCNODEV          ... not mounted                        02330000
+         LR    R8,R1             ...                                    02340000
+         CALL  DMKSCNRD          compute the CUU of RDEVBLOK            02350000
+         CH    R1,PSAIPLDV       is this the active one?                02360000
+         BNE   *+8               nope                                   02370000
+         MVI   NUCDTACT,C'*'     yup, flag the active nuc               02380000
+         CALL  DMKCVTBH          Convert to hex                         02390000
+         STCM  R1,B'0111',NUCDTCUU  put in output                       02400000
+         B     *+10                                                     02410000
+NUCNODEV DS    0H                                                       02420000
+         MVC   NUCDTCUU,=C'---'  show not online                        02430000
+         SPACE 1                                                        02440000
+         IC    R2,NUDVTYPE       Add device type to result              02450000
+         LA    R1,DASDTYPS       ...                                    02460000
+         LA    R0,DASDTYPN       ...                                    02470000
+NUCTYPLP DS    0H                ...                                    02480000
+         CLM   R2,1,0(R1)        ...                                    02490000
+         BE    NUCTYPOK          ...                                    02500000
+         LA    R1,DASDTYPL(,R1)  ...                                    02510000
+         BCT   R0,NUCTYPLP       ...                                    02520000
+         B     NUCNOTYP          ...                                    02530000
+NUCTYPOK DS    0H                ...                                    02540000
+         MVC   NUCDTTYP,1(R1)    Move in dev type                       02550000
+         B     *+10              ...                                    02560000
+NUCNOTYP DS    0H                                                       02570000
+         MVC   NUCDTTYP,=C'????' Unknown type                           02580000
+         SPACE 1                                                        02590000
+         LH    R1,NUCYLBEG         Starting cylinder                    02600000
+         CALL  DMKCVTBD            ...                                  02610000
+         STCM  R1,B'1111',NUCDTBEG ...                                  02620000
+         MVI   NUCDTSEP,C'-'                                            02630000
+         LH    R1,NUCYLEND         Ending cylinder                      02640000
+         CALL  DMKCVTBD            ...                                  02650000
+         STCM  R1,B'1111',NUCDTEND ...                                  02660000
+         SPACE 1                                                        02670000
+         BAL   R4,NUCVERFY       Verify the nucleus                     02680000
+*                                (also fills in create dt/tm)           02690000
+         SPACE 1                                                        02700000
+         LA    R7,NUCLDETL(,R7)  next line                              02710000
+         LA    R6,NUCTABLN(,R6)  ..                                     02720000
+         B     NUCBLDLP          loop thru the table                    02730000
+         SPACE 1                                                        02740000
+NUCBLDEN DS    0H                                                       02750000
+         LA    R1,NUCNTACT       Note about active nuc flag             02760000
+         LA    R2,L'NUCNTACT     ...                                    02770000
+         BAL   R4,NUCADDLN       ...                                    02780000
+         B     NUCDONE                                                  02790000
+         SPACE 1                                                        02800000
+NUCNONE2 DS    0H                                                       02810000
+         LA    R1,NUCNTNON       Note About no nucs defined             02820000
+         LA    R2,L'NUCNTNON     ...                                    02830000
+         BAL   R4,NUCADDLN       ...                                    02840000
+         SPACE 1                                                        02850000
+NUCDONE  DS    0H                                                       02860000
+         L     R9,SAVEWRK1       Get back to the work area              02870000
+         USING QNUCWORK,R9       ...                                    02880000
+         L     R2,QRYBUFF        Pick up needed fields                  02890000
+         L     R3,QRYBUFFL         so the work area                     02900000
+         LR    R1,R9                 can be released                    02910000
+         LA    R0,QNWORKL              ...                              02920000
+         CALL  DMKFRET                 ...                              02930000
+         DROP  R9                                                       02940000
+         LR    R0,R7             R0 = message len                       02950000
+         SR    R0,R2             ..                                     02960000
+         LR    R1,R2             R1 = message addr                      02970000
+*                                R3 = Dwords to FRET (from above)       02980000
+         B     QRYWRITE                                                 02990000
+         SPACE 3                                                        03000000
+*                                                                       03010000
+* Move a static line to output buffer                                   03020000
+* -- R1 = address of thhe data                                          03030000
+* -- R2 = length of the data                                            03040000
+* -- R4 = return address                                                03050000
+*                                                                       03060000
+NUCADDLN DS    0H                                                       03070000
+         EX    R2,NUCMOVLN       Move the data (+1 extra)               03080000
+         AR    R7,R2             followed by a NL                       03090000
+         MVI   0(R7),X'15'       ...                                    03100000
+         LA    R7,1(,R7)         ...                                    03110000
+         BR    R4                                                       03120000
+NUCMOVLN MVC   0(*-*,R7),0(R1)   *** Executed ***                       03130000
+         SPACE 3                                                        03140000
+*                                                                       03150000
+* Verify the nucleus currently on a device                              03160000
+* -- R4 = return address                                                03170000
+* -- R6 = current DMKSYSNT table entry                                  03180000
+* -- R7 = addr of current output detail line                            03190000
+* -- R8 = RDEVBLOK of device with a nucleus                             03200000
+*                                                                       03210000
+* Returns R0 = 0  (Success)                                             03220000
+*         R0 = 32 (no valid nuc on device)                              03230000
+*                                                                       03240000
+NUCVERFY DS    0H                                                       03250000
+         LA    R2,=AL1(0,0,0,0,0,0,2) ...                               03260000
+         BAL   R9,READ1K         ...                                    03270000
+         USING IOBLOK,R10                                               03280000
+         LA    R9,RDDATA         Check for good nuc                     03290000
+         USING NUCR2CKP,R9                                              03300000
+         CLC   ID,=CL8'DMKCKP'   is 1st page of DMKCKP?                 03310000
+         BNE   NUCNONUC          ..no, no nucleus on device             03320000
+         CLC   CKPST,NUCYLBEG    same starting cyl as DMKSYS?           03330000
+         BNE   NUCOLD            ..no, stale nuc                        03340000
+         CLI   CKPCD+2,C'/'      Nuc includes HRC240DK??                03350000
+         BNE   NUCPREV           no, no date/time                       03360000
+         MVC   NUCDTDTS,CKPCD    copy in create date/time               03370000
+         SLR   R9,R9             Return code = 0                        03380000
+         B     NUCVRET           and done                               03390000
+         DROP  R9                                                       03400000
+NUCNONUC DS    0H                                                       03410000
+         MVC   NUCDTDTS,MSNONUC  no nucleus on device                   03420000
+         B     NUCVERER                                                 03430000
+NUCPREV  DS    0H                                                       03440000
+         MVC   NUCDTDTS,MSNOUPDT missing this update                    03450000
+         B     NUCVERER                                                 03460000
+NUCOLD   DS    0H                                                       03470000
+         MVC   NUCDTDTS,MSBADNUC DMKSYS def .ne. Loaded nuc             03480000
+NUCVERER DS    0H                                                       03490000
+         LA    R9,32             Return code = 32                       03500000
+NUCVRET  DS    0H                                                       03510000
+         DROP  R10                                                      03520000
+         LA    R0,RD1KDWCT       Release IOBLOK & extras                03530000
+         LR    R1,R10                                                   03540000
+         CALL  DMKFRET                                                  03550000
+         LR    R0,R9             return code to R0                      03560000
+         BR    R4                and return                             03570000
+         DROP  R6,R7                                                    03580000
+*              C'mm/dd/yy hh:mm:ss'                                     03590000
+MSNONUC  DC    C'no nucleus loaded'                                     03600000
+MSNOUPDT DC    C'missing HRC240DK '                                     03610000
+MSBADNUC DC    C'wrong location   '                                     03620000
+         SPACE 3                                                        03630000
+*                                                                       03640000
+*        Templates for Query Nucleus output                             03650000
+*                                                                       03660000
+NUCMSGHD DC    C'CP NUCLEUS LOCATIONS'                                  03670000
+NUCMSGCH DC    C'VOLSER UNIT TYPE   RANGE   CREATE DATE/TIME'           03680000
+         SPACE 1                                                        03690000
+NUCMSGDT DSECT ,                 Output detail line                     03700000
+NUCDTVOL DC    C'VOLSER',C' '       Nucleus volume id                   03710000
+NUCDTCUU DC    C'CUU'               Device address                      03720000
+NUCDTACT DC    C'*',C' '            Active IPLd nuc flag                03730000
+NUCDTTYP DC    C'3330',C' '         Device type                         03740000
+NUCDTBEG DC    C'0000'              First allocated cyl                 03750000
+NUCDTSEP DC    C'-'                 -                                   03760000
+NUCDTEND DC    C'0000',C' '         Last allocated cyl                  03770000
+NUCDTDTS DC    C'mm/dd/yy hh:mm:ss' Create date/time                    03780000
+LNUCDETL EQU   *-NUCMSGDT                                               03790000
+         SPACE 1                                                        03800000
+HDKCQN   CSECT ,                                                        03810000
+         SPACE 1                                                        03820000
+NUCNTACT DC    C'* = Currently IPLed nucleus'                           03830000
+NUCNTNON DC    C'No nucleus locations defined!'                         03840000
+         SPACE 1                                                        03850000
+*              Overhead message length (regular)                        03860000
+NUCLOVHD EQU   L'NUCMSGHD+L'NUCMSGCH+L'NUCNTACT+3                       03870000
+*              Overhead message length (no nucs defined)                03880000
+NUCLNONE EQU   L'NUCMSGHD+L'NUCNTNON+2                                  03890000
+*              Length of detail lines                                   03900000
+NUCLDETL EQU   LNUCDETL+1                                               03910000
+         SPACE 3                                                        03920000
+NUCR2CKP DSECT ,              Map the DKMCKP prefix in 0/0/2            03930000
+CKPT     DS    0H                                                       03940000
+         LM    R12,R13,*-*    LOAD BASE REGS                            03950000
+         B     *-*                                                      03960000
+ERRORMSG DC    A(*-*)         ERROR MESSAGE ADDRESS                     03970000
+         ORG   CKPT+14        ORIGIN NAME ADDRESS FOR DMKDDR            03980000
+ID       DC    CL8'DMKCKP'         MODULE NAME                          03990000
+         SPACE 1                                                        04000000
+         ORG   CKPT+22        ORIGIN NUC CYL ADDRESS FOR DMKDDR@V2A2029 04010000
+CKPST    DC    XL2'00'        CYLINDER ADDRESS OF THE FIRST NUCLEUS CYL 04020000
+         DC    XL2'00'        CYLINDER ADDRESS OF THE LAST NUCLEUS CYL  04030000
+         SPACE 1                                                        04040000
+         DS    0F                                                       04050000
+CKPRS    DC    XL8'00'        BBCCHHR OF THE DMKSAV ON DISK             04060000
+CKPLD    DC    XL8'00'        BBCCHRR OF DMKCKP PAGE 2                  04070000
+SEEK     DC    H'0'           BB CURRENT SEEK ADDRESS                   04080000
+         DC    H'0'           CC CYLINDER                               04090000
+HEAD     DC    H'0'           HH HEAD                                   04100000
+REC      DC    X'0100'        R  RECORD                                 04110000
+BASEREGS DC    A(X'800')      DMKCKP BASE ADDRESS                       04120000
+         DC    A(X'1800')     2ND BASE REG ADDRESS                      04130000
+TERMBUFF DC    A(*-*)         TERMBUFF ADDRESS                          04140000
+         SPACE 1                                                        04150000
+*        Copy of DMKCPICD for use in queries                            04160000
+CKPCD    DC    CL9' '         Creation date filled by DMKSAV            04170000
+         DC    CL8' '         Creation time filled by DMKSAV            04180000
+         SPACE 1                                                        04190000
+CKP001   DS    0H                                                       04200000
+HDKCQN   CSECT ,                                                        04210000
+         EJECT ,                                                        04220000
+*-------------------------------------------------------------          04230000
+*                                                                       04240000
+* Subroutine to read 1K of data from a disk                             04250000
+*                                                                       04260000
+* Input:                                                                04270000
+*     R2 = disk record address (BBCCHHR)                                04280000
+*     R8 = RDEVBLOK to be read                                          04290000
+*     R9 = return address                                               04300000
+*                                                                       04310000
+* Results:                                                              04320000
+*     R0  = return code (0=success,32=error)                            04330000
+*     R10 = address of IOBLOK + extnsions (see below)                   04340000
+*                                                                       04350000
+*-------------------------------------------------------------          04360000
+READ1K   DS    0H                                                       04370000
+         STM   R2,R9,SAVEWRK2                                           04380000
+         LA    R0,RD1KDWCT       Allocate IOBLOK & extras               04390000
+         CALL  DMKFREE                                                  04400000
+         LR    R10,R1            Address as the IOBLOK + extensions     04410000
+         USING IOBLOK,R10        ...                                    04420000
+         XC    IOBLOK(IOBSIZE*8),IOBLOK CLEAR IT                        04430000
+         LA    R1,RDCCWS         Set IOBCAW to the channel program      04440000
+         ST    R1,IOBCAW         ...                                    04450000
+         LA    R1,READDONE       Return here after the read is done     04460000
+         ST    R1,IOBIRA         ...                                    04470000
+         ST    R11,IOBUSER       Associate IOBLOK with VMBLOK           04480000
+         ST    R13,IOBMISC       Save the save area address             04490000
+         ST    R9,IOBMISC2       and our return address also            04500000
+         SPACE 1                                                        04510000
+         MVC   RDADDR,0(R2)      Save record address                    04520000
+         LM    R0,R7,MRDCCWS     Pick up the model CCWs                 04530000
+         ALR   R0,R10            ... relocate addrs to IOBLOK           04540000
+         ALR   R2,R10            ...                                    04550000
+         ALR   R4,R10            ...                                    04560000
+         ALR   R6,R10            ...                                    04570000
+         STM   R0,R7,RDCCWS      place in IOBLOK for execution          04580000
+         CALL  DMKIOSQR          Issue the I/O request                  04590000
+         GOTO  DMKDSPCH          and wait for the results               04600000
+         SPACE 2                                                        04610000
+READDONE DS    0H                IOSQR will return here at completion   04620000
+         USING *,R12                                                    04630000
+         S     R12,=A(READDONE-HDKCQN) restore base                     04640000
+         USING HDKCQN,R12                                               04650000
+         L     R13,IOBMISC       Restore addr of save area              04660000
+         ST    R10,IOBMISC       Save address of buffer (why?)          04670000
+         L     R9,IOBMISC2       Restore R9 (?)                         04680000
+         LA    R0,RD1KDWCT       Get size of IOB and buffers            04690000
+         ST    R0,IOBMISC2       Save buffer length so caller can FRET  04700000
+         L     R11,IOBUSER       Restore VMBLOK address                 04710000
+         TM    IOBSTAT,IOBFATAL  Did we have an error?                  04720000
+         BO    READFRET          ..yes, FRET IOBLOK+ and return         04730000
+         SR    R0,R0             Set RC=0                               04740000
+         LA    R1,RDDATA         Address of result data                 04750000
+         SPACE 1                                                        04760000
+READRET  DS    0H                                                       04770000
+         LM    R2,R9,SAVEWRK2    Restore all registers                  04780000
+         LTR   R0,R0             Set CC                                 04790000
+         BR    R9                and return                             04800000
+         SPACE 1                                                        04810000
+READFRET DS    0H                Fatal I/O error occurred               04820000
+*                                R0 still set from above(len in dwords) 04830000
+         LR    R1,R10            Block to be released                   04840000
+         CALL  DMKFRET           Release storage                        04850000
+         LA    R0,12             RC=12 (I/O Error)                      04860000
+         SR    R1,R1             return null result data                04870000
+         B     READRET           Return                                 04880000
+         DROP  R10               finished with IOBLOK                   04890000
+         EJECT ,                                                        04900000
+*        QUERY MODULE ERROR EXITS...                                    04910000
+*                                                                       04920000
+ERR026   LA    R2,26          ERROR CODE                                04930000
+         SPACE 1                                                        04940000
+NOVAR    SR    R1,R1          ZERO PARM REG                             04950000
+CALLERM  ICM   R0,14,MODID+3  INSERT MODULE ID                          04960000
+         CALL  DMKERMSG       GO SEND MESSAGE                           04970000
+*        DMKERMSG WILL RETURN DIRECTLY TO DMKCFM                        04980000
+         EJECT ,                                                        04990000
+DASDTYPS EQU   *              Nucleus device type table                 05000000
+         DC    AL1(TYP2314),CL4'2314'                                   05010000
+DASDTYPL EQU   *-DASDTYPS                                               05020000
+         DC    AL1(TYP3330),CL4'3330'                                   05030000
+         DC    AL1(TYP3340),CL4'3340'                                   05040000
+         DC    AL1(TYP3350),CL4'3350'                                   05050000
+         DC    AL1(TYP3375),CL4'3375'                                   05060000
+         DC    AL1(TYP3380),CL4'3380'                                   05070000
+DASDTYPN EQU   (*-DASDTYPS)/DASDTYPL                                    05080000
+         SPACE 1                                                        05090000
+IOBEXMDL DS    0D                                                       05100000
+MRDADDR  DS    XL7               BBCCHHR to be read                     05110000
+MRDCCWS  DS    0D                                                       05120000
+MRDSEEK  CCW   X'07',RDADDR-IOBLOK,CC+SILI,6                            05130000
+MRDSIDE  CCW   X'31',RDADDR-IOBLOK+2,CC+SILI,5                          05140000
+MRDTIC   CCW   X'08',RDSIDE-IOBLOK,CC+SILI,1                            05150000
+MRDREAD  CCW   X'06',RDDATA-IOBLOK,SILI,RDDATALN                        05160000
+         SPACE 1                                                        05170000
+RDDATALN EQU   1024              Only want 1st 1K of the record         05180000
+         SPACE 3                                                        05190000
+         LTORG ,                                                        05200000
+         EJECT ,                                                        05210000
+*==========================================================             05220000
+*                                                                       05230000
+*  Temp storage to save stuff that won't fit in SAVEAREA                05240000
+*                                                                       05250000
+*==========================================================             05260000
+         SPACE 1                                                        05270000
+QNUCWORK DSECT ,                                                        05280000
+QRYBUFF  DS    A                 -> Query output buffer                 05290000
+QRYBUFFL DS    F                 Length in double words                 05300000
+QNWORKL  EQU   (*-QNUCWORK+7)/8                                         05310000
+         EJECT ,                                                        05320000
+         COPY  IOBLOKS                                                  05330000
+IOBLOK   DSECT ,                                                        05340000
+         ORG   ,      go back to the end of the dsect                   05350000
+         DS    0D                                                       05360000
+RDADDR   DS    XL7               BBCCHHR to be read                     05370000
+RDCCWS   DS    0D                                                       05380000
+RDSEEK   CCW   X'07',RDADDR,CC+SILI,6                                   05390000
+RDSIDE   CCW   X'31',RDADDR+2,CC+SILI,5                                 05400000
+RDTIC    CCW   X'08',*-8,CC+SILI,1                                      05410000
+RDREAD   CCW   X'06',RDDATA,SILI,RDDATALN                               05420000
+RDCCSLEN EQU   *-RDCCWS                                                 05430000
+RDDATA   DS    (RDDATALN)X                                              05440000
+         SPACE 1                                                        05450000
+RD1KIOBL EQU   *-IOBLOK                                                 05460000
+RD1KDWCT EQU   (RD1KIOBL+7)/8                                           05470000
+         EJECT ,                                                        05480000
+         COPY  VMBLOK                                                   05490000
+         COPY  SAVE                                                     05500000
+         COPY  EQU                                                      05510000
+         COPY  RBLOKS                                                   05520000
+         COPY  DEVTYPES                                                 05530000
+         SYSLOCS ,                                                      05540000
+         PSA   ,                                                        05550000
+HDKCQN   CSECT ,              Resume CSECT                              05560000
+MODEND   DS    0D             Mark end of module                        05570000
+         END                                                            05580000

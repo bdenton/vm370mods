@@ -1,0 +1,12 @@
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Adds a new pagable CP module to hold all the logic
+./ * to manage the ring buffer containing the data for
+./ * the PF Key RETRIEVE function
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *

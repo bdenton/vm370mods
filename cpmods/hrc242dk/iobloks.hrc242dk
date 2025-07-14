@@ -1,0 +1,27 @@
+./ * HRC242DK - Add option to bypass error recording/recovery
+./ *
+./ * Sometimes CP needs to perform an I/O operation that
+./ * could produce "expected" results.. For instance, 
+./ * the 3270 code might want to issue a Write-Structured-
+./ * Field but, if it isn't supported, just continue on 
+./ * without the optional features and without any error 
+./ * messages or recovery processing.
+./ *
+./ * This update adds two new flags to IOBSPEC3:
+./ * -- IOBBYPER - Bypass ERP for errors (set by caller))
+./ * -- IOBHADER - Task resulted in bypassed error  (set by IOS)
+./ *
+./ * This update also redefines one of the "reserved"
+./ * bytes (IOBRSV2) to pass back the "ignored" sense data
+./ * -- IOBFSNS1 - Bypassed/ignored sense data
+./ *
+./ * HISTORY:
+./ * 20-Aug-2024 WDENTON  Initial version for VM370CE V1 R1.2
+./ * 04-Nov-2024 WDENTON  Expand to bypass all IOBFATAL conditions
+./ *
+./ R 00049200 $ 00049205 25
+IOBFSNS1 DS    1X             Bypassed/ignored sense data      HRC242DK 00049405
+./ R 00082950 $ 00083005 25
+IOBBYPER EQU   X'20'          Bypass ERP for errors            HRC242DK 00083005
+IOBHADER EQU   X'10'          Task resulted in bypassed error  HRC242DK 00083030
+         EJECT ,                                               HRC242DK 00083055

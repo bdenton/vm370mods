@@ -1,0 +1,80 @@
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Modify the SET PFnn function to start and stop the
+./ * 327x PF key RETRIEVE function based on whether or
+./ * not any PF key is set to RETRIEVE or REPLAY. When
+./ * the function is being turned on by the first 
+./ * 'SET PFnn RETRIEVE' command, the user's VMBLOK is      
+./ * updated as follows:
+./ * -- Summary flag VMHRCFLG:VMGRFRTV is set saying the 
+./ *    RETRIEVE/REPLAY function is active.
+./ * -- HDKGRVAL is called to allocate RETEIEVE controls:
+./ *    >> VMHRCALL points to newly allocated RTVCBLOK
+./ *    >> A page of CP virtual storage is allocated and
+./ *       its virtual address placed in the RTVBLOK
+./ * When no more PF keys are set to RETRIEVE/RECALL, then
+./ * the PF key RETRIEVE function is disabled by:
+./ * -- Turning off the VMHRCFLG:VMGRFRTV summary flag
+./ * -- Calling HDKGRVFR which will:
+./ *    >> Release the page of CP virtual storage
+./ *    >> FRET the RTVBLOK and clearing VMHRCALL
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 25-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ I 00056000 $ 00056100 100
+*        HDKGRVAL - Create a new Retrieve Control Block        HRC241DK 00056100
+*        HDKGRVFR - Delete the Retrieve Control Block          HRC241DK 00056200
+./ I 00373000 $ 00373100 100
+         EXTRN HDKGRVAL - Create a new Retrieve Control Block  HRC241DK 00373100
+         EXTRN HDKGRVFR - Delete the Retrieve Control Block    HRC241DK 00373200
+./ I 00580000 $ 00580125 25
+         LA    R0,L'C$REPLA-1 Is it 'REPLAY'?                  HRC241DK 00580125
+         CR    R0,R3          ...                              HRC241DK 00580150
+         BNE   RTV1           ... (wrong length)               HRC241DK 00580175
+         EX    R3,CLCREPL     ...                              HRC241DK 00580200
+         BE    RTV2           yes, set a flag                  HRC241DK 00580225
+RTV1     DS    0H                                              HRC241DK 00580250
+         LA    R0,L'C$RETRV-1 Is it 'RETRIEVE'?                HRC241DK 00580275
+         CR    R0,R3          ...                              HRC241DK 00580300
+         BNE   SETFLG         ... (wrong length)               HRC241DK 00580325
+         EX    R3,CLCRETRV    ...                              HRC241DK 00580350
+         BNE   SETFLG         no, no change                    HRC241DK 00580375
+RTV2     DS    0H                                              HRC241DK 00580400
+         OI    SAVEWRK1+1,X'40' Set Retrieve flag              HRC241DK 00580425
+./ I 00586000 $ 00586100 50
+CLCREPL  CLC   0(*-*,R1),C$REPLA  *** Executed ***             HRC241DK 00586100
+CLCRETRV CLC   0(*-*,R1),C$RETRV  *** Executed ***             HRC241DK 00586150
+C$REPLA  DC    C'REPLAY'                                       HRC241DK 00586200
+C$RETRV  DC    C'RETRIEVE'                                     HRC241DK 00586250
+./ I 00607490 $ 00607501
+         MVI   SAVEWRK1+1,0   Clear flags                      HRC241DK 00607501
+./ R 00610000 $ 00610011 100
+         BZ    TST1           no, try next PFK                 HRC241DK 00610011
+         OI    SAVEWRK1+1,1   yes, set "present" flag          HRC241DK 00610111
+         TM    0(R1),X'40'    Is this 'RETRIEVE?               HRC241DK 00610211
+         BNO   TST1           no, test next PFK                HRC241DK 00610311
+         OI    SAVEWRK1+1,2   yes, set flag for below          HRC241DK 00610411
+TST1     DS    0H                                              HRC241DK 00610511
+./ I 00612000 $ 00612025 25
+         TM    SAVEWRK1+1,1       Were any PFKeys defined?     HRC241DK 00612025
+         BNO   TSTZ               no, release the storage      HRC241DK 00612050
+         TM    SAVEWRK1+1,2       Were any set to RETRIEVE?    HRC241DK 00612075
+         BO    TSTRTVY            yes, enable retrieval        HRC241DK 00612100
+         TM    VMHRCFLG,VMGRFRTV  no, is retrieve currently on?HRC241DK 00612125
+         BNO   PFRTN              no, just return              HRC241DK 00612150
+         CALL  HDKGRVFR           yes, release all storage     HRC241DK 00612175
+         NI    VMHRCFLG,255-VMGRFRTV ... reset VMBLOK flag     HRC241DK 00612200
+         B     PFRTN              ... and return               HRC241DK 00612225
+         SPACE 1                                               HRC241DK 00612250
+TSTRTVY  DS    0H                 (PF key(s) set to RETRIEVE)  HRC241DK 00612275
+         TM    VMHRCFLG,VMGRFRTV  is retrieve currently on?    HRC241DK 00612300
+         BO    PFRTN              yes, nothing to do           HRC241DK 00612325
+         CALL  HDKGRVAL           no, allocate new storage     HRC241DK 00612350
+         OI    VMHRCFLG,VMGRFRTV  ... set VMBLOK flag          HRC241DK 00612375
+         B     PFRTN              ... and return               HRC241DK 00612400
+         SPACE 1                                               HRC241DK 00612425
+TSTZ     DS    0H             No PF keys defined               HRC241DK 00612450

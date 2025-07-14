@@ -1,0 +1,10 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * Adds a new query extensions module to contain
+./ * the new QUERY NUCLEUS command.                   
+./ * This started out in HDKCQA but got too large   
+./ *
+./ * HISTORY:
+./ * 22-Aug-2024 WDENTON  Initial version for VM/370-CE 1.1.3
+./ * 27-Aug-2024 WDENTON  Add 3375/3380 support ala HRC106DK
+./ *

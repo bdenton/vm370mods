@@ -1,0 +1,35 @@
+*COPY RTVBLOK
+         PUSH PRINT                                                     00010000
+         AIF   ('&SYSPARM' NE 'SUP').RTV01                              00020000
+         PRINT OFF,NOGEN                                                00030000
+.RTV01   ANOP  ,                                                        00040000
+*********************************************************************   00050000
+*                                                                       00060000
+*        RTVBLOK - PF Key Retrieve Block                                00070000
+*                                                                       00080000
+*            0 +-------------------+---------+---------+                00090000
+*              |      RTVBUFAD     |RTVACTCT |RTVCURSW |                00100000
+*            8 +---------+---------+---------+---------+                00110000
+*              |RTVCURSR |         |                   |                00120000
+*           10 +---------+---------+-------------------+                00130000
+*                                                                       00140000
+*********************************************************************   00150000
+         SPACE 1                                                        00160000
+RTVBLOK  DSECT ,              Retrieve Control Block                    00170000
+RTVBUFAD DS    A              Virtual address of data buffer            00180000
+RTVACTCT DS    H              Current number of active entries          00190000
+RTVCURSW DS    H              Insert cursor (next entry goes here)      00200000
+RTVCURSR DS    H              Retrieval cursor                          00210000
+         DS    2X             (unused)                                  00220000
+         DS    4X             (unused)                                  00230000
+RTVBLKLN EQU   *-RTVBLOK      Control block length (bytes)              00240000
+RTVBLKLD EQU   (RTVBLKLN+7)/8                      (dwords)             00250000
+         SPACE 1                                                        00260000
+RTVBUFLN EQU   4096           Buffer allocation size (1 page)           00270000
+         SPACE 1                                                        00280000
+RTVENTLN EQU   256            Retrieve buffer entry length              00290000
+*                             Each entry: length XL1                    00300000
+*                                         data   CL255                  00310000
+RTVENTCT EQU   (RTVBUFLN+RTVENTLN-1)/RTVENTLN Total entries             00320000
+         EJECT ,                                                        00330000
+         POP   PRINT                                                    00340000

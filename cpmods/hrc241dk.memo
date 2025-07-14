@@ -1,0 +1,166 @@
+LOCAL MODIFICATION: HRC241DK
+
+Provides improved PF key RETRIEVE support
+
+Affected Files:
+===============
+
+VMBLOK   COPY 
+RTVBLOK  COPY      (new)
+DMKCFS   ASSEMBLE
+DMKGRF   ASSEMBLE
+HDKGRV   ASSEMBLE  (new)
+
+Prerequisites:
+==============
+
+HRC001DK
+HRC018DK
+
+Description:
+============
+
+This update addresses some shortcomings in the RECALL/RETRIEVE PF key
+supported added by update HRC001DK. THese issues are:                   
+
+   -- The retrieve data buffer only held three entries. The usability
+      of that was further reduced by:
+   -- The current logic failed to dedup repeated entries
+   -- The redisplayed command line data failed to position 
+      the cursor at the end of the retrieved data
+   -- The retrieve data storage was always allocated for each
+      logged on user regardless of whether a RETRIEVE PF key 
+      was defined or not.
+
+Details:
+========
+
+VMBLOK COPY          
+----------- 
+Add a new VMBLOK flag VMHRCFLG:VMGRFRTV that indicates that the
+PF key RETRIEVE function is active. 
+
+This flag is set by DMKCFS when the first PF key is set to 
+RETRIEVE (or REPLAY).
+
+The flag is cleared by DMKCFS when no more PF keys are set 
+to either RETRIEVE or REPLAY>
+
+============================================================================
+
+RTVBLOK COPY (new)
+------------
+This is a new DSECT describing the PF Key Retrieve Block which stores   
+a pointer to the Retrieve Data ring buffer and the cursor controls
+to manage inserting and fetching data from the ring buffer.               
+
+When a user first assigns the RETRIEVE function to a PF key, a new
+instance of the RTVBLOK is allocated and its address stored in the
+user's VMBLOK in the VMHRCALL field.  A page of CP virtual storage 
+is also allocated and its virtual address stored in the new RTVBLOK
+in the RTVBUFAD field.
+
+When any PF key is no longer assigned the RETRIEVE function (or upon
+the user logging off) the RETRIEVE controls are deleted:
+
+-- The CP virtual storage page addressed by RTVBLOK:RTVBUFAD is released
+-- The RTVBLOK storage is released
+-- The VMHRCALL field in the user's VMBLOK is cleared.
+
+The following RTVBLOK fields manage the retrieve data ring buffer:
+
+RTVACTCT  the number of "active" entries currently in the ring buffer.
+          This is the size of the ring and ranges from zero (newly
+          allocated buffer) to the number of entries allocated
+          (currently 16 256-byte entries in a single 4k page).
+
+RTVCURSW  entry number of the most recent ring buffer entry (the
+          last entry written.)
+
+RTVCURSR  entry number of the next ring buffer entry to be fetched
+
+Adding an Entry to Retrieve Ring BUffer
+---------------------------------------
+   IF buffer is empty:
+      Indx = 0
+   ELSE:
+      Indx = RTVCURSW + 1
+      IF Indx >= limit:
+         Indx = 0
+   RingBuffer[Indx] = AL1(len),C'data...'
+   RTVCURSW = Indx
+   RTVCURSR = Indx
+   IF RTVACTCT < limit:
+      RTVACTCT++
+
+Fetching an Entry from Retrieve Ring BUffer
+-------------------------------------------
+   IF buffer is empty:
+      RETURN R0=R1=0
+   Indx = RTVCURSR
+   IF RTVCURSR == 0:
+      RTVCURSR = RTVACTCT
+   ELSE:
+      RTVCURSR--
+   RETURN R0=0(Indx)  R1=Indx+1
+
+============================================================================
+
+DMKCFS ASSEMBLE
+---------------
+
+Modifies the SET PFnn function to start and stop the 327x PF key RETRIEVE 
+function based on whether or not any PF key is set to RETRIEVE or REPLAY. 
+
+When the function is being turned on by the first 'SET PFnn RETRIEVE' 
+command, the user's VMBLOK is updated as follows:
+
+   -- Summary flag VMHRCFLG:VMGRFRTV is set saying the RETRIEVE/REPLAY 
+      function is active.
+      
+   -- HDKGRVAL is called to allocate RETEIEVE controls:
+      >> VMHRCALL points to newly allocated RTVCBLOK
+      >> A page of CP virtual storage is allocated and
+         its virtual address placed in the RTVBLOK
+
+When no more PF keys are set to RETRIEVE/RECALL, then the PF key RETRIEVE 
+function is disabled by:
+   
+   -- Turning off the VMHRCFLG:VMGRFRTV summary flag
+   
+   -- Calling HDKGRVFR which will:
+      >> Release the page of CP virtual storage
+      >> FRET the RTVBLOK and clearing VMHRCALL
+
+============================================================================
+
+DMKGRF ASSEMBLE
+---------------
+
+Modifies the RETRIEVE/RECALL feature added by HRC001DK.  The most notable
+features of this enhancement are:
+
+   -- The last 16 command line entries are saved as opposed to just
+      three in the original 
+   
+   -- The cursor is placed at the end of the retrieved data.
+   
+All of the logic involved with saving and fetching from the retrieve data
+buffer has been moved to the new HDKGRV module.   
+
+============================================================================
+
+HDKGRV ASSEMBLE (new)
+---------------
+
+Adds a new pagable CP module to contain all of the logic to mnanage
+the data storage for the enhanced PF key RETRIEVE?RECALL function.
+The new module has four entry points that are all called via SVC:
+
+   -- HDKGRVAL - Allocate storage for the RETRIEVE function
+   -- HDKGRVFR - Release all storage being used for RETRIEVE
+   -- HDKGRVPT - Add a new item to the RETRIEVE buffer
+   -- HDKGRVGT - Fetch the next item from the RETRIEVE buffer
+
+============================================================================
+

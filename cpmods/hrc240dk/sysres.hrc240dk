@@ -1,0 +1,35 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * Save nucleus volser and cylinder location in GBLx variables
+./ * so that it can be included in the nucleus location table
+./ * that will be build in SYSLOCS.
+./ * Also enhance SYSRES macro to allow specification of the
+./ * number of cylinders allocated to the nucleus (HRC102DK)
+./ *
+./ * PREREQUISITES:
+./ * HRC102DK V02 Add upper bound for nucleus write/read
+./ * HRC075DK V01 Alternate nucleus support
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ * 14-Aug-2024 WDENTON  Rework to make HRC102DK a prerequiisite
+./ * 21-Aug-2024 WDENTON  Remove obsolete DMKSYSNU                  
+./ *
+./ R 00005400 $ 00005405 5
+         GBLA  &NUCCNT,&NUCBEG(255),&NUCEND(255)               HRC240DK 00005405
+./ I 00006000 $ 00006005 5 
+         GBLC  &NUCVOL(255),&NUCTYP(255)                       HRC240DK 00006005
+./ R 00021050 $ 00021055 5
+         ENTRY DMKSYSER,DMKSYSCT,DMKSYSWM                      HRC240DK 00021055
+./ R 00025030 $ 00025035 5
+&NUCCNT  SETA  1                        Alt Nucleus count      HRC240DK 00025035
+&NUCVOL(1) SETC '&SYSVOL'               Nucleus VOLSER         HRC240DK 00025040
+&NUCTYP(1) SETC '&SYSTYPE'              ... device type        HRC240DK 00025045
+&NUCBEG(1) SETA &SYSNUC(1)              ... start cylinder     HRC240DK 00025050
+./ R 00025150 $ 00025155 5
+&NUCEND(1) SETA &SYSNUC(1)+&SYSNUC(2)-1 ... nuc end cylinder   HRC240DK 00025155
+./ R 00025270 $ 00025275 5 
+&NUCEND(1) SETA &SYSNUC(1)+1            ... nuc end cylinder   HRC240DK 00025175
+./ D 00025330                 
+./ R 00028750 $ 00028755 5
+       MNOTE *,'Nucleus = &NUCBEG(1)-&NUCEND(1)'               HRC240DK 00028755

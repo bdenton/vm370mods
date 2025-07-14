@@ -1,0 +1,61 @@
+LOCAL MODIFICATION: HRC245DK
+
+Add DMKOPRWR for standalone interactive operator communication
+
+Affected Files:
+===============
+
+DMKOPR   ASSEMBLE
+
+Prerequisites:
+==============
+
+None
+
+Description:
+============
+
+This update adds a new entry point to DMKOPR to provide 
+standaalone operator interaction without the help of any
+of the standard CP console support via DMKQCN
+
+Basic console read and write support is provided for the 
+following operator console devices:
+
+   -- 3210/2315 hardcopy consoles
+   -- 327x Model 2 (24x80) display devices   
+   -- 3278 Model 2A display console
+   -- 3066 display console
+
+Note that 3066 device support has been included in order
+to be faithful to the idea nf retaining all of VM/370  
+original functionality. However, it has never been
+tested since a 3066 device emulator does not exist and
+it appears that all physical 3066 devices have vanished.
+
+Details:
+========
+
+DMKOPR ASSEMBLE
+---------------
+
+A second entry point (DMKOPRWR) is added to write a prompt
+message and read the operator response.
+
+Large portions of this module have been rewritten to handle
+more complex screen management needed for:
+
+   -- Multiple line being displayed potentially needing
+      to deal with screen overflow (HOLDING status, etc.)
+   -- Dealing with CLEAR PA key input to clear screen
+   -- Prompting for input (CP READ status) and reading
+      the actual response
+   -- Fielding and processing console Attn interrupts
+   -- Echoing the entered response (highlighted) next to
+      the end of the prompting message.
+      
+Much of this new logic was modelled after the standalone 
+console processing in DMKFMT, DMKDDR, and DMKSSP.      
+
+============================================================================
+

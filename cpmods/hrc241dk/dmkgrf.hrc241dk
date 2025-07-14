@@ -1,0 +1,80 @@
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Enhance the PF Key RETRIEVE function added by HRC001DK:
+./ *
+./ * -- Expand retrieve buffer to 4K (16 255 byte entries)
+./ * -- Don't do anything until a RETRIEVE PF key is defined
+./ * -- Move the retrieve data buffer into CP virtual storage
+./ * -- Insert the cursor at the end of the retrieved data    
+./ *
+./ * PREREQUISITES:
+./ * HRC001DK V01 Recall last command(s) via PF key   
+./ * HRC101DK V02 Terminal enhancements like z/VM
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ I 00061500 $ 00061600 50                                    
+*        HDKGRVFR - Delete the Retrieve Control Block          HRC241DK 00061600
+*        HDKGRVPT - Add line to the RETRIEVE buffer            HRC241DK 00061650
+*        HDKGRVGT - Get next line from RETRIEVE bufferk        HRC241DK 00061700
+./ I 00211300 $ 00211320 20
+         EXTRN HDKGRVFR - Delete the Retrieve Control Block    HRC241DK 00211320
+         EXTRN HDKGRVPT - Add line to the RETRIEVE buffer      HRC241DK 00211340
+         EXTRN HDKGRVGT - Get next line from RETRIEVE bufferk  HRC241DK 00211360
+./ R 00377090 00377540 $ 00377100 50 
+SIGNOFF  DS    0H                                              HRC241DK 00377100
+         NI    VMHRCFLG,255-VMGRFRTV Disable RETRIEVE          HRC241DK 00377150
+         CALL  HDKGRVFR       Release the Retrieve storage     HRC241DK 00377200
+./ R 00587040 00588000 $ 00587041 40
+*        R1 =  data length                                     HRC241DK 00587041
+*        R2 -> VMPFUNC table entry                             HRC241DK 00587081
+*        R3 -> BUFFER                                          HRC241DK 00587121
+*        R4 =  data address                                    HRC241DK 00587161
+         SPACE 1                                               HRC241DK 00587201
+         XC    BUFFER(BUFINLTH+6),BUFFER Clear buffer data     HRC241DK 00587241
+         SPACE 1                                               HRC241DK 00587281
+         TM    0(R2),X'40'    Is this the RETRIEVE key?        HRC241DK 00587321
+         BNO   NOTRCALL       nope.. go do standard treatment  HRC241DK 00587361
+         SPACE 1                                               HRC241DK 00587401
+         CALL  HDKGRVGT       Get next RETRIEVE entry          HRC241DK 00587441
+         LR    R4,R1          Retrieved data address           HRC241DK 00587481
+         LTR   R1,R0          was there anything?              HRC241DK 00587521
+         BZ    NULRCALL       ..no, nothing to do              HRC241DK 00587561
+         BCTR  R1,0           -1 for move                      HRC241DK 00587601
+         EX    R1,MVCRT       and move to buffer               HRC241DK 00587641
+NULRCALL DS    0H                                              HRC241DK 00587681
+         LR    R4,R3          point at data in BUFFER          HRC241DK 00587721
+         LR    R3,R0          transfer length to R3            HRC241DK 00587761
+         LA    R1,0(R3,R4)    Append 'insert cursor'           HRC241DK 00587801
+         MVI   0(R1),IC       ...                              HRC241DK 00587841
+         LA    R3,1(,R3)      and bump the length              HRC241DK 00587881
+         B     BLD77IDS       Write result to input area       HRC241DK 00587921
+         SPACE 1                                               HRC241DK 00587961
+NOTRCALL DS    0H                                              HRC241DK 00588001
+./ R 00869030 00870000 $ 00869041 40
+DATA77   DS    0H                                              HRC241DK 00869041
+         CLI   BUFFER+6,X'00'     Any data entered?            HRC241DK 00869081
+         BE    RTVNULL            no, nothing to retrieve      HRC241DK 00869121
+         TM    VMHRCFLG,VMGRFRTV  Is RETRIEVE active?          HRC241DK 00869161
+         BNO   SETBUF             no, take vanilla path        HRC241DK 00869201
+         TM    CONPARM,INHIBIT    Is this read/no-echo?        HRC241DK 00869241
+         BO    SETBUF             yes, then don't save         HRC241DK 00869281
+         SPACE 1                                               HRC241DK 00869321
+         LA    R1,BUFFER+6        Addr of input data           HRC241DK 00869361
+         LA    R0,BUFINLTH        Max input length             HRC241DK 00869401
+         LR    R2,R1              Scan cursor                  HRC241DK 00869441
+RTVLNLP  DS    0H                                              HRC241DK 00869481
+         CLI   0(R2),X'00'        End of input?                HRC241DK 00869521
+         BE    RTVSET             yes, set length and save     HRC241DK 00869561
+         LA    R2,1(,R2)          Bump cursor and...           HRC241DK 00869601
+         BCT   R0,RTVLNLP         ...find the end              HRC241DK 00869641
+RTVSET   DS    0H                 end of scan                  HRC241DK 00869681
+         SR    R2,R1              Actual input length          HRC241DK 00869721
+         SPACE 1                                               HRC241DK 00869761
+         LR    R0,R2              Add to RETRIEVE ring buffer  HRC241DK 00869801
+         CALL  HDKGRVPT           ...                          HRC241DK 00869841
+         B     SETBUF             and continue processing inputHRC241DK 00869881
+         SPACE 1                                               HRC241DK 00869921
+RTVNULL  DS    0H             Nothing to save for RETRIEVE     HRC241DK 00869961
+./ D 01582100 01582600

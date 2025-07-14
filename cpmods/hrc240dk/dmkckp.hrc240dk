@@ -1,0 +1,39 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * 1) Changes the logic that reads the second page of DMKCKP
+./ *    to read from the IPL volume
+./ * 2) Changes the logic that reads in DMKSAV to read from
+./ *    the IPL volume instead of SYSRES
+./ * Note: Warm start data is still written to the SYSRES volume
+./ *       regardless of which volume was IPLed.
+./ *
+./ * PREREQUISITES:
+./ * HRC075DK V01 Alternate nucleus support
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ * 14-Aug-2024 WDENTON  Rework to make HRC075DK a prerequisite
+./ *
+./ R 00016000 $ 00016100
+*        DATA IS WRITTEN ON THE SYSWARM AREA OF THE SYSRES PACK         00016100
+./ I 00171000 $ 00171100 10
+         ENTRY DMKCKPCD       Copy of DMKCPICD date/time       HRC240DK 00171100
+./ I 00205000 $ 00205100 10
+         SPACE 1                                               HRC240DK 00205100
+*        Copy of DMKCPICD for use in queries                   HRC240DK 00205110
+DMKCKPCD DC    CL9' '         Creation date filled by DMKSAV   HRC240DK 00205120
+         DC    CL8' '         Creation time filled by DMKSAV   HRC240DK 00205130
+./ R 00208000 00209000 $ 00208100 100
+         LH    R0,SYSIPLDV    Get SYSRES addr (only if WARM)   HRC240DK 00208100
+         STH   R0,SYSRES      ... save for use by CKPT code    HRC240DK 00208200
+         LH    R0,INTTIO      Get IPL addr set by DMP or IPL   HRC240DK 00208300
+         STH   R0,SYSIPL      ... save for nucleus loading     HRC240DK 00208400
+./ R 00274340 $ 00274345 5
+         LH    R1,SYSIPL           Get the IPL device address  HRC240DK 00274345
+./ R 00304000 $ 00304100
+         LH    R2,SYSIPL      Get IPL device address           HRC240DK 00304100
+./ R 00353500 $ 00353505 5
+         LH    R10,SYSIPL          Get addr of the IPL device  HRC240DK 00353505
+./ R 00521000 $ 00521100 100
+SYSRES   DC    H'0'           System residence address         HRC240DK 00521100
+SYSIPL   DC    H'0'           IPL'd nucleus device address     HRC240DK 00521200

@@ -1,0 +1,17 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * This updates adds the HDKCQN query module and adds the   
+./ * QUERY NUCLEUS command to report on nucleus configs
+./ *
+./ * PREREQUISITES:
+./ * HRC030DK H40 Add QUERY ALLOC command
+./ *
+./ * HISTORY:
+./ * 22-Aug-2024 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ I 00117960 $ 00117965
+         EXTRN HDKCQNUC       Alternate nucleus extensions     HRC240DK 00117965
+./ I 00604950 $ 00604955
+         DC    A(HDKCQNUC)    INDEX 36 Alt nucleus extension   HRC240DK 00604955
+./ I 00661820 $ 00661822 2
+         DC    C'NUCLEUS ',AL1(3,A+C+E,36,0) MOD 36 = HDKCQNUC HRC240DK 00661822

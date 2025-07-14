@@ -1,0 +1,36 @@
+:READ SYSLOCS HRC240DK A
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * Generate a new table DMKSYSNT (Nucleus Table) that
+./ * contains the volser, device type,  and cylinder location
+./ * of all defined IPLable nucleus images
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ I 00010060 $ 00010065 5
+         GBLC  &NUCVOL(255),&NUCTYP(255)                       HRC240DK 00010065
+         GBLA  &NUCCNT,&NUCBEG(255),&NUCEND(255)               HRC240DK 00010070
+./ I 00010220 $ 00010222 2
+         LCLA  &IX                                             HRC240DK 00010222
+./ I 00019000 $ 00019100 100
+         ENTRY DMKSYSNT       Alternate Nucleus table          HRC240DK 00019100
+./ I 00051000 $ 00051010 10
+DMKSYSNT DS    0H             Alternate Nucleus Table          HRC240DK 00051010
+.NUCLP   ANOP  ,                                               HRC240DK 00051020
+&IX      SETA  &IX+1                                           HRC240DK 00051030
+         AIF   (&IX GT &NUCCNT).NUCDONE                        HRC240DK 00051040
+         DC    CL6'&NUCVOL(&IX)',AL1(CLASDASD,TYP&NUCTYP(&IX)) HRC240DK 00051050
+         DC    H'&NUCBEG(&IX),&NUCEND(&IX)'                    HRC240DK 00051060
+         AGO   .NUCLP                                          HRC240DK 00051070
+.NUCDONE ANOP  ,                                               HRC240DK 00051080
+         DC    X'FFFF'        Mark end of table                HRC240DK 00051090
+./ I 00057000 $ 00057010 10
+         SPACE 1                                               HRC240DK 00057010
+NUCTAB   DSECT ,                                               HRC240DK 00057020
+NUVOLSER DS    CL6            Nucleus volume serial            HRC240DK 00057030
+NUDVCLAS DS    AL1            ... device class (CLASDASD)      HRC240DK 00057040
+NUDVTYPE DS    AL1            ... device type                  HRC240DK 00057050
+NUCYLBEG DS    H              Nucleus start cylinder           HRC240DK 00057060
+NUCYLEND DS    H              Nucleus end cylinder or -1       HRC240DK 00057070
+NUCTABLN EQU   *-NUCTAB       (entry length)                   HRC240DK 00057080

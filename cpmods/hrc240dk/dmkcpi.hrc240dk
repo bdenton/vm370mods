@@ -1,0 +1,71 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * !!!!  Entry conditions from DMKSAVRS have changed to  !!!!
+./ * !!!!  include the starting sylinder location of the   !!!!
+./ * !!!!  IPLed nucleus in the high-order 2 bytes of R10  !!!!
+./ *
+./ * Most of the changes relate to the fact that the IPL device
+./ * might not be the SYSRES device.
+./ *
+./ * 1) Save IPL device address in PSA as well as the
+./ *    SYSRES device. Neither of them is based on the
+./ *    device address -- just the VOLSER
+./ * 2) Change SWPTABLE build so nucleus pages are taken
+./ *    from the IPL device and cylinder range rather than
+./ *    using the values from SYSRES macro.
+./ *
+./ * Note: All SYSRES values except nucleus location will
+./ *       still be used and processed against the SYSRES
+./ *       volume or other location as per HRC075DK
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ R 00033000 $ 00033100 100
+*        GPR10 = Bytes 0-1 = IPL'd nucleus starting cylinder   HRC240DK 00033100
+*                Bytes 2-3 = IPL device address                HRC240DK 00033200
+./ D 00136000
+./ R 00358000 $ 00358100 100
+         EXTRN DMKSYSVL,DMKCSOSD,DMKDMPAU                      HRC240DK 00358100
+./ R 00451000 $ 00451100 100
+         STH   R10,PSAIPLDV   Save IPL device address          HRC240DK 00451100
+         STCM  R10,B'1100',PSANUCAD and starting cylinder      HRC240DK 00451200
+./ R 00485100 $ 00485110 10
+         LH    R15,PSAIPLDV   Get address of IPL device        HRC240DK 00485110
+./ R 00982000 $ 00982100 100
+         LH    R1,PSAIPLDV    Get address of IPL device        HRC240DK 00982100
+./ R 01041000 01042000 $ 01041200 200
+         CH    R15,PSAIPLDV       Is this the IPL device?      HRC240DK 01041200
+         BNE   MOUNTIPL           ... no, proceed              HRC240DK 01041400
+         LR    R1,R15             Get IPL device addr in hex   HRC240DK 01041600
+         CALL  DMKCVTBH           ...                          HRC240DK 01041800
+         STCM  R1,B'0111',STIPLAD ... and put in startup msg   HRC240DK 01042000
+         MVC   STIPLVOL,RDEVSER   ... along with IPL VOLSER    HRC240DK 01042200
+         B     MOUNTDVI           IPL device already mounted   HRC240DK 01042400
+./ R 01471000 01473000 $ 01471100 100
+         LR    R8,R1          Std place for RDEVBLOK address   HRC240DK 01471100
+         CALL  DMKSCNRD       Get SYSRES device address        HRC240DK 01471200
+         STH   R1,SYSIPLDV    Save CUU of CKP/WRM/ERR volume   HRC240DK 01471300
+         TM    APSTAT1,APUOPER Is this an AP system?           HRC240DK 01471400
+         BZ    CPIWED1        No. then no prefix pages         HRC240DK 01471500
+         L     R15,PREFIXA    Yes, get Absolute PSA            HRC240DK 01471600
+         STH   R1,SYSIPLDV-PSA(,R15) Save CUU of SYSRES there  HRC240DK 01471700
+         L     R15,PREFIXB    and get the other CPU's PSA      HRC240DK 01471800
+         STH   R1,SYSIPLDV-PSA(,R15) also save SYSRES there    HRC240DK 01471900
+CPIWED1  DS    0H                                              HRC240DK 01472000
+         L     R15,CPIDMPSD   Also save CCU of CKP/WRM/ERR...  HRC240DK 01472100
+         STH   R1,0(,R15)     ...volume in 'DMKDMPSD'.         HRC240DK 01472200
+         CALL  DMKCVTBH           SYSRES addr in hex           HRC240DK 01472300
+         STCM  R1,B'0111',STRESAD .. put in startup message    HRC240DK 01472400
+         MVC   STRESVOL,RDEVSER   .. along with VOLSER         HRC240DK 01472500
+         LH    R1,PSAIPLDV    Put back addr of IPL device      HRC240DK 01472600
+         CALL  DMKSCNRU       Get RBLOKS for IPL device        HRC240DK 01472700
+./ D 01475000 01476000
+./ R 01477000 01478000 $ 01477100 100
+         LH    R1,PSANUCAD    Get Ipl'd nucleus cylinder       HRC240DK 01477100
+./ I 02145000 $ 02145100 100
+         DC    X'15',C'IPLed from '''                          HRC240DK 02145100
+STIPLVOL DC    CL6' ',C''' on '                                HRC240DK 02145200
+STIPLAD  DC    CL3' ',C'; SYSRES '''                           HRC240DK 02145300
+STRESVOL DC    CL6' ',C''' is on '                             HRC240DK 02145400
+STRESAD  DC    CL3' '                                          HRC240DK 02145500

@@ -1,0 +1,11 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * New macro to specify VOLSER, device type, and cylinder
+./ * location of one or more alternate nucleus images
+./ * Note: update HRC106DK is anticipated by already
+./ *       including support for 3375 and 3380
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ * 14-Aug-2024 WDENTON  Add 3375/3380 support ala HRC106DK
+./ *

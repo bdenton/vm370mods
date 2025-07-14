@@ -1,0 +1,16 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * Differentiate between the SYSRES and IPL volumes
+./ * -- SYSRES is used by checkpointing logic
+./ * -- IPL volume is used by warm start logic
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ * repl by HRC075DK
+./ * ./ R 00566000 $ 00566100 100
+./ *     LH    R1,DMKDMPSD    A(SYSRES) CKPT/WARM/ERR volume   HRC240DK 00566100
+./ * ./ R 00579000 $ 00579100 100
+./ *     LH    R15,DMKDMPSD   A(SYSRES) CKPT/WARM/ERR volume   HRC240DK 00579100
+./ R 00766000 $ 00766100 100
+         LH    R15,PSAIPLDV   Get nucleus IPL device address   HRC240DK 00766100

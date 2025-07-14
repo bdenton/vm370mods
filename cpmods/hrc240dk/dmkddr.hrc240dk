@@ -1,0 +1,65 @@
+./ * HRC240DK - Alternate CP Nucleus Enhancements
+./ *
+./ * This makes the following changes to NUCLEUS operations
+./ * performed with DASD as an output target.
+./ *
+./ * 1) No longer validate that the input and output
+./ *    VOLSERs match.
+./ * 2) If the output volume already has a nucleus on it,
+./ *    then write the new nucleus to that location if it
+./ *    will fit.
+./ *
+./ * In order to have DDR write a nucleus to location other
+./ * than the location of the input nucleus, the output
+./ * volume must have previously had a nucleus written
+./ * to it by DMKSAV.
+./ *
+./ * HISTORY:
+./ * 21-Mar-2018 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ D 01893000 01895000
+./ I 01897000 $ 01897025 25
+*                                                              HRC240DK 01897025
+*        Here we are going to attempt to modify the            HRC240DK 01897050
+*        "reorder" cylinder and output writing controls        HRC240DK 01897075
+*        so the input nucleus replaced the output nucleus      HRC240DK 01897100
+*        even when it is in a different location.              HRC240DK 01897125
+*        In order for this to work, a nucleus must have        HRC240DK 01897150
+*        been saved on the output volume at some point.        HRC240DK 01897175
+*                                                              HRC240DK 01897200
+         LA    R1,RCKPOLD        Read DMKCKP from OUT volume   HRC240DK 01897225
+         L     R2,IOBERROR       Disable normal error logic    HRC240DK 01897250
+         XC    IOBERROR,IOBERROR ...                           HRC240DK 01897275
+         IC    R3,IOBOPT         ...                           HRC240DK 01897300
+         NI    IOBOPT,255-IOBEEXIT-IOBERST                     HRC240DK 01897325
+         BAL   R14,STARTIO       Go read record 0/0/2          HRC240DK 01897350
+         ST    R2,IOBERROR       Restore error handling        HRC240DK 01897375
+         STC   R3,IOBOPT         ...                           HRC240DK 01897400
+         CLC   IOBCSW+4(2),=F'0' Any errors?                   HRC240DK 01897425
+         BNE   DDRWED1E          yes, assume OUT has no CKP    HRC240DK 01897450
+         L     R1,RCKPOLDA    Get buffer address               HRC240DK 01897475
+         CLC   =CL8'DMKCKP',14(R1) Is this really a nucleus?   HRC240DK 01897500
+         BNE   DDRWED1E            no, no nuc on OUT volume    HRC240DK 01897525
+         LH    R2,22(,R1)     Get OUT nuc begin cyl            HRC240DK 01897550
+         STH   R2,CYLREOR     (Save as REORDER value)          HRC240DK 01897575
+         STH   R2,OUTADD+2    (Prime output writing)           HRC240DK 01897600
+         STH   R2,THR+22      (Save in output CKP)             HRC240DK 01897625
+         LH    R3,24(,R1)     Get OUT nuc end cyl              HRC240DK 01897650
+         STH   R3,THR+24      (Save in output CKP)             HRC240DK 01897675
+         LH    R1,CYLSTOP     Check that the nucleus fits      HRC240DK 01897700
+         SH    R1,CYLSTART    .. IN.stop - IN.start            HRC240DK 01897725
+         AR    R1,R2          .. + OUT.start                   HRC240DK 01897750
+         CR    R1,R3          .. <= OUT.stop                   HRC240DK 01897775
+         BH    DDR722         too small.. issue error          HRC240DK 01897800
+         B     DDRWED1X       go check OUT allocations         HRC240DK 01897825
+DDRWED1E DS    0H                                              HRC240DK 01897850
+         LH    R2,CYLSTART    GET STARTING ADD OF NUC          HRC240DK 01897875
+         LH    R3,CYLSTOP     GET THE END ADD OF THE NUCLEUS   HRC240DK 01897900
+DDRWED1X DS    0H                                              HRC240DK 01897925
+./ D 01899000
+./ D 01901000
+./ I 04974000 $ 04974100 100
+RCKPOLD  CCW   07,ALLOADD,CC,6                                 HRC240DK 04974100
+         CCW   49,CKPMOD,CC+SILI,5                             HRC240DK 04974200
+         CCW   08,*-8,0,0                                      HRC240DK 04974300
+RCKPOLDA CCW   06,DB1,0,4096                                   HRC240DK 04974400

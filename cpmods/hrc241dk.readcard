@@ -1,0 +1,622 @@
+USERID MAINT 
+:READ VMBLOK AUXLCL A
+HRC241DK V01 Enhanced PFKey RETRIEVE function
+:READ VMBLOK HRC241DK
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Add new flag to the VMBLOK to indicate one or more PF keys
+./ * are set to the RETRIEVE/RECALL function. The new flag is 
+./ * added to the VMHRCFLG flag byte that was added by HRC018DK
+./ *
+./ * PREREQUISITES:
+./ * HRC018DK V01 Implement extended HRC SET functions   
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ R 00284460 $ 00284455 40 
+VMGRFRTV EQU   X'40'          PFKey RETRIEVE is active         HRC241DK 00284455
+         SPACE 1                                               HRC241DK 00284495
+:READ RTVBLOK AUXLCL A
+HRC241DK V01 Enhanced PFKey RETRIEVE function
+:READ RTVBLOK HRC241DK A
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * New DSECT to map the PF Key Retrieve Block which is the
+./ * main control structure for the RETRIEVE PF key function.
+./ * This control block points to the CP virtual storage page
+./ * allocated to hold the retrieve data ring buffer. It also 
+./ * contains the insert and retrieve cursors for the buffer.
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+:READ RTVBLOK COPY A
+*COPY RTVBLOK
+         PUSH PRINT                                                     00010000
+         AIF   ('&SYSPARM' NE 'SUP').RTV01                              00020000
+         PRINT OFF,NOGEN                                                00030000
+.RTV01   ANOP  ,                                                        00040000
+*********************************************************************   00050000
+*                                                                       00060000
+*        RTVBLOK - PF Key Retrieve Block                                00070000
+*                                                                       00080000
+*            0 +-------------------+---------+---------+                00090000
+*              |      RTVBUFAD     |RTVACTCT |RTVCURSW |                00100000
+*            8 +---------+---------+---------+---------+                00110000
+*              |RTVCURSR |         |                   |                00120000
+*           10 +---------+---------+-------------------+                00130000
+*                                                                       00140000
+*********************************************************************   00150000
+         SPACE 1                                                        00160000
+RTVBLOK  DSECT ,              Retrieve Control Block                    00170000
+RTVBUFAD DS    A              Virtual address of data buffer            00180000
+RTVACTCT DS    H              Current number of active entries          00190000
+RTVCURSW DS    H              Insert cursor (next entry goes here)      00200000
+RTVCURSR DS    H              Retrieval cursor                          00210000
+         DS    2X             (unused)                                  00220000
+         DS    4X             (unused)                                  00230000
+RTVBLKLN EQU   *-RTVBLOK      Control block length (bytes)              00240000
+RTVBLKLD EQU   (RTVBLKLN+7)/8                      (dwords)             00250000
+         SPACE 1                                                        00260000
+RTVBUFLN EQU   4096           Buffer allocation size (1 page)           00270000
+         SPACE 1                                                        00280000
+RTVENTLN EQU   256            Retrieve buffer entry length              00290000
+*                             Each entry: length XL1                    00300000
+*                                         data   CL255                  00310000
+RTVENTCT EQU   (RTVBUFLN+RTVENTLN-1)/RTVENTLN Total entries             00320000
+         EJECT ,                                                        00330000
+         POP   PRINT                                                    00340000
+:READ DMKGRF AUXLCL A
+HRC241DK V01 Enhanced PFKey RETRIEVE function
+:READ DMKGRF HRC241DK A
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Enhance the PF Key RETRIEVE function added by HRC001DK:
+./ *
+./ * -- Expand retrieve buffer to 4K (16 255 byte entries)
+./ * -- Don't do anything until a RETRIEVE PF key is defined
+./ * -- Move the retrieve data buffer into CP virtual storage
+./ * -- Insert the cursor at the end of the retrieved data    
+./ *
+./ * PREREQUISITES:
+./ * HRC001DK V01 Recall last command(s) via PF key   
+./ * HRC101DK V02 Terminal enhancements like z/VM
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ I 00061500 $ 00061600 50                                    
+*        HDKGRVFR - Delete the Retrieve Control Block          HRC241DK 00061600
+*        HDKGRVPT - Add line to the RETRIEVE buffer            HRC241DK 00061650
+*        HDKGRVGT - Get next line from RETRIEVE bufferk        HRC241DK 00061700
+./ I 00211300 $ 00211320 20
+         EXTRN HDKGRVFR - Delete the Retrieve Control Block    HRC241DK 00211320
+         EXTRN HDKGRVPT - Add line to the RETRIEVE buffer      HRC241DK 00211340
+         EXTRN HDKGRVGT - Get next line from RETRIEVE bufferk  HRC241DK 00211360
+./ R 00377090 00377540 $ 00377100 50 
+SIGNOFF  DS    0H                                              HRC241DK 00377100
+         NI    VMHRCFLG,255-VMGRFRTV Disable RETRIEVE          HRC241DK 00377150
+         CALL  HDKGRVFR       Release the Retrieve storage     HRC241DK 00377200
+./ R 00587040 00588000 $ 00587041 40
+*        R1 =  data length                                     HRC241DK 00587041
+*        R2 -> VMPFUNC table entry                             HRC241DK 00587081
+*        R3 -> BUFFER                                          HRC241DK 00587121
+*        R4 =  data address                                    HRC241DK 00587161
+         SPACE 1                                               HRC241DK 00587201
+         XC    BUFFER(BUFINLTH+6),BUFFER Clear buffer data     HRC241DK 00587241
+         SPACE 1                                               HRC241DK 00587281
+         TM    0(R2),X'40'    Is this the RETRIEVE key?        HRC241DK 00587321
+         BNO   NOTRCALL       nope.. go do standard treatment  HRC241DK 00587361
+         SPACE 1                                               HRC241DK 00587401
+         CALL  HDKGRVGT       Get next RETRIEVE entry          HRC241DK 00587441
+         LR    R4,R1          Retrieved data address           HRC241DK 00587481
+         LTR   R1,R0          was there anything?              HRC241DK 00587521
+         BZ    NULRCALL       ..no, nothing to do              HRC241DK 00587561
+         BCTR  R1,0           -1 for move                      HRC241DK 00587601
+         EX    R1,MVCRT       and move to buffer               HRC241DK 00587641
+NULRCALL DS    0H                                              HRC241DK 00587681
+         LR    R4,R3          point at data in BUFFER          HRC241DK 00587721
+         LR    R3,R0          transfer length to R3            HRC241DK 00587761
+         LA    R1,0(R3,R4)    Append 'insert cursor'           HRC241DK 00587801
+         MVI   0(R1),IC       ...                              HRC241DK 00587841
+         LA    R3,1(,R3)      and bump the length              HRC241DK 00587881
+         B     BLD77IDS       Write result to input area       HRC241DK 00587921
+         SPACE 1                                               HRC241DK 00587961
+NOTRCALL DS    0H                                              HRC241DK 00588001
+./ R 00869030 00870000 $ 00869041 40
+DATA77   DS    0H                                              HRC241DK 00869041
+         CLI   BUFFER+6,X'00'     Any data entered?            HRC241DK 00869081
+         BE    RTVNULL            no, nothing to retrieve      HRC241DK 00869121
+         TM    VMHRCFLG,VMGRFRTV  Is RETRIEVE active?          HRC241DK 00869161
+         BNO   SETBUF             no, take vanilla path        HRC241DK 00869201
+         TM    CONPARM,INHIBIT    Is this read/no-echo?        HRC241DK 00869241
+         BO    SETBUF             yes, then don't save         HRC241DK 00869281
+         SPACE 1                                               HRC241DK 00869321
+         LA    R1,BUFFER+6        Addr of input data           HRC241DK 00869361
+         LA    R0,BUFINLTH        Max input length             HRC241DK 00869401
+         LR    R2,R1              Scan cursor                  HRC241DK 00869441
+RTVLNLP  DS    0H                                              HRC241DK 00869481
+         CLI   0(R2),X'00'        End of input?                HRC241DK 00869521
+         BE    RTVSET             yes, set length and save     HRC241DK 00869561
+         LA    R2,1(,R2)          Bump cursor and...           HRC241DK 00869601
+         BCT   R0,RTVLNLP         ...find the end              HRC241DK 00869641
+RTVSET   DS    0H                 end of scan                  HRC241DK 00869681
+         SR    R2,R1              Actual input length          HRC241DK 00869721
+         SPACE 1                                               HRC241DK 00869761
+         LR    R0,R2              Add to RETRIEVE ring buffer  HRC241DK 00869801
+         CALL  HDKGRVPT           ...                          HRC241DK 00869841
+         B     SETBUF             and continue processing inputHRC241DK 00869881
+         SPACE 1                                               HRC241DK 00869921
+RTVNULL  DS    0H             Nothing to save for RETRIEVE     HRC241DK 00869961
+./ D 01582100 01582600
+:READ DMKCFS AUXLCL A
+HRC241DK V01 Enhanced PFKey RETRIEVE function
+:READ DMKCFS HRC241DK A
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Modify the SET PFnn function to start and stop the
+./ * 327x PF key RETRIEVE function based on whether or
+./ * not any PF key is set to RETRIEVE or REPLAY. When
+./ * the function is being turned on by the first 
+./ * 'SET PFnn RETRIEVE' command, the user's VMBLOK is      
+./ * updated as follows:
+./ * -- Summary flag VMHRCFLG:VMGRFRTV is set saying the 
+./ *    RETRIEVE/REPLAY function is active.
+./ * -- HDKGRVAL is called to allocate RETEIEVE controls:
+./ *    >> VMHRCALL points to newly allocated RTVCBLOK
+./ *    >> A page of CP virtual storage is allocated and
+./ *       its virtual address placed in the RTVBLOK
+./ * When no more PF keys are set to RETRIEVE/RECALL, then
+./ * the PF key RETRIEVE function is disabled by:
+./ * -- Turning off the VMHRCFLG:VMGRFRTV summary flag
+./ * -- Calling HDKGRVFR which will:
+./ *    >> Release the page of CP virtual storage
+./ *    >> FRET the RTVBLOK and clearing VMHRCALL
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 25-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+./ I 00056000 $ 00056100 100
+*        HDKGRVAL - Create a new Retrieve Control Block        HRC241DK 00056100
+*        HDKGRVFR - Delete the Retrieve Control Block          HRC241DK 00056200
+./ I 00373000 $ 00373100 100
+         EXTRN HDKGRVAL - Create a new Retrieve Control Block  HRC241DK 00373100
+         EXTRN HDKGRVFR - Delete the Retrieve Control Block    HRC241DK 00373200
+./ I 00580000 $ 00580125 25
+         LA    R0,L'C$REPLA-1 Is it 'REPLAY'?                  HRC241DK 00580125
+         CR    R0,R3          ...                              HRC241DK 00580150
+         BNE   RTV1           ... (wrong length)               HRC241DK 00580175
+         EX    R3,CLCREPL     ...                              HRC241DK 00580200
+         BE    RTV2           yes, set a flag                  HRC241DK 00580225
+RTV1     DS    0H                                              HRC241DK 00580250
+         LA    R0,L'C$RETRV-1 Is it 'RETRIEVE'?                HRC241DK 00580275
+         CR    R0,R3          ...                              HRC241DK 00580300
+         BNE   SETFLG         ... (wrong length)               HRC241DK 00580325
+         EX    R3,CLCRETRV    ...                              HRC241DK 00580350
+         BNE   SETFLG         no, no change                    HRC241DK 00580375
+RTV2     DS    0H                                              HRC241DK 00580400
+         OI    SAVEWRK1+1,X'40' Set Retrieve flag              HRC241DK 00580425
+./ I 00586000 $ 00586100 50
+CLCREPL  CLC   0(*-*,R1),C$REPLA  *** Executed ***             HRC241DK 00586100
+CLCRETRV CLC   0(*-*,R1),C$RETRV  *** Executed ***             HRC241DK 00586150
+C$REPLA  DC    C'REPLAY'                                       HRC241DK 00586200
+C$RETRV  DC    C'RETRIEVE'                                     HRC241DK 00586250
+./ I 00607490 $ 00607501
+         MVI   SAVEWRK1+1,0   Clear flags                      HRC241DK 00607501
+./ R 00610000 $ 00610011 100
+         BZ    TST1           no, try next PFK                 HRC241DK 00610011
+         OI    SAVEWRK1+1,1   yes, set "present" flag          HRC241DK 00610111
+         TM    0(R1),X'40'    Is this 'RETRIEVE?               HRC241DK 00610211
+         BNO   TST1           no, test next PFK                HRC241DK 00610311
+         OI    SAVEWRK1+1,2   yes, set flag for below          HRC241DK 00610411
+TST1     DS    0H                                              HRC241DK 00610511
+./ I 00612000 $ 00612025 25
+         TM    SAVEWRK1+1,1       Were any PFKeys defined?     HRC241DK 00612025
+         BNO   TSTZ               no, release the storage      HRC241DK 00612050
+         TM    SAVEWRK1+1,2       Were any set to RETRIEVE?    HRC241DK 00612075
+         BO    TSTRTVY            yes, enable retrieval        HRC241DK 00612100
+         TM    VMHRCFLG,VMGRFRTV  no, is retrieve currently on?HRC241DK 00612125
+         BNO   PFRTN              no, just return              HRC241DK 00612150
+         CALL  HDKGRVFR           yes, release all storage     HRC241DK 00612175
+         NI    VMHRCFLG,255-VMGRFRTV ... reset VMBLOK flag     HRC241DK 00612200
+         B     PFRTN              ... and return               HRC241DK 00612225
+         SPACE 1                                               HRC241DK 00612250
+TSTRTVY  DS    0H                 (PF key(s) set to RETRIEVE)  HRC241DK 00612275
+         TM    VMHRCFLG,VMGRFRTV  is retrieve currently on?    HRC241DK 00612300
+         BO    PFRTN              yes, nothing to do           HRC241DK 00612325
+         CALL  HDKGRVAL           no, allocate new storage     HRC241DK 00612350
+         OI    VMHRCFLG,VMGRFRTV  ... set VMBLOK flag          HRC241DK 00612375
+         B     PFRTN              ... and return               HRC241DK 00612400
+         SPACE 1                                               HRC241DK 00612425
+TSTZ     DS    0H             No PF keys defined               HRC241DK 00612450
+:READ HDKGRV AUXLCL A
+HRC241DK V01 Enhanced PFKey RETRIEVE function
+:READ HDKGRV HRC241DK A
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * Adds a new pagable CP module to hold all the logic
+./ * to manage the ring buffer containing the data for
+./ * the PF Key RETRIEVE function
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
+:READ HDKGRV ASSEMBLE A
+GRV      TITLE 'HDKGRV            (CP)    VM/370    VERSION 6, LEVEL 0' 00010000
+         ISEQ  73,80          Valiate seuence numbers                   00020000
+**********************************************************************  00030000
+*                                                                       00040000
+* MODULE NAME -                                                         00050000
+*                                                                       00060000
+*        HDKGRV                                                         00070000
+*                                                                       00080000
+* FUNCTION -                                                            00090000
+*                                                                       00100000
+*        Manage storing and retrieving the data saved                   00110000
+*        for the PF key RETRIEVE function                               00120000
+*                                                                       00130000
+* ATTRIBUTES -                                                          00140000
+*                                                                       00150000
+*        REENTRANT, PAGEABLE, CALLED VIA SVC                            00160000
+*                                                                       00170000
+* ENTRY POINTS -                                                        00180000
+*                                                                       00190000
+*        HDKGRVAL - Allocate storage for PF key RETRIEVE function       00200000
+*        HDKGRVFR - Release all PF key RETRIEVE storage                 00210000
+*        HDKGRVPT - Add a new command element to RETRIEVE storage       00220000
+*        HDKGRVGT - Get the first or next stored element                00230000
+*                                                                       00240000
+**********************************************************************  00250000
+         EJECT ,                                                        00260000
+         COPY  OPTIONS                                                  00270000
+         COPY  LOCAL                                                    00280000
+         SPACE 3                                                        00290000
+HDKGRV   CSECT ,                                                        00300000
+         DC    CL8'HDKGRV'        Module Id                             00310000
+         DC    AL2(MODEND-HDKGRV) Module length                         00320000
+         DC    C'&SYSDATE',C'-'   Compile date                          00330000
+         DC    C'&SYSTIME'        Compile time                          00340000
+         SPACE 3                                                        00350000
+         USING PSA,0                                                    00360000
+         USING VMBLOK,R11                                               00370000
+         USING SAVEAREA,R13                                             00380000
+         SPACE 3                                                        00390000
+         EXTRN DMKPGTVG           Allocate CP virtual storage           00400000
+         EXTRN DMKPGTVR           Release CP virtual storage            00410000
+         TITLE 'HDKGRV:HDKGRVAL   (CP)    VM/370    VERSION 6, LEVEL 0' 00420000
+*********************************************************************** 00430000
+*                                                                       00440000
+* METHOD NAME -                                                         00450000
+*                                                                       00460000
+*        HDKGRVAL                                                       00470000
+*                                                                       00480000
+* FUNCTION -                                                            00490000
+*                                                                       00500000
+*        Allocate and initialize RETRIEVE storage                       00510000
+*                                                                       00520000
+* ENTRY CONDITIONS -                                                    00530000
+*                                                                       00540000
+*        R11 = Address of the user's VMBLOK                             00550000
+*        R12 = Address of HDKGRVAL entry point                          00560000
+*        R13 = Address of standard SAVEAREA                             00570000
+*                                                                       00580000
+* EXIT CONDITIONS -                                                     00590000
+*                                                                       00600000
+*        R1 = Address of new RTVBLOK                                    00610000
+*                                                                       00620000
+*********************************************************************** 00630000
+         SPACE 3                                                        00640000
+HDKGRVAL RELOC ,                                                        00650000
+         USING RTVBLOK,R9     Common RTVBLOK addressing                 00660000
+         SPACE 1                                                        00670000
+*                                                                       00680000
+*        If a RTVBLOK currently exists, then release                    00690000
+*        it and all stored data. (Caller must have                      00700000
+*        somne reason for wanting to start over)                        00710000
+*                                                                       00720000
+         ICM   R9,15,VMHRCALL RTVBLOK currerntly exists?                00730000
+         BZ    ALOC1          ..no, that's fine                         00740000
+         CALL  HDKGRVFR       ..yes, free it up and start over          00750000
+         SPACE 1                                                        00760000
+*                                                                       00770000
+*        Allocate a new RTVBLOK                                         00780000
+*                                                                       00790000
+ALOC1    DS    0H                                                       00800000
+         LA    R0,RTVBLKLD    Allocate some storage                     00810000
+         CALL  DMKFREE        ...                                       00820000
+         LR    R9,R1          Set addressing                            00830000
+         ST    R9,VMHRCALL      and save in the VMBLOK                  00840000
+         XC    0(RTVBLKLN,R9),0(R9) clear it out                        00850000
+         SPACE 1                                                        00860000
+*                                                                       00870000
+*        Allocate the associated data buffer                            00880000
+*                                                                       00890000
+         CALL  DMKPGTVG       Allocate a page of CP virtual storage     00900000
+         ST    R1,RTVBUFAD    save address of buffer                    00910000
+*                                                                       00920000
+*        Return RTVBLOK to caller in R1                                 00930000
+*                                                                       00940000
+         ST    R9,SAVER1      Set returned R1                           00950000
+         EXIT  ,                                                        00960000
+         TITLE 'HDKGRV:HDKGRVFR   (CP)    VM/370    VERSION 6, LEVEL 0' 00970000
+*********************************************************************** 00980000
+*                                                                       00990000
+* METHOD NAME -                                                         01000000
+*                                                                       01010000
+*        HDKGRVFR                                                       01020000
+*                                                                       01030000
+* FUNCTION -                                                            01040000
+*                                                                       01050000
+*        Release (Free) all RETRIEVE storage for a user                 01060000
+*                                                                       01070000
+* ENTRY CONDITIONS -                                                    01080000
+*                                                                       01090000
+*        R11 = Address of the user's VMBLOK                             01100000
+*        R12 = Address of HDKGRVFR entry point                          01110000
+*        R13 = Address of standard SAVEAREA                             01120000
+*                                                                       01130000
+* EXIT CONDITIONS -                                                     01140000
+*                                                                       01150000
+*        RTVBLOK anchor in VMBLOK cleared                               01160000
+*                                                                       01170000
+*********************************************************************** 01180000
+         SPACE 3                                                        01190000
+HDKGRVFR RELOC ,                                                        01200000
+         USING RTVBLOK,R9     Common RTVBLOK addressing                 01210000
+         SPACE 1                                                        01220000
+*                                                                       01230000
+*        Make sure the user has RETRIEVE storage allocated              01240000
+*                                                                       01250000
+         ICM   R9,15,VMHRCALL RTVBLOK currerntly exists?                01260000
+         BZ    FREERET        ..no, just exit                           01270000
+         SPACE 1                                                        01280000
+*                                                                       01290000
+*        Release the RETRIEVE data buffer                               01300000
+*                                                                       01310000
+         ICM   R1,15,RTVBUFAD Get current RETRIEVE boffer address       01320000
+         BZ    FREE1          .. skip if not there                      01330000
+         CALL  DMKPGTVR       Release the CP virtual storage page       01340000
+         SPACE 1                                                        01350000
+*                                                                       01360000
+*        Finally, delete the RTVBLOK and clear VMBLOK field             01370000
+*                                                                       01380000
+FREE1    DS    0H                                                       01390000
+         LA    R0,RTVBLKLD    Dword sizze of the RTVBLOK                01400000
+         L     R1,VMHRCALL      and its current address                 01410000
+         CALL  DMKFRET        Done with it                              01420000
+         SR    R0,R0          Clear the VMBLOK pointer                  01430000
+         ST    R0,VMHRCALL    ...                                       01440000
+         NI    VMHRCFLG,255-VMGRFRTV Make sure it's off                 01450000
+         SPACE 1                                                        01460000
+*                                                                       01470000
+*        and return                                                     01480000
+*                                                                       01490000
+FREERET  DS    0H                                                       01500000
+         EXIT  ,                                                        01510000
+         TITLE 'HDKGRV:HDKGRVPT   (CP)    VM/370    VERSION 6, LEVEL 0' 01520000
+*********************************************************************** 01530000
+*                                                                       01540000
+* METHOD NAME -                                                         01550000
+*                                                                       01560000
+*        HDKGRVPT                                                       01570000
+*                                                                       01580000
+* FUNCTION -                                                            01590000
+*                                                                       01600000
+*        Add a new entry to the RETRIEVE buffer                         01610000
+*                                                                       01620000
+* ENTRY CONDITIONS -                                                    01630000
+*                                                                       01640000
+*        R0  = Length of new entry                                      01650000
+*        R1  = Address of new entry                                     01660000
+*        R11 = Address of the user's VMBLOK                             01670000
+*        R12 = Address of HDKGRVPT entry point                          01680000
+*        R13 = Address of standard SAVEAREA                             01690000
+*                                                                       01700000
+* EXIT CONDITIONS -                                                     01710000
+*                                                                       01720000
+*        RTVBLOK updated if new entry is not a duplicate                01730000
+*        of the previous entry and the cursors updated.                 01740000
+*                                                                       01750000
+*********************************************************************** 01760000
+         SPACE 3                                                        01770000
+HDKGRVPT RELOC ,                                                        01780000
+         USING RTVBLOK,R9     Common RTVBLOK addressing                 01790000
+         SPACE 1                                                        01800000
+*                                                                       01810000
+*        Make sure the user has RETRIEVE storage allocated              01820000
+*                                                                       01830000
+         ICM   R9,15,VMHRCALL RTVBLOK currerntly exists?                01840000
+         BZ    PUTRET         ..no, just exit                           01850000
+         SPACE 1                                                        01860000
+*                                                                       01870000
+*        Validate input parameters                                      01880000
+*                                                                       01890000
+         LTR   R4,R1          New element exists?                       01900000
+         BZ    PUTRET         ..no, just exit                           01910000
+         LTR   R5,R0          and its length > 0?                       01920000
+         BZ    PUTRET         ..no, just exit                           01930000
+         LA    R0,RTVENTLN-1  longer than allowed?                      01940000
+         CR    R5,R0          ...                                       01950000
+         BNH   *+6            ..no, ok then                             01960000
+         LR    R5,R0          ..yes, truncate                           01970000
+         SPACE 1                                                        01980000
+*                                                                       01990000
+*        Bring the virtual retrieve buffer page                         02000000
+*        back into real memory                                          02010000
+*                                                                       02020000
+         L     R1,RTVBUFAD    Get buffer vaddr                          02030000
+         TRANS 2,1,OPT=(BRING+DEFER+SYSTEM) page it in                  02040000
+         SPACE 1                                                        02050000
+*                                                                       02060000
+*        Figure out which RETRIEVE buffer slot should                   02070000
+*        be filled:                                                     02080000
+*                                                                       02090000
+*        if buffer is empty:                                            02100000
+*           position = 0                                                02110000
+*        else:                                                          02120000
+*           if new == last then ignore                                  02130000
+*           position = read-cursor + 1                                  02140000
+*           if position > limit:                                        02150000
+*              position = 0                                             02160000
+*                                                                       02170000
+         ICM   R1,3,RTVACTCT  If buffer is empty,                       02180000
+         BNZ   PUT1           ..no, incr                                02190000
+         SR    R6,R6          ..yes, set position = 0                   02200000
+         B     PUTADD         and add it here                           02210000
+         SPACE 1                                                        02220000
+*                                                                       02230000
+*        Compare to last line added                                     02240000
+*        Drop this request if equal since                               02250000
+*        the new request is the same as the                             02260000
+*        last added entry (drop dups)                                   02270000
+*                                                                       02280000
+PUT1     DS    0H                                                       02290000
+         LA    R6,RTVENTLN    Displacement into buffer                  02300000
+         MH    R6,RTVCURSW    ...                                       02310000
+         AR    R6,R2          ...                                       02320000
+         CLM   R5,1,0(R6)     Lengths match?                            02330000
+         BNE   PUT2           ..no, proceed                             02340000
+         BCTR  R5,0           -1 for execute                            02350000
+         EX    R5,PUTCOMP     Values match?                             02360000
+         BE    PUTRET         ..yes, just return                        02370000
+         LA    R5,1(,R5)      (get back real length)                    02380000
+         SPACE 1                                                        02390000
+*                                                                       02400000
+*        Adding not first entry:                                        02410000
+*        -- target is last put + 1                                      02420000
+*        -- wrap to zero if over limit                                  02430000
+*                                                                       02440000
+PUT2     DS    0H                                                       02450000
+         LA    R6,1           Add new one just after last               02460000
+         AH    R6,RTVCURSW    ...                                       02470000
+         LA    R0,RTVENTCT    Exceeds limit?                            02480000
+         CR    R6,R0          ...                                       02490000
+         BL    PUTADD         ..no, add it here                         02500000
+         SR    R6,R6          ..yes, wrap around to zero                02510000
+         SPACE 1                                                        02520000
+*                                                                       02530000
+*        Add the new line to RETRIEVE buffer                            02540000
+*        R6 = entry index                                               02550000
+*                                                                       02560000
+PUTADD   DS    0H                                                       02570000
+         STH   R6,RTVCURSW    Set cursor to last entry                  02580000
+         STH   R6,RTVCURSR    Also reset the retrieve point             02590000
+         MH    R6,=AL2(RTVENTLN) ... index to displacement              02600000
+         AR    R6,R2          + addr = buffer location                  02610000
+         SPACE 1                                                        02620000
+         STC   R5,0(,R6)      Byte 0 = entry length                     02630000
+         XC    1(RTVENTLN-1,R6),1(R6) Clear entry                       02640000
+         BCTR  R5,0           -1 for execute                            02650000
+         EX    R5,PUTMOVE     Move entry value to buffer                02660000
+         SPACE 1                                                        02670000
+         LH    R1,RTVACTCT    Currrent entry count                      02680000
+         LA    R0,RTVENTCT    (buffer capacity)                         02690000
+         CR    R1,R0          Is the buffer already full?               02700000
+         BNL   PUTRET         ..yes, no need to increment               02710000
+         LA    R1,1(,R1)      ..no, bump active entry count             02720000
+         STH   R1,RTVACTCT    ...                                       02730000
+         SPACE 1                                                        02740000
+*                                                                       02750000
+*        Return to caller                                               02760000
+*                                                                       02770000
+PUTRET   DS    0H                                                       02780000
+         EXIT  ,                                                        02790000
+         SPACE 3                                                        02800000
+PUTCOMP  CLC   1(*-*,R6),0(R4)    *** Executed ***                      02810000
+PUTMOVE  MVC   1(*-*,R6),0(R4)    *** Executed ***                      02820000
+         TITLE 'HDKGRV:HDKGRVGT   (CP)    VM/370    VERSION 6, LEVEL 0' 02830000
+*********************************************************************** 02840000
+*                                                                       02850000
+* METHOD NAME -                                                         02860000
+*                                                                       02870000
+*        HDKGRVGT                                                       02880000
+*                                                                       02890000
+* FUNCTION -                                                            02900000
+*                                                                       02910000
+*        Get the next entry from the RETRIEVE buffer                    02920000
+*                                                                       02930000
+* ENTRY CONDITIONS -                                                    02940000
+*                                                                       02950000
+*        R11 = Address of the user's VMBLOK                             02960000
+*        R12 = Address of HDKGRVGT entry point                          02970000
+*        R13 = Address of standard SAVEAREA                             02980000
+*                                                                       02990000
+* EXIT CONDITIONS -                                                     03000000
+*                                                                       03010000
+*        R0  = Length of retrieved element                              03020000
+*        R1  = Address of retrieved element                             03030000
+*                                                                       03040000
+*        RTVBLOK updated if new entry is not a duplicate                03050000
+*        of the previous entry and the cursors updated.                 03060000
+*                                                                       03070000
+*********************************************************************** 03080000
+         SPACE 3                                                        03090000
+HDKGRVGT RELOC ,                                                        03100000
+         USING RTVBLOK,R9     Common RTVBLOK addressing                 03110000
+         XC    SAVER0(8),SAVER0  Clear returned R0-R1                   03120000
+         SPACE 1                                                        03130000
+*                                                                       03140000
+*        Make sure the user has RETRIEVE storage allocated              03150000
+*                                                                       03160000
+         ICM   R9,15,VMHRCALL RTVBLOK currerntly exists?                03170000
+         BZ    GETRET         ..no, just exit                           03180000
+         LH    R0,RTVACTCT    anything there yet?                       03190000
+         LTR   R0,R0          ??                                        03200000
+         BZ    GETRET         ..no, just return                         03210000
+         SPACE 1                                                        03220000
+*                                                                       03230000
+*        Bring the virtual retrieve buffer page                         03240000
+*        back into real memory                                          03250000
+*                                                                       03260000
+         L     R1,RTVBUFAD    Get buffer vaddr                          03270000
+         TRANS 2,1,OPT=(BRING+DEFER+SYSTEM) page it in                  03280000
+         SPACE 1                                                        03290000
+*                                                                       03300000
+*        Get the next buffer entry                                      03310000
+*                                                                       03320000
+*        R4 = the entry to return                                       03330000
+*        R3 = next entry to return                                      03340000
+*                                                                       03350000
+         LH    R4,RTVCURSR    Get last put (or last get-1)              03360000
+         SPACE 1                                                        03370000
+         LTR   R3,R4          First figure next retrieve                03380000
+         BNZ   *+8            or if at zero,                            03390000
+         LH    R3,RTVACTCT      set to limit                            03400000
+         BCTR  R3,0           and back up one                           03410000
+         STH   R3,RTVCURSR    save new retrieve point                   03420000
+         SPACE 1                                                        03430000
+         MH    R4,=AL2(RTVENTLN) index to displacement                  03440000
+         AR    R4,R2          ..to address                              03450000
+         SR    R0,R0          Return length...                          03460000
+         IC    R0,0(,R4)      ...                                       03470000
+         ST    R0,SAVER0      ... in R0                                 03480000
+         SPACE 1                                                        03490000
+         LA    R4,1(,R4)      Return address                            03500000
+         ST    R4,SAVER1      ... in R1                                 03510000
+         SPACE 1                                                        03520000
+*                                                                       03530000
+*        Return to caller                                               03540000
+*                                                                       03550000
+GETRET   DS    0H                                                       03560000
+         EXIT  ,                                                        03570000
+         TITLE 'HDKGRV            (CP)    VM/370    VERSION 6, LEVEL 0' 03580000
+         LTORG ,                                                        03590000
+         EJECT ,                                                        03600000
+         COPY  RTVBLOK                                                  03610000
+         COPY  VMBLOK                                                   03620000
+         COPY  SAVE                                                     03630000
+         COPY  EQU                                                      03640000
+         PSA   ,                                                        03650000
+HDKGRV   CSECT ,              Resume CSECT                              03660000
+MODEND   DS    0D             Mark end of module                        03670000
+         END   ,                                                        03680000

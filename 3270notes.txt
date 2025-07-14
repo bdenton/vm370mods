@@ -1,0 +1,781 @@
+RMI  Read Manual Input        
+
+     CCW   X'0B',0,SILI+CC,1  READ INPUT DATA                    
+     CCW   X'01',GRTRMIDS,SILI+CC,GRTRMIL   HRC065DK changed to NOP
+     CCW   X'06',0,SILI,BUFAPL                                   
+
+     WCC0
+     SBA  5B5F
+
+
+
+FMT  Format screen w/logo     
+
+
+
+
+WRT  Write to output area     
+
+
+
+CLR  Clear screen  
+
+     CCW   X'0B',0,SILI+CC,1  CLEAR THE SCREEN         
+     CCW   X'01',GRTCLRDS,SILI,GRTCLRL                 
+
+     WCC6
+     SBA  4040
+     RA   C75F 00
+     RA   4E7F 00
+     RA   D65F 00
+     RA   5B5F 00
+     SF   ATTR7
+     IC
+     SBA  5D6B
+     SF   ATTR2
+     CL10'RUNNING' 
+     CL8' ',CL1' '     
+
+
+CNC  (non-IBM)
+
+     CCW   X'0B',0,SILI+CC,1  CLEAR THE SCREEN             HRC101DK 00033200
+     CCW   X'01',GRTCNCDS,SILI,GRTCNCL                     HRC101DK 00033400
+
+     WCC6 
+     SBA   4040
+     RA    C75F 00
+     RA    4E7F 00
+     RA    &OA1,&OA2 00
+     RA    5B5F 00
+     SBA   5D6B
+     SF    ATTR2
+     CL10'RUNNING'     
+     DC    CL8' ',CL1' '                                   HRC108DK 00089640
+
+
+           
+CRD  Clear input area         
+
+     CCW   X'0B',0,SILI+CC,1  CLEAR INPUT AREA                      00041000
+     CCW   X'01',GRTCRDDS,SILI,GRTCRDL                              00042000
+
+     WCC6
+     SBA   5B5F
+     SF    ATTR457
+     IC
+     EUA   5D6B
+     SBA   5B5F
+     SF    ATTR7
+     SBA   5D6B
+     SF    ATTR2
+     CL10'RUNNING'     
+     DC    CL8' ',CL1' '    
+
+
+IDS  Write to input area      
+TAB  Insert a logical tab
+
+
+HLD  Set status = HOLDING      
+
+     CCW   X'0B',0,SILI+CC,1  WRITE HOLDING MSG                     00046000
+     CCW   X'01',GRTHLDDS,SILI,GRTHLDL                              00047000
+
+     WCC3 
+     SBA   5D6B
+     SF    ATTR2
+     CL10'HOLDING'   
+     CL8' ',CL1' '    
+
+
+MOR  Set status = MORE...      
+
+     CCW   X'0B',0,SILI+CC,1  WRITE MORE... MSG                     00049000
+     CCW   X'01',GRTMORDS,SILI,GRTMORL                              00050000
+
+     WCC3 
+     SBA   5D6B
+     SF    ATTR2
+     CL10'MORE...'   
+     CL8' ',CL1' '    
+
+
+NAC  Set status = NOT ACCEPTED 
+
+     CCW   X'0B',0,SILI+CC,1  NOT ACCEPTED MSG                      00055000
+     CCW   X'01',GRTNACDS,SILI,GRTNACL                              00056000
+
+     WCC4 
+     SBA   5D6B
+     SF    ATTR2
+     CL19'NOT ACCEPTED'
+
+
+RUN  Set status = RUNNING      
+
+     CCW   X'0B',0,SILI+CC,1  RUNNING MSG                           00062000
+     CCW   X'01',GRTRUNDS,SILI,GRTRUNL                              00063000
+
+     WCC6 
+     SBA   5B5F
+     SF    ATTR7
+     SBA   5D6B
+     SF    ATTR2
+     CL10'RUNNING'
+     CL8' ',CL1' '  
+
+
+VMR  Set status = VM READ      
+
+     CCW   X'0B',0,SILI+CC,1  VM READ                               00069000
+     CCW   X'01',GRTVMRDS,SILI,GRTVMRL                              00070000
+
+     WCC6 
+     SBA   5B5F
+     SF    ATTR7
+     SBA   5D6B
+     SF    ATTR2
+     CL10'VM READ'
+     CL8' ',CL1' '      
+
+
+CPR  Set status = CP READ      
+
+     CCW   X'0B',0,SILI+CC,1  CP READ         
+     CCW   X'01',GRTCPRDS,SILI,GRTCPRL                              00039000
+
+     WCC6 
+     SBA   5B5F
+     SF    ATTR7
+     SBA   5D6B  
+     SF    ATTR2
+     CL10'CP READ'
+     DC    CL8' ',CL1' ' 
+
+
+VMP  Set status = VM READ inhibit
+
+     CCW   X'0B',0,SILI+CC,1  VM READ (W/INHIBIT                    00065000
+     CCW   X'01',GRTINHDS,SILI+CD,GRTINHL                           00066000
+     CCW   X'00',GRTVMPDS,SILI,GRTVMPL                              00067000
+
+     WCC6 
+     SBA   5B5F
+     SF    ATTR457
+
+     SBA   5D6B
+     SF    ATTR2
+     CL10'VM READ'
+     DC    CL8' ',CL1' '    
+                            
+
+CPP  Set status = CP READ inhibit
+
+     CCW   X'0B',0,SILI+CC,1  CP READ (W/INHIBIT                    00034000
+     CCW   X'01',GRTINHDS,SILI+CD,GRTINHL                           00035000
+     CCW   X'00',GRTCPPDS,SILI,GRTCPPL                              00036000
+
+     WCC6 
+     SBA   5B5F
+     SF    ATTR457
+
+     SBA   5D6B
+     SF    ATTR2
+     CL10'CP READ'   
+     DC    CL8' ',CL1' ' 
+
+
+WNG  Sound warning alarm       
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+000058 0500019D20000027            2857+GRTEWRCP CCW   EWR,GRTCRDDS,SILI,GRTCRDL   USE ERASE/WRITE              00044000
+
+
+
+
+
+000080 0B00000060000001            2865+GRTMRDCP CCW   X'0B',0,SILI+CC,1  MORE... WHILE READ                    00052000
+000088 0100019D20000014            2866+         CCW   X'01',GRTMRDDS,SILI,GRTMRDL                              00053000
+
+                            0019D  2929+GRTMRDDS EQU   GRTCRDDS                                                 00100000
+00019D C211                        2924+GRTCRDDS DC    AL1(WCC6,SBA)  CLEAR THE INPUT AREA; UPDATE STATUS       00097000
+00019F 5B5F1D4D1312                2925+         DC    AL1(X'5B',X'5F',SF,ATTR457,IC,EUA)              @VA10567 00098100
+0001A5 5D6B11                      2926+         DC    AL1(X'5D',X'6B',SBA)                            @VA10567 00098200
+0001A8 5B5F1DC111                  2927+         DC    AL1(X'5B',X'5F',SF,ATTR7,SBA)                   @VA10567 00098300
+0001AD 5D6B1D60                    2928+         DC    AL1(X'5D',X'6B',SF,ATTR2)                       @VA10567 00098400
+                            00014  2930+GRTMRDL  EQU   *-GRTMRDDS                                               00101000
+
+
+
+
+
+
+
+
+
+
+0000F0 0B00000060000001            2885+GRTWINCP CCW   X'0B',0,SILI+CC,1  WRITE TO INPUT AREA                   00072000
+0000F8 01000256A000000D            2886+         CCW   X'01',GRTWINDS,SILI+CD,GRTWINL                           00073000
+000100 0000000020000000            2887+         CCW   X'00',0,SILI,0                                           00074000
+
+000256 C211                        2973+GRTWINDS DC    AL1(WCC6,SBA)  WRITE DATA IN THE INPUT AREA              00139000
+000258 5B5F12                      2974+         DC    AL1(X'5B',X'5F',EUA)                                     00140000
+00025B 5D6B11                      2975+         DC    AL1(X'5D',X'6B',SBA)                                     00141000
+00025E 5B5F1DC113                  2976+         DC    AL1(X'5B',X'5F',SF,ATTR7,IC)                             00142000
+                            0000D  2977+GRTWINL  EQU   *-GRTWINDS                                               00143000
+
+
+000108 0B00000060000001            2889+GRTWRTCP CCW   X'0B',0,SILI+CC,1  WRITE TO DISPLAY                      00076000
+000110 01000000A0000000            2890+         CCW   X'01',0,SILI+CD,0                                        00077000
+000118 0000021A2000001D            2891+         CCW   X'00',GRTWRTDS,SILI,GRTWRTL                              00078000
+
+                            0021A  2982+GRTWRTDS EQU   GRTRUNDS+1     'RUNNING' STATUS USED FOR WRITES          00145000
+                            0001D  2983+GRTWRTL  EQU   GRTRUNL-1                                                00146000
+000219 C211                        2957+GRTRUNDS DC    AL1(WCC6,SBA)  WRITE 'RUNNING' IN THE STATUS AREA        00125000
+00021B 5B5F1DC111                  2958+         DC    AL1(X'5B',X'5F',SF,ATTR7,SBA)                            00126000
+000220 5D6B1D60D9E4D5D5            2959+         DC    AL1(X'5D',X'6B',SF,ATTR2),CL10'RUNNING'         HRC108DK 00127980
+00022E 4040404040404040            2960+GRTRNST4 DC    CL8' ',CL1' '                                   HRC108DK 00127990
+                            0001E  2961+GRTRUNL  EQU   *-GRTRUNDS                                               00128000
+
+
+000120 0B00000060000001            2893+GRTRSTCP CCW   X'0B',0,SILI+CC,1                               HRC101DK 00078400
+000128 0100026320000001            2894+         CCW   X'01',GRTRSTDS,SILI,GRTRSTL                     HRC101DK 00078600
+
+000263 C2                          2978+GRTRSTDS DC    AL1(WCC3)                                       HRC101DK 00143200
+                            00001  2979+GRTRSTL  EQU   *-GRTRSTDS                                      HRC101DK 00143400
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+write:
+   if > last line:
+     write 'holding'
+     wait for key press   
+        attn: 
+           write erase
+   else:
+      write kblock, new line data
+      done
+      
+read:
+   write: unlock, clear input, ic, status=cpread
+   wait
+      attn:
+         enter - 
+            rmi
+            echo back to screen
+            clear input/lock kb                 
+           
+     
+channel progs;
+
+clear
+   erase-write wcc
+               sba @inpt sf-unprot ic
+               sba #stat sf-prot RUNNING
+               sba 0,0 data
+write wcc
+      sba r/c data
+      
+write-full wcc
+           sba @stat sf-prot-blnk HOLDING      
+
+begread wcc
+        sba @inpt+1 ic
+        ra  @stat-1 0
+        sf-prot-hi CP READ
+        
+endread wcc
+        sba @inpt+1 ic
+        ra @stat-1 0
+        sba @eol sf-hi-prot data sf-prot                
+
+
+
+000060 0B00000060000001            2506+GRTMORCP CCW   X'0B',0,SILI+CC,1  WRITE MORE... MSG                     00049000
+000068 010001A72000001A            2507+         CCW   X'01',GRTMORDS,SILI,GRTMORL                              00050000
+
+000070 0B00000060000001            2509+GRTMRDCP CCW   X'0B',0,SILI+CC,1  MORE... WHILE READ                    00052000
+000078 0100015F20000014            2510+         CCW   X'01',GRTMRDDS,SILI,GRTMRDL                              00053000
+
+000080 0B00000060000001            2512+GRTNACCP CCW   X'0B',0,SILI+CC,1  NOT ACCEPTED MSG                      00055000
+000088 010001C12000001A            2513+         CCW   X'01',GRTNACDS,SILI,GRTNACL                              00056000
+
+000090 0B00000060000001            2515+GRTRMICP CCW   X'0B',0,SILI+CC,1  READ INPUT DATA                       00058000
+000098 010001DB60000004            2516+         CCW   X'01',GRTRMIDS,SILI+CC,GRTRMIL                           00059000
+0000A0 0600000020000120            2517+         CCW   X'06',0,SILI,BUFAPL                                      00060000
+
+0000A8 0B00000060000001            2519+GRTRUNCP CCW   X'0B',0,SILI+CC,1  RUNNING MSG                           00062000
+0000B0 010001DF2000001F            2520+         CCW   X'01',GRTRUNDS,SILI,GRTRUNL                              00063000
+
+0000B8 0B00000060000001            2522+GRTVMPCP CCW   X'0B',0,SILI+CC,1  VM READ (W/INHIBIT                    00065000
+0000C0 010001A1A0000006            2523+         CCW   X'01',GRTINHDS,SILI+CD,GRTINHL                           00066000
+0000C8 0000020520000019            2524+         CCW   X'00',GRTVMPDS,SILI,GRTVMPL                              00067000
+
+0000D0 0B00000060000001            2526+GRTVMRCP CCW   X'0B',0,SILI+CC,1  VM READ                               00069000
+0000D8 010001FF2000001F            2527+         CCW   X'01',GRTVMRDS,SILI,GRTVMRL                              00070000
+
+0000E0 0B00000060000001            2529+GRTWINCP CCW   X'0B',0,SILI+CC,1  WRITE TO INPUT AREA                   00072000
+0000E8 0100021EA000000D            2530+         CCW   X'01',GRTWINDS,SILI+CD,GRTWINL                           00073000
+0000F0 0000000020000000            2531+         CCW   X'00',0,SILI,0                                           00074000
+
+0000F8 0B00000060000001            2533+GRTWRTCP CCW   X'0B',0,SILI+CC,1  WRITE TO DISPLAY                      00076000
+000100 01000000A0000000            2534+         CCW   X'01',0,SILI+CD,0                                        00077000
+000108 000001E02000001E            2535+         CCW   X'00',GRTWRTDS,SILI,GRTWRTL                              00078000
+
+0000F8 0B00000060000001            2533+GRTRSTCP CCW   X'0B',0,SILI+CC,1  added by HRC101                       00076000
+000108 000001E02000001E            2535+         CCW   X'01',GRTRSTDS,SILI,GRTRSTL                              00078000
+
+WCCs
+----------------------
+WCC0   C0  nothing
+WCC3   C2  KbRestore
+WCC4   C6  KbRestore Alarm
+WCC5   C5            Alarm ResetMDTs
+WCC6   C3  KbRestore       ResetMDTs
+WCC56  C7  KbRestore Alarm ResetMDTs
+
+WCCNULL  EQU   X'C0'          Nothing special
+WCCRSMDT EQU   X'C3'          KB Restore; Reset MDTs
+WCCNOMDT EQU   X'C2'          KB Restore
+WCCALRM  EQU   X'04'          WCC Alarm bit
+
+
+Attributes
+----------------------
+
+ATTR2   10 0000 60 Prot  low      ATTRPROT 
+ATTR7   00 0001 C1 UProt low  mdt ATTRINPT
+ATTR457 00 1101 4D UProt hide mdt ATTRHIDE  (grtblok comments say this is Prot)
+ATTR4   10 1000 E8 Prot  hi       ATTRHIGH    
+
+ATTRPROT EQU   X'60'          Protected; normal
+ATTRHIGH EQU   X'E8'          Protected; intense
+ATTRINPT EQU   X'C1'          Unprotected; normal; MDT
+ATTRHIDE EQU   X'4D'          Unprotected; hidden; MDT
+
+Addresses
+----------------------
+           3270         2A        3066
+top    00/00 40,40  00/00 40,40  00/00
+ RA1   05/79 C7,5F
+ RA2   11/79 4E,7F
+ RA3   17/79 D6,5F  14/79 D2,6F
+inpt   21/79 5B,5F  17/79 D6,5F  33/00
+stat   23/59 5D,6B  19/59 D8,6B  34/60
+end    23/79 5D,7F  19/79 D8,7F
+
+5b60  01 1011 10 0000  0110 1110 0000  6e0  1760  22/0
+5d6a  01 1101 10 1010  0111 0110 1010  76a  1898  23/58
+
+d65f  01 0110 01 1111  0101 1001 1111  59f  1439  17/79
+d86b  01 1000 10 1011  0110 0010 1011  62b  1579  19/59
+
+d54f  01 0101 00 1111  0101 0100 1111  54f  1359  16/79
+
+23/79 1919  0111 0111 1111  01 1101 11 1111  5D7F
+19/79 1599  0110 0011 1111  01 1000 11 1111  D87F
+14/79 1199  0100 1010 1111  01 0010 10 1111  D26F
+
+@ORIG66  DC    AL1(0,0)       3066 Screen origin
+@INPT66  DC    AL1(33,0)      3066 Input area    
+@STAT66  DC    AL1(34,60      3066 Status area  
+
+@ORIG70  EQU   X'4040'        327x Screen origin (0,0)
+@INPT70  DC    X'5B5F'        327x Input area    (21,79)
+@STAT70  DC    X'5D6B'        327x Status area   (23,59)
+@SYSI70  DC    X'5DF6'        327x Sysid area    (23,70)
+@LAST70  DC    X'5D7F'        327x Last location (23,79)
+@RA1_70  EQU   X'C75F'        327x RA#1 end      (5,79)
+@RA2_70  EQU   X'4E7F'        327x RA#2 end      (11,79)
+@RA3_70  DC    X'D65F'        327x RA#3 end      (17,79)
+
+@INPT2A  DC    X'D65F'        Mod2A Input area   (17,79)
+@STAT2A  DC    X'D86B'        Mod2A Status area  (19,59)
+@LAST2A  DC    X'D87F'        Mod2A Last location(19,79)
+@RA3_2A  DC    X'D26F'        Mod2A RA#3 end     (14,79)
+
+CLRCP    CLEAR THE SCREEN     
+   CCW   X'01',GRTCLRDS,SILI,GRTCLRL      
+CLRDS
+   WCC6   C3              Restore keyboard, reset MDTs
+   SBA,X'40',X'40'        0/0
+   RA,X'C7',X'5F',X'00'   5/79      RA can only do 480 chars (6 rows)
+   RA,X'4E',X'7F',X'00'   11/79
+   RA,X'D6',X'5F',X'00'   17/79
+   RA,X'5B',X'5F',X'00'   21/79
+   SF,ATTR7   C1          Unprotected, A/N, display/non-detect, MDT
+   IC
+   SBA,X'5D',X'6B'        23/59
+   SF,ATTR2   60          Protected, low intensity
+   CL20'RUNNING'
+
+
+
+CNCCP    CLEAR THE SCREEN     (added by HRC101)
+   CCW   X'01',GRTCNCDS,SILI,GRTCNCL      
+CNCDS  (added by HRC101)
+   WCC6   C3              Restore keyboard, reset MDTs
+   SBA,X'40',X'40'        0/0
+   RA,X'C7',X'5F',X'00'   5/79      RA can only do 480 chars (6 rows)
+   RA,X'4E',X'7F',X'00'   11/79
+   RA,X'D6',X'5F',X'00'   17/79
+   RA,X'5B',X'5F',X'00'   21/79
+   SBA,X'5D',X'6B'        23/59
+   SF,ATTR2   60          Protected, A/N, display/non-detect
+   CL20'RUNNING'
+
+
+CPRCP    CP READ 
+   CCW   X'01',GRTCPRDS,SILI,GRTCPRL 
+CPRDS 
+   WCC6   C3         Restore keyboard, reset MDTs
+   SBA,X'5B',X'5F'   21/79
+   SF,ATTR7   C1     Unprotected, A/N, display/non-detect, MDT
+CPPCP    CP READ (W/INHIBIT 
+   CCW   X'01',GRTINHDS,SILI+CD,GRTINHL     
+   CCW   X'00',GRTCPPDS,SILI,GRTCPPL       
+CPPDS 
+   SBA,X'5D',X'6B'   23/59
+   SF,ATTR2   60     Protected, low intensity
+   CL20'CP READ'
+
+EWRCP    USE ERASE/WRITE       
+   CCW   X'05',GRTCRDDS,SILI,GRTCRDL 
+CRDCP    CLEAR INPUT AREA
+   CCW   X'01',GRTCRDDS,SILI,GRTCRDL     
+CRDDS 
+MDRDS
+   WCC6   C3         Restore keyboard, reset MDTs
+   SBA,X'5B',X'5F'   21/79
+   SF,ATTR457   4D   Unprotected, A/N, hidden, MDT
+   IC
+   EUA,X'5D',X'6B'   23/59
+   SBA,X'5B',X'5F'   21/79
+   SF,ATTR7   C1     Unprotected, A/N, display/non-detect, MDT
+   SBA,X'5D',X'6B'   23/59
+   SF,ATTR2   60     Protected, A/N, display/non-detect
+MRDL *-MRDDS
+   CL20'RUNNING'
+CRDL *-CRDDS
+
+
+
+HLDCP    WRITE HOLDING MSG 
+   CCW   X'01',GRTHLDDS,SILI,GRTHLDL   
+HLDDS
+   WCC3   C2         Restore keyboard
+   SBA,X'5D',X'6B'   23/59
+   SF,ATTR2   60     Protected, A/N, display/non-detect
+   CL20'HOLDING'
+
+
+INHDS
+   WCC6   C3         Restore keyboard, reset MDTs
+   SBA,X'5B',X'5F'   21/79
+   SF,ATTR457   4D   Unprotected, A/N, hidden, MDT
+
+
+MORDS 
+   WCC3   C2         Restore keyboard
+   SBA,X'5D',X'6B'   23/59
+   SF,ATTR2   60     Protected, A/N, display/non-detect
+   CL20'MORE...'
+
+
+NACDS
+   WCC4   C6         Restore keyboard, alarm
+   SBA,X'5D',X'6B'   23/59
+   SF,ATTR2   60     Protected, A/N, display/non-detect
+   CL20'NOT ACCEPTED'
+
+
+RMIDS
+   WCC0   C0         Nothing
+   SBA,X'5B',X'5F'   21/79
+
+
+WRTCP    WRITE TO DISPLAY             
+   CCW   X'01',0,SILI+CD,0    
+         WCC6   C3         Restore keyboard, reset MDTs
+      or WCC56  C7         Restore keyboard, Alarm, reset MDTs
+         SBA,@LINE70
+         data
+   CCW   X'00',GRTWRTDS,SILI,GRTWRTL 
+
+RUNDS
+   WCC6   C3         Restore keyboard, reset MDTs
+WRTDS
+   SBA,X'5B',X'5F'   21/79
+   SF,ATTR7   C1     Unprotected, A/N, display/non-detect, MDT
+   SBA,X'5D',X'6B'   23/59
+   SF,ATTR2   60     Protected, A/N, display/non-detect
+   CL20'RUNNING'
+
+
+VMRDS
+   WCC6   C3         Restore keyboard, reset MDTs
+   SBA,X'5B',X'5F'   21/79
+   SF,ATTR7   C1     Unprotected, A/N, display/non-detect, MDT
+VMPDS
+   SBA,X'5D',X'6B'   23/59
+   SF,ATTR2   60     Protected, A/N, display/non-detect
+   CL20'VM READ'
+
+
+WINDS
+   WCC6   C3         Restore keyboard, reset MDTs
+   SBA,X'5B',X'5F'   21/79
+   EUA,X'5D',X'6B'   23/59
+   SBA,X'5B',X'5F'   21/79
+   SF,ATTR7   C1     Unprotected, A/N, display/non-detect, MDT
+   IC
+
+RSTDS   added by HRC101
+   WCC3   C2         Restore keyboard
+
+
+last-char:
+   5D,7F   23/79
+
+
+-------------------------------------------------------------------------------
+         SPACE 1
+*        Initial screen formatting (DOCLR flag)
+         SPACE 1
+ERS70CCW CCW   ERS70,WRT70D1,CD+SILI,WRT70D1L   WCC; SBA
+         CCW   0,@LINE70,CD+SILI,2              current data line
+MSG77CCW EQU   *-ERS70CCW
+ERS70MSG CCW   0,*-*,CD+SILI,*-*                message data 
+         CCW   0,WRT70D2,CD+SILI,WRT70D2L       SBA
+         CCW   0,@INPT70,CD+SILI,2              InputArea 
+         CCW   0,WRT70D3,CD+SILI,WRT70D3L       SF uprot; SBA 
+         CCW   0,@STAT70,CD+SILI,2              StatusArea  
+         CCW   0,WRT70D4,SILI,ERS70D4L          SF prot; RUNNING
+*                                               SF prot
+         SPACE 1 
+*        Write message to data area
+         SPACE 1
+WRT70CCW CCW   WRT70,WRT70D1,CD+SILI,WRT70D1L   WCC; SBA                      
+         CCW   0,@LINE70,CD+SILI,2              current data line
+WRT70MSG CCW   0,*-*,CD+SILI,*-*                message data 
+         CCW   0,WRT70D2,CD+SILI,WRT70D2L       SBA
+         CCW   0,@STAT70,CD+SILI,2              StatusArea  
+         CCW   0,WRT70D4,SILI,WRT70D4L          SF prot; RUNNING
+         SPACE 1
+*        Set Status = CP READ          
+         SPACE 1
+CPR70CCW CCW   WRT70,CPR70D1,CD+SILI,CPR70D1L   WCC; SBA
+         CCW   0,@INPT70,CD+SILI,2              InputArea 
+         CCW   0,CPR70D2,CD+SILI,CPR70D2L       SF uprot;IC;SBA
+         CCW   0,@STAT70,CD+SILI,2              StatusArea
+         CCW   0,CPR70D3,SILI,CPR70D3L          SF high; CPREAD
+         SPACE 1
+*        Read operator input
+         SPACE 1         
+INP70CCW CCW   WRT70,INP70D1,CD+SILI,INP70D1L   WCC; SBA            
+         CCW   0,@INPT70,CC+SILI,2              InputArea
+         CCW   RD70,RMDATA,CD+SILI,6            AID;C1C2;SBA;addr
+         CCW   0,INDATA,SILI,INDATAL            InputArea
+
+         SPACE 1
+*        Get key press in HOLDING state
+         SPACE 1         
+RMI70CCW CCW   RD70,RMDATA,SILI,3               AID; C1,C2
+         SPACE 1
+*        Echo operator input to prompt line
+*        -- clear input ara
+*        -- restore RUNNING status
+         SPACE 1
+ECH70CCW CCW   WRT70,ECH70D1,CD+SILI,ECH70D1L   WCC; SBA
+         CCW   0,@INPT70,CD+SILI,2              InputArea 
+         CCW   0,ECH70D2,CD+SILI,ECH70D2L       SF; hide; IC; EAU
+         CCW   0,@STAT70,CD+SILI,2              StatusArea  
+         CCW   0,ECH70D3,CD+SILI,ECH70D3L       SBA
+         CCW   0,@ECHO70,CD+SILI,2              prompt msg line
+ECH70MSG CCW   0,*-*,CD+SILI,*-*                message data 
+         CCW   0,ECH70D4,CD+SILI,ECH70D4L       SF; high
+ECH70DTA CCW   0,INDATA,CD+SILI,*-*             message data 
+         CCW   0,ECH70D5,CD+SILI,ECH70D5L       SF; prot; SBA
+         CCW   0,@STAT70,CD+SILI,2              StatusArea  
+         CCW   0,ECH70D6,SILI,ERS70D6L          SF; prot; RUNNING
+         SPACE 1
+*        Set Status = RUNNING    
+*        -- clear input area
+*        -- restore RUNNING status
+         SPACE 1
+RUN70CCW CCW   WRT70,ECH70D1,CD+SILI,ECH70D1L   WCC; SBA
+         CCW   0,@INPT70,CD+SILI,2              InputArea 
+         CCW   0,ECH70D2,CD+SILI,ECH70D2L       SF hide; IC; EAU
+         CCW   0,@STAT70,CD+SILI,2              StatusArea  
+         CCW   0,ECH70D3,CD+SILI,ECH70D3L       SBA
+         CCW   0,@STAT70,CD+SILI,2              StatusArea  
+         CCW   0,ECH70D6,SILI,ERS70D6L          SF prot; RUNNING
+         SPACE 1
+*        Set Status = HOLDING          
+         SPACE 1
+HLD70CCW CCW   WRT70,HLD70D1,CD+SILI,HLD70D1L   WCC; SBA
+         CCW   0,@STAT70,CD+SILI,2              StatusArea 
+         CCW   0,HLD70D2,SILI,HLD70D2L          SF high; HOLDING
+         SPACE 1
+*        Clear data area
+         SPACE 1
+CLR70CCW CCW   WRT70,CLR70D1,SILI,CLR70D1L      WCC; SBA[0,0]
+*                                               RA[5,79],00
+*                                               RA[11,79],00
+*                                               RA
+         CCW   0,@RA3_70,CD+SILI,2              @RA#3
+         CCW   0,CLR70D2,CD+SILI,CLR70D2L       00; RA  
+         CCW   0,@INPT70,CD+SILI,2              InputArea
+         CCW   0,CLR70D3,SILI,CLR70D3L          00
+
+=========================================================================================
+
+         SPACE 1
+*        Write message to data area
+         SPACE 1          
+WRT70D1  EQU   *     
+         DC    AL1(WCCRSMDT)      Restore keyboard, reset MDTs
+         DC    AL1(SBA)           SBA [@LINE70] 
+WRT70D1L EQU   *-WRT70D1
+*                                 message data
+WRT70D2  EQU   *
+         DC    AL1(SBA)           SBA 
+@WRTINPT DC    AL2(@INPT70)       InputArea
+         DC    AL1(SF,ATTRINPT)   SF Unprotected MDT
+         DC    AL1(SBA)           SBA 
+@WRTSTAT DC    AL2(@STAT70)       StatusArea
+         DC    AL1(SF,ATTRPROT)   SF Protected
+         DC    CL19'RUNNING'      'RUNNING' 
+WRT70D2L EQU   *-WRT70D2          
+         DC    AL1(SF,ATTRPROT)   SF Protected (if formatting)
+ERS70D2L EQU   *-WRT70D2
+         SPACE 1
+*        Set Status = CP READ          
+         SPACE 1
+CPR70D1  EQU   *
+         DC    AL1(WCCNOMDT)      Restore keyboard
+         DC    AL1(SBA)           SBA 
+@CPRINPT DC    AL2(@INPT70)       InputArea
+         DC    AL1(SF,ATTRINPT)   SF Unprotected MDT
+         DC    AL1(IC)            IC
+         DC    AL1(SBA)           SBA [@STAT70]
+@CPRSTAT DC    AL2(@STAT70)       StatusArea
+         DC    AL1(SF,ATTRHIGH)   SF high
+         DC    CL19'CP READ'      'CP READ' 
+CPR70D1L EQU   *-CPR70D1
+         SPACE 1
+*        Prepare to read operator input
+         SPACE 1
+INP70D1  EQU   *
+         DC    AL1(WCCNULL,SBA)
+@INPINPT DC    AL2(@INPT70)       InputArea
+INP70D1L EQU   *-INP70D1
+         SPACE 1
+*        Echo operator input to prompt line
+*        -- clear input area
+*        -- restore RUNNING status
+         SPACE 1
+ECH70D1  EQU   *     
+         DC    AL1(WCCRSMDT)      Restore keyboard, reset MDTs
+         DC    AL1(SBA)           SBA
+@ECHINPT DC    AL2(@INPT70)       InputArea
+         DC    AL1(SF,ATTRHIDE)   SF hide
+         DC    AL1(IC)            IC
+         DC    AL1(EAU)           EAU
+@ECHSTAT DC    AL2(@STAT70)       StatusArea
+         DC    AL1(SBA)           SBA [@ECHO70]
+ECH70D1L EQU   *-ECH70D1
+*                                 message data
+ECH70D2  EQU   *
+         DC    AL1(SF,ATTRHIGH)   SF high
+ECH70D2L EQU   *-ECH70D2
+*                                 response data
+ECH70D3  EQU   *
+         DC    AL1(SF,ATTRPROT)   SF prot
+         DC    AL1(SBA)           SBA
+@ECHSTA3 DC    AL2(@STAT70)       StatusArea
+         DC    AL1(SF,ATTRPROT)   SF prot
+         DC    CL19'RUNNING'      'RUNNING'
+ERS70D3L EQU   *-ECH70D3
+         SPACE 1
+*        Set Status = RUNNING    
+*        -- clear input area
+*        -- restore RUNNING status
+         SPACE 1
+RUN70D1  EQU   *     
+         DC    AL1(WCCRSMDT)      Restore keyboard, reset MDTs
+         DC    AL1(SBA)           SBA
+@RUNINPT DC    AL2(@INPT70)       InputArea
+         DC    AL1(SF,ATTRHIDE)   SF hide
+         DC    AL1(IC)            IC
+         DC    AL1(EAU)           EAU
+@RUNSTAT DC    AL2(@STAT70)       StatusArea
+         DC    AL1(SBA)           SBA
+@RUNSTA2 DC    AL2(@STAT70)       StatusArea
+         DC    AL1(SF,ATTRPROT)   SF prot
+         DC    CL19'RUNNING'      'RUNNING'
+RUN70D1L EQU   *-RUN70D1
+         SPACE 1
+*        Set Status = HOLDING          
+         SPACE 1
+HLD70D1  EQU   *
+         DC    AL1(WCCNOMDT)      Restore keyboard
+         DC    AL1(SBA)           SBA
+@HLDSTAT DC    AL2(@STAT70)       StatusArea
+         DC    AL1(SF,ATTRHIGH)   SF high
+         DC    CL19'HOLDING'      'HOLDING' 
+HLD70D2L EQU   *-HLD70D1
+         SPACE 1
+*        Clear data area
+         SPACE          
+CLR70D1  EQU   *
+         DC    AL1(WCC6)          Restore keyboard, reset MDTs
+         DC    AL1(SBA),AL2(@ORIG70)      SBA [0,0]
+         DC    AL1(RA),AL2(@RA1_70),X'00' RA [5,79] 00
+         DC    AL1(RA),AL2(@RA2_70),X'00' RA [11,79] 00
+         DC    AL1(RA)                    RA 
+@CLR_RA3 DC    AL2(@RA3_70)               RA-end-3
+         DC    AL1(0,RA)                  00; RA
+@CLRINPT DC    AL2(@INPT70)               InputArea
+         DC    AL1(0)                     00
+CLR70D3L EQU   *-CLR70D3

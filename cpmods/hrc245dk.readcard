@@ -1,0 +1,1220 @@
+USERID MAINT
+:READ DMKOPR AUXLCL A
+HRC245DK V01 Add DMKOPRWR for emergency operator input
+:READ DMKOPR HRC245DK A
+./ * HRC245DK - Add DMKOPRWR for emergency operator input
+./ *
+./ * Adds a new DMKOPRWR entry point to write a prompting    
+./ * message and read the operator's response. The additional
+./ * logic (particularly the graphic console handling and
+./ * console I/O interrupt handling) is largely copied from
+./ * DMKFMT and DMKSSP.  Some of the channel programs and
+./ * 3270 order streams are adapted from DMKGRF and GRTBLOK.
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 11-Nov-2024 WDENTON  Initial version
+./ * 15-Dec-2024 WDENTON  Unit testing complete
+./ *
+./ D 00024000
+./ R 00027000 $ 00027100
+         ENTRY DMKOPRWT,DMKOPRWR                               HRC245DK 00027100
+./ R 0072000 $ 0072100 100
+*        GPR3 - GPR11  = Work registers                        HRC245DK 00072100
+*        GPR12 = Module base register                          HRC245DK 00072200
+./ R 00075000 $ 00075100
+*        GPR15 = Work register                                 HRC245DK 00075100
+./ R 00077000 00100000 $ 00077101 50
+         SPACE 3                                               HRC245DK 00077101
+DMKOPRWT DS    0H                                              HRC245DK 00077151
+         USING *,R15              Temporary base               HRC245DK 00077201
+         STM   R0,R15,OPREGS      Save caller's registers      HRC245DK 00077251
+         LR    R12,R15            Setup module base register   HRC245DK 00077301
+         SL    R12,=A(DMKOPRWT-DMKOPR) ...                     HRC245DK 00077351
+         DROP  R15                Set permanent addresing      HRC245DK 00077401
+         USING DMKOPR,R12         ...                          HRC245DK 00077451
+         SPACE 1                                               HRC245DK 00077501
+         ST    R2,PARM2           Save parameters              HRC245DK 00077551
+         B     COMMON               and join common code below HRC245DK 00077601
+         EJECT ,                                               HRC245DK 00077651
+*------------------------------------------------------------  HRC245DK 00077701
+* SUBROUTINE NAME -                                            HRC245DK 00077751
+*                                                              HRC245DK 00077801
+*        DMKOPRWR - Write prompt to console & read response    HRC245DK 00077851
+*                                                              HRC245DK 00077901
+* ENTRY CONDITIONS -                                           HRC245DK 00077951
+*                                                              HRC245DK 00078001
+*        R0 = Length of the prompt message                     HRC245DK 00078051
+*        R1 = Address of the prompt message                    HRC245DK 00078101
+*        R2 = Paremeters (see EQU COPY)                        HRC245DK 00078151
+*                 NOAUTO - no line feed (implied)              HRC245DK 00078201
+*                 ALARM - sound the alarm                      HRC245DK 00078251
+*        R14 = Return address                                  HRC245DK 00078301
+*        R15 = Entry point (DMKOPRWR) address                  HRC245DK 00078351
+*                                                              HRC245DK 00078401
+* EXIT CONDITIONS -                                            HRC245DK 00078451
+*                                                              HRC245DK 00078501
+*        CC = 0 : Success                                      HRC245DK 00078551
+*                 R0 = Length of the response data             HRC245DK 00078601
+*                 R1 = Address of the response data            HRC245DK 00078651
+*        CC ¬= 0 : Error or no console available               HRC245DK 00078701
+*                                                              HRC245DK 00078751
+*------------------------------------------------------------  HRC245DK 00078801
+         SPACE 3                                               HRC245DK 00078851
+DMKOPRWR DS    0H                                              HRC245DK 00078901
+         USING *,R15              Temporary base               HRC245DK 00078951
+         STM   R0,R15,OPREGS      Save caller's registers      HRC245DK 00079001
+         LR    R12,R15            Setup module base register   HRC245DK 00079051
+         SL    R12,=A(DMKOPRWR-DMKOPR) ...                     HRC245DK 00079101
+         DROP  R15                Set permanent addresing      HRC245DK 00079151
+         USING DMKOPR,R12         ...                          HRC245DK 00079201
+         SPACE 1                                               HRC245DK 00079251
+         ST    R2,PARM2           Save parameters              HRC245DK 00079301
+         OI    PARM2,DOREAD         add the read option        HRC245DK 00079351
+         OI    PARM,NOAUTO            and NOAUTO is default    HRC245DK 00079401
+         EJECT ,                                               HRC245DK 00079451
+*------------------------------------------------------------  HRC245DK 00079501
+*        Common processing for all entry points                HRC245DK 00079551
+*------------------------------------------------------------  HRC245DK 00079601
+         SPACE 1                                               HRC245DK 00079651
+COMMON   DS    0H                                              HRC245DK 00079701
+         TM    STATUS,DIDINIT Did we already find console?     HRC245DK 00079751
+         BO    ISINIT         yes, skip                        HRC245DK 00079801
+         BAL   R10,INITCONS   no, go find available console    HRC245DK 00079851
+         SPACE 3                                               HRC245DK 00079901
+*------------------------------------------------------------  HRC245DK 00079951
+*        Write mesage to operator console                      HRC245DK 00080001
+*        -- Prepare the 3210/3215 channel program.             HRC245DK 00080051
+*           It will be translated to a 3066/327x               HRC245DK 00080101
+*           channel program in the Start-I/O routine           HRC245DK 00080151
+*------------------------------------------------------------  HRC245DK 00080201
+         SPACE 1                                               HRC245DK 00080251
+ISINIT   DS    0H                                              HRC245DK 00080301
+./ R 00103000 00139000 $ 00103001 50
+         MVI   WRT3210,WRT    Operation = Write/CR             HRC245DK 00103001
+         TM    PARM,NOAUTO    Was NOAUTO option given?         HRC245DK 00103051
+         BNO   *+8            ..no, all is well                HRC245DK 00103101
+         MVI   WRT3210,WRTNC  ..yes, use the NOCR OpCode       HRC245DK 00103151
+         LA    R1,WRT3210     Point to channel program         HRC245DK 00103201
+         TM    PARM,ALARM     Was ALARM option given?          HRC245DK 00103251
+         BNO   *+8            ..no, ready to go                HRC245DK 00103301
+         LA    R1,ALRM3210    ..yes, ring alarm first          HRC245DK 00103351
+         SPACE 1                                               HRC245DK 00103401
+         BAL   R10,STARTIO    Write message on console         HRC245DK 00103451
+         SPACE 3                                               HRC245DK 00103501
+*------------------------------------------------------------  HRC245DK 00103551
+*        Read the operator's response if asked                 HRC245DK 00103601
+*------------------------------------------------------------  HRC245DK 00103651
+         SPACE 1                                               HRC245DK 00103701
+         TM    PARM2,DOREAD   Is a response required?          HRC245DK 00103751
+         BNO   SETCC0         ..no, just return to caller      HRC245DK 00103801
+         XC    INDATA,INDATA  Clean input area                 HRC245DK 00103851
+         XC    INLEN,INLEN    and set length = 0               HRC245DK 00103901
+         LA    R1,RD3210      -> console read chan program     HRC245DK 00103951
+         BAL   R10,STARTIO    and read operator response       HRC245DK 00104001
+         SR    R0,R0          Pass back length in R0           HRC245DK 00104051
+         TM    STATUS,NODATA  no data entered?                 HRC245DK 00104101
+         BO    R0ONLY         ..yes, just a zero in R0         HRC245DK 00104151
+         LH    R0,INLEN       ...                              HRC245DK 00104201
+         LA    R1,INDATA      and pass address in R1           HRC245DK 00104251
+         ST    R1,OPREG1      ...                              HRC245DK 00104301
+R0ONLY   DS    0H                                              HRC245DK 00104351
+         ST    R0,OPREG0      ...                              HRC245DK 00104401
+         B     SETCC0         and return to caller             HRC245DK 00104451
+         EJECT ,                                               HRC245DK 00104501
+*------------------------------------------------------------  HRC245DK 00104551
+*        STARTIO - Perform Console I/O                         HRC245DK 00104601
+*        Input R1 -> Channel program to execute                HRC245DK 00104651
+*              R10 = Return sddress                            HRC245DK 00104701
+*------------------------------------------------------------  HRC245DK 00104751
+         SPACE 1                                               HRC245DK 00104801
+STARTIO  DS    0H                                              HRC245DK 00104851
+         STM   R0,R15,IOREGS                                   HRC245DK 00104901
+         TM    STATUS,CNGRAF  Working with rgaphic console?    HRC245DK 00104951
+         BO    GRAFXLAT      ..yes, translate the CCWs         HRC245DK 00105001
+         LA    R10,TERMRET   ..no, just return after the I/O   HRC245DK 00105051
+         SPACE 1                                               HRC245DK 00105101
+STARTIO1 DS    0H                                              HRC245DK 00105151
+         STNSM SYSMASK,0      Disable interupts                HRC245DK 00105201
+         LH    R3,CONSADDR    Get console device address       HRC245DK 00105251
+         LA    R9,TIOT1       Retry TIO to clear device        HRC245DK 00105301
+./ R 00145000 $ 00145001 100
+         ST    R1,CAW         Store Channel Program address    HRC245DK 00145001
+         XC    CSWSTAT,CSWSTAT and clear accumulated status    HRC245DK 00145101
+         XC    CSWCOUNT,CSWCOUNT and clear residual count      HRC245DK 00145201
+./ R 00150000 $ 00150001 100
+         BC    1,SETCC3       CC3: Not available               HRC245DK 00150001
+         BC    2,TESTLOOP     CC2: Busy - retry                HRC245DK 00150101
+         BC    4,CSWSTOR      CC1: CSW Stored                  HRC245DK 00150201
+         LA    R9,TIOT2       Retry TIO to wait finish         HRC245DK 00150301
+./ R 00155000 00184000 $ 00155001 50
+         BC    2,TESTLOOP     CC2: Busy - retry                HRC245DK 00155001
+         BC    4,CSWSTOR      CC1: CSW Stored                  HRC245DK 00155051
+         TM    CSWSTAT,UC     Was there an arror               HRC245DK 00155101
+         BNO   IOEND          ..no, operation finished         HRC245DK 00155151
+SIORETRY DS    0H                                              HRC245DK 00155201
+         BCT   R5,SIORETR1    Decrement & retry errors         HRC245DK 00155251
+         B     SETCC1         Return CC=1 (permanent error)    HRC245DK 00155301
+TESTLOOP DS    0H                                              HRC245DK 00155351
+         BCTR  R4,R9          Decrement & retry the TIO        HRC245DK 00155401
+         B     SETCC2         Return CC=2                      HRC245DK 00155451
+         SPACE 3                                               HRC245DK 00155501
+CSWSTOR  DS    0H                                              HRC245DK 00155551
+         OC    CSWSTAT,CSW+4  Accomulate status flags          HRC245DK 00155601
+         TM    CSWSTAT+1,X'3F' any channel-level errors?       HRC245DK 00155651
+         BNZ   SETCC3         ..yes, permenent failure         HRC245DK 00155701
+         BAL   R8,GETRESCT    Get residual count               HRC245DK 00155751
+         B     TESTLOOP       and retry one of the TIOs        HRC245DK 00155801
+         SPACE 1                                               HRC245DK 00155851
+IOEND    DS    0H                                              HRC245DK 00155901
+         BAL   R8,GETRESCT    Capture residual count           HRC245DK 00155951
+         SSM   SYSMASK        Reenable interupts               HRC245DK 00156001
+         BR    R10            Return to caller                 HRC245DK 00156051
+         SPACE 1                                               HRC245DK 00156101
+TERMRET  DS    0H             End of 3210/3215 I/O             HRC245DK 00156151
+         OI    STATUS,NODATA  Assume no data entered           HRC245DK 00156201
+         LH    R14,CSWCOUNT   Get last CSW count               HRC245DK 00156251
+         LTR   R14,R14        Was there any?                   HRC245DK 00156301
+         BZ    TERMRET2       ..no, just return                HRC245DK 00156351
+         LA    R0,INDATAL     Input length = read length       HRC245DK 00156401
+         SR    R0,R14           - CSW residual count           HRC245DK 00156451
+         BNP   TERMRET2       (no data is not positive)        HRC245DK 00156501
+         STH   R0,INLEN         = actual data length           HRC245DK 00156551
+         NI    STATUS,255-NODATA and clear no-data flag        HRC245DK 00156601
+TERMRET2 DS    0H                                              HRC245DK 00156651
+         LM    R0,R15,IOREGS  Return to caller of STARTIO      HRC245DK 00156701
+         BR    R10                                             HRC245DK 00156751
+         SPACE 3                                               HRC245DK 00156801
+*------------------------------------------------------------  HRC245DK 00156851
+*        GETRESCT - Get posssible residual count from CCW      HRC245DK 00156901
+*        -- Last executed CCW must have length > 1             HRC245DK 00156951
+*------------------------------------------------------------  HRC245DK 00157001
+         SPACE 1                                               HRC245DK 00157051
+GETRESCT DS    0H                                              HRC245DK 00157101
+         SR    R1,R1          Clear register                   HRC245DK 00157151
+         ICM   R1,7,CSW+1     Look at last CCW executed        HRC245DK 00157201
+         BZR   R8             ... is none                      HRC245DK 00157251
+         SH    R1,=H'8'       ... (back up one)                HRC245DK 00157301
+         LH    R1,6(,R1)      Get CCW count field              HRC245DK 00157351
+         CH    R1,=H'1'       CCW count > 1?                   HRC245DK 00157401
+         BNHR  R8             ..no, don't care                 HRC245DK 00157451
+         LH    R1,CSW+6       ..yes, save CSW residual count   HRC245DK 00157501
+         STH   R1,CSWCOUNT    ...                              HRC245DK 00157551
+         BR    R8             and return                       HRC245DK 00157601
+         EJECT ,                                               HRC245DK 00157651
+*------------------------------------------------------------  HRC245DK 00157701
+*        GRAFXLAT - Execute the graphic console I/O            HRC245DK 00157751
+*        Input R1 -> Channel program to execute                HRC245DK 00157801
+*------------------------------------------------------------  HRC245DK 00157851
+         SPACE 1                                               HRC245DK 00157901
+GRAFXLAT DS    0H                                              HRC245DK 00157951
+         LR    R4,R1          Get 1st CCW address              HRC245DK 00158001
+*                                                              HRC245DK 00158051
+*        Loop thru the 3210/15 CCWs and perform the            HRC245DK 00158101
+*        equivalent action on the graphic console              HRC245DK 00158151
+*                                                              HRC245DK 00158201
+GETCCW   DS    0H                                              HRC245DK 00158251
+         LH    R2,6(,R4)      R2 = current CCW data length     HRC245DK 00158301
+         L     R3,0(,R4)      R3 = current CCW data address    HRC245DK 00158351
+         LA    R3,0(,R3)      ...                              HRC245DK 00158401
+         LA    R14,GRAFOPS    Get address of routint table     HRC245DK 00158451
+         LA    R15,GRAFOPSL     and number of entries          HRC245DK 00158501
+CCWEXEC  DS    0H                                              HRC245DK 00158551
+         L     R1,0(,R14)     Get next entry                   HRC245DK 00158601
+         EX    R1,CKOPCODE    Does the opcode match?           HRC245DK 00158651
+         BE    GRAFROUT       ..yes, transfer to graphic rtn   HRC245DK 00158701
+         LA    R14,4(,R14)    Next table entry                 HRC245DK 00158751
+         BCT   R15,CCWEXEC    and search the whole table       HRC245DK 00158801
+         SPACE 1                                               HRC245DK 00158851
+*        Ignore CCWS we don't understand                       HRC245DK 00158901
+         SPACE 1                                               HRC245DK 00158951
+CCWNEXT  DS    0H                                              HRC245DK 00159001
+         TM    4(R4),CC       Command chaining                 HRC245DK 00159051
+         LA    R4,8(,R4)      ..yes, process the next one      HRC245DK 00159101
+         BO    GETCCW         ...                              HRC245DK 00159151
+         SPACE 1                                               HRC245DK 00159201
+GRAFRET  DS    0H                                              HRC245DK 00159251
+         LM    R0,R15,IOREGS  Return to caller of STARTIO      HRC245DK 00159301
+         BR    R10                                             HRC245DK 00159351
+         SPACE 1                                               HRC245DK 00159401
+GRAFROUT DS    0H             Go to the graphic routine        HRC245DK 00159451
+         SRL   R1,8           ... shift out the CCW opcode     HRC245DK 00159501
+         BR    R1             ... and go to the address        HRC245DK 00159551
+         SPACE 1                                               HRC245DK 00159601
+CKOPCODE CLI   0(R4),*-*      (Executed)                       HRC245DK 00159651
+         SPACE 1                                               HRC245DK 00159701
+         DS    0F             (alignment)                      HRC245DK 00159751
+GRAFOPS  DS    0AL4                                            HRC245DK 00159801
+         DC    AL3(GRAFREAD),AL1(RD)                           HRC245DK 00159851
+         DC    AL3(GRAFWRIT),AL1(WRTNC)                        HRC245DK 00159901
+         DC    AL3(GRAFWRIT),AL1(WRT)                          HRC245DK 00159951
+         DC    AL3(CCWNEXT),AL1(ALRM)   Ignore 3210 alarm      HRC245DK 00160001
+         DC    AL3(CCWNEXT),AL1(NOP)    and ignore NOP         HRC245DK 00160051
+GRAFOPSL EQU   (*-GRAFOPS)/L'GRAFOPS                           HRC245DK 00160101
+         EJECT ,                                               HRC245DK 00160151
+*------------------------------------------------------------  HRC245DK 00160201
+*        GRAFWRIT - Write message to graphic console           HRC245DK 00160251
+*        Input R2 = Message length                             HRC245DK 00160301
+*              R3 = Message address                            HRC245DK 00160351
+*------------------------------------------------------------  HRC245DK 00160401
+         SPACE 1                                               HRC245DK 00160451
+GRAFWRIT DS    0H                                              HRC245DK 00160501
+*                                                              HRC245DK 00160551
+*        First, see if there is room in the graphic            HRC245DK 00160601
+*        console data area for the message. At the             HRC245DK 00160651
+*        same time, truncate excessively long messages         HRC245DK 00160701
+*                                                              HRC245DK 00160751
+         LA    R0,80          (line length)                    HRC245DK 00160801
+         LA    R1,1           Assume just a single line        HRC245DK 00160851
+         CR    R2,R0          Single line message?             HRC245DK 00160901
+         BNH   GWRT1          ..yes, continue                  HRC245DK 00160951
+         LA    R1,2           Need 2 lines of output           HRC245DK 00161001
+         SLL   R0,1           (length of 2 lines)              HRC245DK 00161051
+         CR    R2,R0          Message longer than that?        HRC245DK 00161101
+         BNH   GWRT1          ..no, continue                   HRC245DK 00161151
+         LR    R2,R0          ..yes, truncate                  HRC245DK 00161201
+GWRT1    DS    0H                                              HRC245DK 00161251
+         STH   R1,LINECT      Save line count                  HRC245DK 00161301
+         STH   R2,MSGLEN      (also save message length)       HRC245DK 00161351
+         STH   R0,MAXECHO     (also save for echo)             HRC245DK 00161401
+         TM    STATUS,DOCLR   Clear the screen?                HRC245DK 00161451
+         BNO   *+8            ..no                             HRC245DK 00161501
+         MVI   @LINE,0        ..yes, reset line #              HRC245DK 00161551
+         IC    R0,@LINE       Next available line#             HRC245DK 00161601
+         AR    R1,R0          + lines needed                   HRC245DK 00161651
+         CH    R1,MAXLINE     Greater than data area?          HRC245DK 00161701
+         BNH   GWRT2          ..no, no overflow                HRC245DK 00161751
+         SPACE 1                                               HRC245DK 00161801
+*                                                              HRC245DK 00161851
+*        If it won't, set status to HOLDING and wait           HRC245DK 00161901
+*        for operator to clear it                              HRC245DK 00161951
+*                                                              HRC245DK 00162001
+         BAL   R10,HOLDING    Process HOLDING status           HRC245DK 00162051
+         SPACE 1                                               HRC245DK 00162101
+*                                                              HRC245DK 00162151
+*        3066/327x splits here to finish channel program       HRC245DK 00162201
+*                                                              HRC245DK 00162251
+GWRT2    DS    0H                                              HRC245DK 00162301
+         XR    R0,R0          (save as echo line number)       HRC245DK 00165351
+         IC    R0,@LINE       ...                              HRC245DK 00162401
+         STC   R0,@ECHO       ...                              HRC245DK 00162451
+         CLI   CONSTYPE,TYP3066   3066 Console?                HRC245DK 00162501
+         BE    GWRT3066           ..yes, go do that one        HRC245DK 00162551
+         SPACE 1                                               HRC245DK 00162601
+*                                                              HRC245DK 00162651
+*        327x Write...                                         HRC245DK 00162701
+*                                                              HRC245DK 00162751
+GWRT307X DS    0H                                              HRC245DK 00162801
+         LA    R1,WRT70CCW    Execute the 327x Write           HRC245DK 00162851
+         TM    STATUS,DOCLR   Clear the screen?                HRC245DK 00162901
+         BNO   *+8            ..no                             HRC245DK 00162951
+         LA    R1,ERS70CCW    ..yes, use erase/write           HRC245DK 00163001
+         SPACE 1                                               HRC245DK 00163051
+         STCM  R3,7,MSG70CCW+1(R1)  Set message data address   HRC245DK 00163101
+         STH   R2,MSG70CCW+6(,R1)     and length               HRC245DK 00163151
+         STCM  R3,7,ECH70MSG+1      Also put in the echo msg   HRC245DK 00163201
+         STH   R2,ECH70MSG+6        ...                        HRC245DK 00163251
+         SPACE 1                                               HRC245DK 00163301
+         NI    WRT70D1,255-WCCALRM assume no alary             HRC245DK 00163351
+         TM    PARM,ALARM     Was ALARM option given?          HRC245DK 00163401
+         BNO   *+8            ..no, all set                    HRC245DK 00163451
+         OI    WRT70D1,WCCALRM yes, add ALARM to the WCC       HRC245DK 00163501
+         SPACE 1                                               HRC245DK 00163551
+         SR    R2,R2          Current line number              HRC245DK 00163601
+         IC    R2,@LINE       ...                              HRC245DK 00163651
+         SLL   R2,1           *2 = 1/2 word displacement       HRC245DK 00163701
+         LH    R2,TABLE70(R2)   into 327x line address table   HRC245DK 00163751
+         STCM  R2,3,@LINE70   and plug into 3270 data stream   HRC245DK 00163801
+         STCM  R2,3,@ECHO70   and save for possible read echo  HRC245DK 00163851
+         SPACE 1                                               HRC245DK 00163901
+         B     GWRTGO         ...                              HRC245DK 00163951
+         SPACE 1                                               HRC245DK 00164001
+*                                                              HRC245DK 00164051
+*        3066 Write...                                         HRC245DK 00164101
+*                                                              HRC245DK 00164151
+GWRT3066 DS    0H                                              HRC245DK 00164201
+         STCM  R3,7,WRT66MSG+1 Set message data address        HRC245DK 00164251
+         STH   R2,WRT66MSG+6     and length                    HRC245DK 00164301
+         STCM  R3,7,ECH66MSG+1 Also put in the echo msg        HRC245DK 00164351
+         STH   R2,ECH66MSG+6   ...                             HRC245DK 00164401
+         LA    R1,WRT66CCW    Execute the 3066 Write           HRC245DK 00164451
+         SPACE 1                                               HRC245DK 00164501
+         TM    STATUS,DOCLR   Clear the screen?                HRC245DK 00164551
+         BNO   *+8            ..no                             HRC245DK 00164601
+         LA    R1,ERS66CCW    ..yes, use erase                 HRC245DK 00164651
+         SPACE 1                                               HRC245DK 00164701
+         MVI   WRT66ALM,NOP   Assume no alarm                  HRC245DK 00164751
+         TM    PARM,ALARM     Was ALARM option given?          HRC245DK 00164801
+         BNO   *+8          ..no, all set                      HRC245DK 00164851
+         MVI   WRT66ALM,ALRM66 yes, sound the alarm            HRC245DK 00164901
+         SPACE 1                                               HRC245DK 00164951
+*                                                              HRC245DK 00165001
+*       All set.. Issue the I/O and finish                     HRC245DK 00165051
+*                                                              HRC245DK 00165101
+GWRTGO   DS    0H                                              HRC245DK 00165151
+         NI    STATUS,255-DOCLR Reseet clear screen flag       HRC245DK 00165201
+         BAL   R10,STARTIO1   Talk to the console              HRC245DK 00165251
+         SPACE 1                                               HRC245DK 00165301
+         IC    R1,@LINE       Bump line # for next write       HRC245DK 00165351
+         AH    R1,LINECT      ...                              HRC245DK 00165401
+         STC   R1,@LINE       ...                              HRC245DK 00165451
+         B     CCWNEXT        and process next CCW             HRC245DK 00165501
+         EJECT ,                                               HRC245DK 00165551
+*------------------------------------------------------------  HRC245DK 00165601
+*        GRAFREAD - Read operator response to the prompt       HRC245DK 00165651
+*        -- Unlock keyboard & set CPREAD status                HRC245DK 00165701
+*        -- Wait for ATTN interrupt                            HRC245DK 00165751
+*        -- RMI/Read-Modified                                  HRC245DK 00165801
+*        -- Echo response to screen data area                  HRC245DK 00165851
+*------------------------------------------------------------  HRC245DK 00165901
+         SPACE 1                                               HRC245DK 00165951
+GRAFREAD DS    0H                                              HRC245DK 00166001
+*                                                              HRC245DK 00166051
+*        First, place the screen in CP READ status             HRC245DK 00166101
+*                                                              HRC245DK 00166151
+         LA    R1,CPR70CCW    327x CP READ chan prog           HRC245DK 00166201
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00166251
+         BNE   *+8              ..no, go issue i/o             HRC245DK 00166301
+         LA    R1,CPR66CCW      ..yes, use 3066 chan prog      HRC245DK 00166351
+         BAL   R10,STARTIO1     and talk to the console        HRC245DK 00166401
+         SPACE 1                                               HRC245DK 00166451
+*                                                              HRC245DK 00166501
+*        Then wait for the operator                            HRC245DK 00166551
+*                                                              HRC245DK 00166601
+GRDWAIT  DS    0H                                              HRC245DK 00166651
+         BAL   R10,WAITATTN   Wait for ATTN interrupt          HRC245DK 00166701
+         SPACE 1                                               HRC245DK 00166751
+*                                                              HRC245DK 00166801
+*        Next, read the keyboard input                         HRC245DK 00166851
+*                                                              HRC245DK 00166901
+         SPACE 1                                               HRC245DK 00166951
+         XC    RMDATA,RMDATA  Clear RMI preamble               HRC245DK 00167001
+         XC    INDATA,INDATA    and clear input area           HRC245DK 00167051
+         OI    STATUS,NODATA   (Assume no data entered)        HRC245DK 00167101
+         SPACE 1                                               HRC245DK 00167151
+         LA    R1,INP70CCW    327x Read-Modified CCWs          HRC245DK 00167201
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00167251
+         BNE   *+8              ..no, go issue i/o             HRC245DK 00167301
+         LA    R1,INP66CCW      ..yes, use 3066 chan prog      HRC245DK 00167351
+         BAL   R10,STARTIO1     and talk to the console        HRC245DK 00167401
+         SPACE 1                                               HRC245DK 00167451
+*                                                              HRC245DK 00167501
+*        Look at the key that was pressed                      HRC245DK 00167551
+*                                                              HRC245DK 00167601
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00167651
+         BE    GRD66A          ..yes, different codes          HRC245DK 00167701
+         CLI   RMDATA,AIDCLEAR Clear key?                      HRC245DK 00167751
+         BE    GRDCLEAR        ..yes, clear screen & retry     HRC245DK 00167801
+         CLI   RMDATA,AIDPA1   PA1 key?                        HRC245DK 00167851
+         BE    GRDCLEAR        ..yes, clear screen & retry     HRC245DK 00167901
+         CLI   RMDATA,AIDPA2   PA2 key?                        HRC245DK 00167951
+         BE    GRDCLEAR        ..yes, clear screen & retry     HRC245DK 00168001
+         CLI   RMDATA,AIDENTER ENTER key?                      HRC245DK 00168051
+         BNE   GRAFREAD        ..no, back to CP READ state     HRC245DK 00168101
+         SPACE 1                                               HRC245DK 00168151
+         CLC   @INPINPT,RMDATA+1 did the cursor move?          HRC245DK 00168201
+         BE    GRDRUN70        ..no, no response given         HRC245DK 00168251
+         LA    R0,INP70LEN    Get max 327x Read length         HRC245DK 00168301
+         LA    R1,ECH70OHD    Get echo overhead                HRC245DK 00168351
+         B     GRDECHO        and rejoin with 3066             HRC245DK 00168401
+         SPACE 1                                               HRC245DK 00168451
+GRD66A   DS    0H                                              HRC245DK 00168501
+         TM    RMDATA+2,CANCEL66 3066 CANCEL key?              HRC245DK 00168551
+         BO    GRDCLEAR        ..yes, clear screen & retry     HRC245DK 00168601
+         CLC   @INPT66,RMDATA Did the cursor move?             HRC245DK 00168651
+         BE    GRDRUN         ..no, nothing entered            HRC245DK 00168701
+         LA    R0,INP66LEN    Get max 3066 read length         HRC245DK 00168751
+         LA    R1,ECH66OHD    Get echo overhead                HRC245DK 00168801
+         SPACE 1                                               HRC245DK 00168851
+*                                                              HRC245DK 00168901
+*        Set response length                                   HRC245DK 00168951
+*                                                              HRC245DK 00169001
+GRDECHO  DS    0H                                              HRC245DK 00169051
+         CLI   INDATA,0        Any real data entered?          HRC245DK 00169101
+         BE    GRDRUN          ..no, bypass echo               HRC245DK 00169151
+         SPACE 1                                               HRC245DK 00169201
+         NI    STATUS,255-NODATA turn off "no data"            HRC245DK 00169251
+         LH    R14,CSWCOUNT    Get last CSW count              HRC245DK 00169301
+         LTR   R14,R14         Was there any?                  HRC245DK 00169351
+         BZ    GRDECHO2        ..no, echo to a separate line   HRC245DK 00169401
+         SR    R0,R14          Max len - residual              HRC245DK 00169451
+         STH   R0,INLEN          = actual data length          HRC245DK 00169501
+*                                                              HRC245DK 00169551
+*        See if echo will fit on same line                     HRC245DK 00169601
+*                                                              HRC245DK 00169651
+         AH    R1,MSGLEN       Overhead + prompt length        HRC245DK 00169701
+         AR    R1,R0             + response length             HRC245DK 00169751
+         CH    R1,MAXECHO      Is there room?                  HRC245DK 00169801
+         BH    GRDECHO2        ..no, echo to separate line     HRC245DK 00169851
+         SPACE 1                                               HRC245DK 00169901
+*                                                              HRC245DK 00169951
+*        Write echo:                                           HRC245DK 00170001
+*        -- Clear input area                                   HRC245DK 00170051
+*        -- rewrite prompt message                             HRC245DK 00170101
+*        -- hilite attr (327x 0nly)                            HRC245DK 00170151
+*        -- response                                           HRC245DK 00170201
+*        -- lolite attr (327x only)                            HRC245DK 00170251
+*        -- Reset status to RUNNING                            HRC245DK 00170301
+*                                                              HRC245DK 00170351
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00170401
+         BE    GRDECH66        ..yes, different codes          HRC245DK 00170451
+         STH   R0,ECH70DTA+6   Set echo data length            HRC245DK 00170501
+         LA    R1,ECH70CCW     Use 327x echo chan prog         HRC245DK 00170551
+         B     GRDECHIO        and go do the I/O               HRC245DK 00170601
+         SPACE 1                                               HRC245DK 00170651
+GRDECH66 DS    0H                                              HRC245DK 00170701
+         STH   R0,ECH66DTA+6   Set echo data length            HRC245DK 00170751
+         LA    R1,ECH66CCW     Use 3066 echo chan prog         HRC245DK 00170801
+         SPACE 1                                               HRC245DK 00170851
+GRDECHIO DS    0H                                              HRC245DK 00170901
+         BAL   R10,STARTIO1    Echo response to data area      HRC245DK 00170951
+         SPACE 1                                               HRC245DK 00171001
+         B     CCWNEXT         Done.. get next CCW             HRC245DK 00171051
+         SPACE 3                                               HRC245DK 00171101
+*                                                              HRC245DK 00171151
+*        Response doesn't fit next to prompt:                  HRC245DK 00171201
+*        Just echo response back to its own line               HRC245DK 00171251
+*                                                              HRC245DK 00171301
+GRDECHO2 DS    0H                                              HRC245DK 00171351
+         LA    R1,RUN66CCW    First clear input...             HRC245DK 00171401
+         CLI   CONSTYPE,TYP3066 .. and set RUNNING             HRC245DK 00171451
+         BE    *+8            ...                              HRC245DK 00171501
+         LA    R1,RUN70CCW    ...                              HRC245DK 00171551
+         BAL   R10,STARTIO1   ...                              HRC245DK 00171601
+         LH    R2,INLEN       R2 = response length             HRC245DK 00171651
+         LA    R3,INDATA      R3 -> response data              HRC245DK 00171701
+         B     GRAFWRIT       and call the write code          HRC245DK 00171751
+         SPACE 3                                               HRC245DK 00171801
+*                                                              HRC245DK 00171851
+*        No operator response given                            HRC245DK 00171901
+*        -- Clear input area                                   HRC245DK 00171951
+*        -- Reset status to RUNNING                            HRC245DK 00172001
+*                                                              HRC245DK 00172051
+GRDRUN   DS    0H             Nothing entered..                HRC245DK 00172101
+         LA    R1,RUN66CCW      just clear input area...       HRC245DK 00172151
+         CLI   CONSTYPE,TYP3066   and set RUNNING              HRC245DK 00172201
+         BE    *+8             ...                             HRC245DK 00172251
+GRDRUN70 DS    0H              ...                             HRC245DK 00172301
+         LA    R1,RUN70CCW     ...                             HRC245DK 00172351
+         BAL   R10,STARTIO1    ...                             HRC245DK 00172401
+         SPACE 1                                               HRC245DK 00172451
+         B     CCWNEXT          and back to CCW loop           HRC245DK 00172501
+         SPACE 3                                               HRC245DK 00172551
+*                                                              HRC245DK 00172601
+*        CLEAR or PA key pressed                               HRC245DK 00172651
+*                                                              HRC245DK 00172701
+GRDCLEAR DS    0H                                              HRC245DK 00172751
+         LA    R1,CLR70CCW    Clear screen to CP READ          HRC245DK 00172801
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00172851
+         BNE   *+8              ..no, go issue i/o             HRC245DK 00172901
+         LA    R1,CLR66CCW      ..yes, use 3066 chan prog      HRC245DK 00172951
+         BAL   R10,STARTIO1     and talk to the console        HRC245DK 00173001
+         B     GRDWAIT        and wait for input               HRC245DK 00173051
+./ R 00194100 00231000 $ 00194101 50
+         EJECT ,                                               HRC245DK 00194101
+*------------------------------------------------------------  HRC245DK 00194151
+*        INITCONS - Discover and setup operator console        HRC245DK 00194201
+*        R10 = return address                                  HRC245DK 00194251
+*------------------------------------------------------------  HRC245DK 00194301
+         SPACE 1                                               HRC245DK 00194351
+INITCONS DS    0H                                              HRC245DK 00194401
+         STM   R0,R15,OP2REGS Save incoming registers          HRC245DK 00194451
+         SPACE 1                                               HRC245DK 00194501
+         STIDP OPRCPUID       Store CPU Id                     HRC245DK 00194551
+         CLI   OPRCPUID,X'FF' Running in a VM?                 HRC245DK 00194601
+         BNE   GETRIOCN       ..no, check RIOCN                HRC245DK 00194651
+         L     R1,=F'-1'      Rx=-1 (get console addr)         HRC245DK 00194701
+         DIAG  R1,R2,X'24'    Get console info CP              HRC245DK 00194751
+         BNZ   SETCC3         error or disconnected            HRC245DK 00194801
+         STH   R1,CONSADDR    Save console address             HRC245DK 00194851
+         STCM  R2,12,CONSTYPC Save vdev class/type             HRC245DK 00194901
+         B     SETCONS        and finish setup                 HRC245DK 00194951
+         SPACE 1                                               HRC245DK 00195001
+*                                                              HRC245DK 00195051
+*        Running on a bare system.                             HRC245DK 00195101
+*        Find one of the operator consoles configured          HRC245DK 00195151
+*        in DMKRIO                                             HRC245DK 00195201
+*                                                              HRC245DK 00195251
+GETRIOCN DS    0H                                              HRC245DK 00195301
+         L     R2,=A(DMKRIOCN) Search defined consoles         HRC245DK 00195351
+         LH    R1,2(,R2)      Get device address               HRC245DK 00195401
+         BAL   R10,TESTDEV    See if exists                    HRC245DK 00195451
+         BZ    HAVECN         ..yes, Use it                    HRC245DK 00195501
+         L     R0,4(,R2)      ..no, search alternates          HRC245DK 00195551
+         LA    R2,4(,R2)      ..                               HRC245DK 00195601
+ALTCNLP  DS    0H                                              HRC245DK 00195651
+         LA    R2,4(,R2)      1st or next ALTCONS              HRC245DK 00195701
+         LH    R1,2(,R2)      Get device address               HRC245DK 00195751
+         BAL   R10,TESTDEV    See if exists                    HRC245DK 00195801
+         BZ    HAVECN         ..yes, Use it                    HRC245DK 00195851
+         BCT   R0,ALTCNLP     loop thru them all               HRC245DK 00195901
+         B     SETCC3         Error.. no functional consoles   HRC245DK 00195951
+HAVECN   DS    0H                                              HRC245DK 00196001
+         STH   R1,CONSADDR    Save console addr                HRC245DK 00196051
+         LH    R8,0(,R4)      Get RDEVBLOK addr                HRC245DK 00196101
+         SLL   R8,3           ... dwords to bytes              HRC245DK 00196151
+         AL    R8,=A(DMKRIODV) .. offset into table            HRC245DK 00196201
+         USING RDEVBLOK,R8                                     HRC245DK 00196251
+         LH    R0,RDEVTYPC    Save real device class/type      HRC245DK 00196301
+         STH   R0,CONSTYPC    ...                              HRC245DK 00196351
+         IC    R0,RDEVGRTY    also save the screen type        HRC245DK 00196401
+         STC   R0,CONSGRTY    ...                              HRC245DK 00196451
+         DROP  R8                                              HRC245DK 00196501
+         SPACE 1                                               HRC245DK 00196551
+*                                                              HRC245DK 00196601
+*        Finish the setup based on the device type             HRC245DK 00196651
+*        of the operator console                               HRC245DK 00196701
+*                                                              HRC245DK 00196751
+SETCONS  DS    0H                                              HRC245DK 00196801
+         CLI   CONSTYPC,CLASGRAF  Display device               HRC245DK 00196851
+         BNE   SETTERM            ..no, setup terminal         HRC245DK 00196901
+         OI    STATUS,CNGRAF+DOCLR                             HRC245DK 00196951
+         LA    R0,LASTLN66    3066 has 33 data lines           HRC245DK 00197001
+         CLI   CONSTYPE,TYP3066                                HRC245DK 00197051
+         BE    FINGRF                                          HRC245DK 00197101
+         LA    R0,LASTLN70    327x M2 has 22 data lines        HRC245DK 00197151
+         CLI   CONSGRTY,MODEL2A Special stuff for model 2A     HRC245DK 00197201
+         BNE   FINGRF                                          HRC245DK 00197251
+         LH    R0,@INPT2A         Set Model 2A InputArea       HRC245DK 00197301
+         STCM  R0,3,@WRTINPT      ... Write orders             HRC245DK 00197351
+         STCM  R0,3,@CPRINPT      ... CP READ orders           HRC245DK 00197401
+         STCM  R0,3,@ECHINPT      ... Echo orders              HRC245DK 00197451
+         STCM  R0,3,@CLRINPT      ... Clear orders             HRC245DK 00197501
+         LH    R0,@STAT2A         Set Model 2A StatusArea      HRC245DK 00197551
+         STCM  R0,3,@WRTSTAT      ... Write orders             HRC245DK 00197601
+         STCM  R0,3,@CPRSTAT      ... CP READ orders           HRC245DK 00197651
+         STCM  R0,3,@ECHSTAT      ... Echo orders              HRC245DK 00197701
+         STCM  R0,3,@ECHSTA3      ...                          HRC245DK 00197751
+         STCM  R0,3,@RUNSTAT      ... RUNNING orders           HRC245DK 00197801
+         STCM  R0,3,@RUNSTA2      ...                          HRC245DK 00197851
+         STCM  R0,3,@HLDSTAT      ... HOLDING orders           HRC245DK 00197901
+         LH    R0,@RA3@2A         Set Model 2A RA#3 ending     HRC245DK 00197951
+         STCM  R0,3,@CLRRA3       ... Clear orders             HRC245DK 00198001
+         LA    R0,LASTLN2A    Model 2A only has 18 data lines  HRC245DK 00198051
+FINGRF   DS    0H                                              HRC245DK 00198101
+         STH   R0,MAXLINE     Set the last data line #         HRC245DK 00198151
+         B     CONSRET        and return                       HRC245DK 00198201
+SETTERM  DS    0H                                              HRC245DK 00198251
+         OI    STATUS,CN3215  Set as hardcopy console          HRC245DK 00198301
+CONSRET  DS    0H                                              HRC245DK 00198351
+         OI    STATUS,DIDINIT Initialization finished          HRC245DK 00198401
+         LM    R0,R15,OP2REGS Restore caller's regs            HRC245DK 00198451
+         BR    R10            and return                       HRC245DK 00198501
+         SPACE 3                                               HRC245DK 00198551
+*                                                              HRC245DK 00198601
+*        TESTDEV  - Check to see if a device exists            HRC245DK 00198651
+*        Input R1  = device address                            HRC245DK 00198701
+*              R10 = return address                            HRC245DK 00198751
+*                                                              HRC245DK 00198801
+         SPACE 1                                               HRC245DK 00198851
+TESTDEV  DS    0H                                              HRC245DK 00198901
+         TIO   0(R1)          Ping the device                  HRC245DK 00198951
+         BCR   1,R10          CC3: NotOp - return              HRC245DK 00199001
+         BR    R10            Return with CC=0                 HRC245DK 00199051
+         EJECT ,                                               HRC245DK 00199101
+*------------------------------------------------------------  HRC245DK 00199151
+*        HOLDING - Place screen in HOLDING status and          HRC245DK 00199201
+*                  wait for operator to clear it               HRC245DK 00199251
+*        R10 = return address                                  HRC245DK 00199301
+*------------------------------------------------------------  HRC245DK 00199351
+         SPACE 1                                               HRC245DK 00199401
+HOLDING  DS    0H                                              HRC245DK 00199451
+         ST    R10,HLDSAVE    Save return address              HRC245DK 00199501
+         STM   R0,R4,HLDSAVE2 also save other regs             HRC245DK 00199551
+*                                                              HRC245DK 00199601   
+*        First, place screen in HOLDING status                 HRC245DK 00199651
+*                                                              HRC245DK 00199701
+         LA    R1,HLD70CCW    327x HOLDING chan prog           HRC245DK 00199751
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00199801
+         BNE   *+8              ..no, go issue i/o             HRC245DK 00199851
+         LA    R1,HLD66CCW      ..yes, use 3066 chan prog      HRC245DK 00199901
+         BAL   R10,STARTIO1     and talk to the console        HRC245DK 00199951
+         SPACE 1                                               HRC245DK 00200001
+*                                                              HRC245DK 00200051
+*        Then wait for the operator                            HRC245DK 00200101
+*                                                              HRC245DK 00200151
+HLDWAIT  DS    0H                                              HRC245DK 00200201
+         BAL   R10,WAITATTN   Wait for ATTN interrupt          HRC245DK 00200251
+         SPACE 1                                               HRC245DK 00200301
+*                                                              HRC245DK 00200351
+*        Next, read the keyboard input                         HRC245DK 00200401
+*                                                              HRC245DK 00200451
+         SPACE 1                                               HRC245DK 00200501
+         XC    RMDATA,RMDATA  Clear RMI preamble               HRC245DK 00200551
+         SPACE 1                                               HRC245DK 00200601
+         LA    R1,RMI70CCW    327x Read-Modified CCWs          HRC245DK 00200651
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00200701
+         BNE   *+8              ..no, go issue i/O             HRC245DK 00200751
+         LA    R1,RMI66CCW      ..yes, use 3066 chan prog      HRC245DK 00200801
+         BAL   R10,STARTIO1     and talk to the console        HRC245DK 00200851
+         SPACE 1                                               HRC245DK 00200901
+*                                                              HRC245DK 00200951
+*        Look for "clearing" key press                         HRC245DK 00201001
+*                                                              HRC245DK 00201051
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00201101
+         BE    HLD66A          ..yes, different codes          HRC245DK 00201151
+         CLI   RMDATA,AIDCLEAR Clear key?                      HRC245DK 00201201
+         BE    HLDCLEAR        ..yes, clear screen & return    HRC245DK 00201251
+         CLI   RMDATA,AIDPA1   PA1 key?                        HRC245DK 00201301
+         BE    HLDCLEAR        ..yes, clear screen & return    HRC245DK 00201351
+         CLI   RMDATA,AIDPA2   PA2 key?                        HRC245DK 00201401
+         BE    HLDCLEAR        ..yes, clear screen & return    HRC245DK 00201451
+         B     HLDWAIT         ..no, ignore other keys         HRC245DK 00201501
+         SPACE 1                                               HRC245DK 00201551
+HLD66A   DS    0H                                              HRC245DK 00201601
+         TM    RMDATA+2,CANCEL66 3066 CANCEL key?              HRC245DK 00201651
+         BNO   HLDWAIT         ..no, ignore other keys         HRC245DK 00201701
+         SPACE 1                                               HRC245DK 00201751
+*                                                              HRC245DK 00201801
+*        Clear the screen and set RUNNING status               HRC245DK 00201851
+*                                                              HRC245DK 00201901
+HLDCLEAR DS    0H                                              HRC245DK 00201951
+         LA    R1,CLR70CCW    Clear screen to RUNNING          HRC245DK 00202001
+         CLI   CONSTYPE,TYP3066 3066 Console?                  HRC245DK 00202051
+         BNE   *+8              ..no, go issue i/o             HRC245DK 00202101
+         LA    R1,CLR66CCW      ..yes, use 3066 chan prog      HRC245DK 00202151
+         BAL   R10,STARTIO1     and talk to the console        HRC245DK 00202201
+         SPACE 1                                               HRC245DK 00202251
+*                                                              HRC245DK 00202301
+*        Reset coordinates & return                            HRC245DK 00202351
+*                                                              HRC245DK 00202401
+         MVI   @LINE,0        Reset line numbver               HRC245DK 00202451
+         LM    R0,R4,HLDSAVE2 restore working regs             HRC245DK 00202501
+         L     R10,HLDSAVE    restore return address           HRC245DK 00202551
+         BR    R10            and return                       HRC245DK 00202601
+         EJECT ,                                               HRC245DK 00202651
+*------------------------------------------------------------  HRC245DK 00202701
+*        WAITATTN - Wait for an attention interrupt            HRC245DK 00202751
+*        R10 = return address                                  HRC245DK 00202801
+*------------------------------------------------------------  HRC245DK 00202851
+         SPACE 1                                               HRC245DK 00202901
+WAITATTN DS    0H                                              HRC245DK 00202951
+         ST    R10,ATTNSAVE   Save return address              HRC245DK 00203001
+         SPACE 1                                               HRC245DK 00203051
+*                                                              HRC245DK 00203101
+*        First setup a "resume" PSW with the                   HRC245DK 00203151
+*        current System Mask, etc.                             HRC245DK 00203201
+*                                                              HRC245DK 00203251
+         TM    STATUS,DIDRES      Already did this?            HRC245DK 00203301
+         BO    WAITA              ..yes, bypass                HRC245DK 00203351
+         MVC   CPPRNPSW,PRNPSW    Swap out ProgNew PSW         HRC245DK 00203401
+         MVC   PRNPSW,=A(0,PRGINT)  ...                        HRC245DK 00203451
+         DC    H'0'               Cause a Program Check        HRC245DK 00203501
+         SPACE 1                                               HRC245DK 00203551
+PRGINT   DS    0H             Prorgam Check handler            HRC245DK 00203601
+         STM   R14,R15,CPULOG     Use Logout Area              HRC245DK 00203651
+         BALR  R15,0              Temp base reg                HRC245DK 00203701
+         USING *,R15              ...                          HRC245DK 00203751
+         MVC   RESUMPSW,PROPSW    Save ProgChk Old PSW         HRC245DK 00203801
+         LA    R14,WAITA          Set resume PSW               HRC245DK 00203851
+         STCM  R14,7,RESUMPSW+5   ...                          HRC245DK 00203901
+         MVC   WAITPSW,PROPSW     Also set up Wait PSW         HRC245DK 00203951
+         OI    WAITPSW+1,X'02'    ... add WAIT flag            HRC245DK 00204001
+         SR    R14,R14            ... and address = 0          HRC245DK 00204051
+         STCM  R14,7,WAITPSW+5    ...                          HRC245DK 00204101
+         OI    STATUS,DIDRES      Set one-time flag            HRC245DK 00204151
+         MVC   PRNPSW,CPPRNPSW    Restore ProgNew PSW          HRC245DK 00204201
+         DROP  R15                                             HRC245DK 00204251
+         LM    R14,R15,CPULOG     Restore all registers        HRC245DK 00204301
+         LPSW  RESUMPSW            and continue                HRC245DK 00204351
+         SPACE 1                                               HRC245DK 00204401
+*                                                              HRC245DK 00204451
+*        Save CP's I/O New PSW and set a temp                  HRC245DK 00204501
+*        one to come here                                      HRC245DK 00204551
+*                                                              HRC245DK 00204601
+WAITA    DS    0H                                              HRC245DK 00204651
+         MVC   CPIONPSW,IONPSW    Save current I/O New PSW     HRC245DK 00204701
+         MVC   IONPSW,IOPSW         and set our I/O New PSW    HRC245DK 00204751
+         SPACE 1                                               HRC245DK 00204801
+*                                                              HRC245DK 00204851
+*        Wait for the ATTN interrupt                           HRC245DK 00204901
+*                                                              HRC245DK 00204951
+         LPSW  WAITPSW            Wait for operator            HRC245DK 00205001
+         SPACE 1                                               HRC245DK 00205051
+*                                                              HRC245DK 00205101
+*        Swap back the I/O New PSW and return                  HRC245DK 00205151
+*                                                              HRC245DK 00205201
+WAITDONE DS    0H                                              HRC245DK 00205251
+         MVC   IONPSW,CPIONPSW    Put CP back in control       HRC245DK 00204301
+         L     R10,ATTNSAVE       and return                   HRC245DK 00204351
+         BR    R10                ...                          HRC245DK 00204401
+         SPACE 3                                               HRC245DK 00204451
+*------------------------------------------------------------  HRC245DK 00204501
+*        I/O Interrupt Handler                                 HRC245DK 00204551
+*------------------------------------------------------------  HRC245DK 00204601
+         SPACE 1                                               HRC245DK 00204651
+IOINT    DS    0H                                              HRC245DK 00204701
+         STM   R14,R15,CPULOG     Use Logout Area              HRC245DK 00204751
+         BALR  R15,0              Temp base reg                HRC245DK 00204801
+         USING *,R15              ...                          HRC245DK 00204851
+         CLC   CONSADDR,IOOPSW+2  Interrupt from console?      HRC245DK 00204901
+         BE    CONSINT            ..yes, check it out          HRC245DK 00204951
+         LM    R14,R15,CPULOG     ..no, restore all registers  HRC245DK 00205001
+         LPSW  CPIONPSW           ..    and pass intr to CP    HRC245DK 00205051
+         SPACE 1                                               HRC245DK 00205101
+CONSINT  DS    0H                                              HRC245DK 00205151
+         TM    CSW+4,ATTN         Got ATTN interrupt?          HRC245DK 00205201
+         BO    WAITFIN            ..yes, finish up             HRC245DK 00205251
+         LPSW  IOOPSW             ..no, keep waiting           HRC245DK 00205301
+         SPACE 1                                               HRC245DK 00205351
+WAITFIN  DS    0H                                              HRC245DK 00205401
+         LA    R14,WAITDONE       Set resume PSW               HRC245DK 00205451
+         STCM  R14,7,RESUMPSW+5   ...                          HRC245DK 00205501
+         MVC   IONPSW,CPIONPSW    Restore IONew PSW            HRC245DK 00205551
+         DROP  R15                                             HRC245DK 00205601
+         LM    R14,R15,CPULOG     Restore all registers        HRC245DK 00205651
+         LPSW  RESUMPSW            and continue as WAITDONE    HRC245DK 00205701
+         EJECT ,                                               HRC245DK 00205751
+*------------------------------------------------------------- HRC245DK 00205801
+*        CCWs and other double word things                     HRC245DK 00205851
+*------------------------------------------------------------- HRC245DK 00205901
+         SPACE 1                                               HRC245DK 00205951
+         DC    0D'0'              (alignment)                  HRC245DK 00206001
+OPRCPUID DC    D'0'           CPU Id for VM test               HRC245DK 00206051
+IOPSW    DC    X'00040000',A(IOINT)   Our I/O New PSW          HRC245DK 00206101
+CPIONPSW DC    D'0'           Saved CP I/O New PSW             HRC245DK 00206151
+CPPRNPSW DC    D'0'           Saved CP Prog New PSW            HRC245DK 00206201
+RESUMPSW DC    D'0'           Resume after interupts           HRC245DK 00206251
+WAITPSW  DC    D'0'           Enabled WAIT PSW                 HRC245DK 00206301
+         SPACE 3                                               HRC245DK 00206351
+*--------------------------------------------------------------HRC245DK 00206401
+*              3066 Graphic Support CCWs                       HRC245DK 00206451
+*--------------------------------------------------------------HRC245DK 00206501
+         SPACE 1                                               HRC245DK 00206551
+*        3066 CCW Op Codes                                     HRC245DK 00206601
+         SPACE 1                                               HRC245DK 00206651
+WRT66    EQU   X'01'          Write                            HRC245DK 00206701
+CSR66    EQU   X'0F'          Set Cursor                       HRC245DK 00206751
+SBA66    EQU   X'27'          Set Buffer Address               HRC245DK 00206801
+RD66     EQU   X'06'          Read                             HRC245DK 00206851
+RMI66    EQU   X'0E'          Read Manual Input                HRC245DK 00206901
+ALRM66   EQU   X'0B'          Set Audible Alarm                HRC245DK 00206951
+LOCK66   EQU   X'67'          Lock keyboarad                   HRC245DK 00207001
+ERS66    EQU   X'07'          Erase                            HRC245DK 00207051
+         SPACE 1                                               HRC245DK 00207101
+*        Initial screen formatting (DOCLR flag)                HRC245DK 00207151
+         SPACE 1                                               HRC245DK 00207201
+ERS66CCW CCW   ERS66,0,CC+SILI,1            Erase the screen   HRC245DK 00207251
+         CCW   CSR66,@INPT66,CC+SILI,2      Cursor = InputArea HRC245DK 00207301
+*        Continues to WRT66CCW                                 HRC245DK 00207351 ----
+         SPACE 1                                               HRC245DK 00207401
+*        Write message to data area                            HRC245DK 00207451
+         SPACE 1                                               HRC245DK 00207501
+WRT66CCW CCW   SBA66,@LINE,CC+SILI,2        Move to data line  HRC245DK 00207551
+WRT66MSG CCW   WRT66,*-*,CC+SILI,*-*        Write the message  HRC245DK 00207601
+         CCW   SBA66,@STAT66,CC+SILI,2      Move to StatusArea HRC245DK 00207651
+         CCW   WRT66,$RUNNING,CC+SILI,20    Status = RUNNING   HRC245DK 00207701
+WRT66ALM CCW   NOP,0,CC+SILI,1              Alarm if needed    HRC245DK 00207751
+         CCW   NOP,0,SILI,1                 (the end)          HRC245DK 00207801
+         SPACE 1                                               HRC245DK 00207851
+*        Set Status Area = CP READ                             HRC245DK 00207901
+         SPACE 1                                               HRC245DK 00207951
+CPR66CCW CCW   CSR66,@INPT66,CC+SILI,2      Cursor = InputArea HRC245DK 00208001
+         CCW   SBA66,@STAT66,CC+SILI,2      Move to StatusArea HRC245DK 00208051
+         CCW   WRT66,$CPREAD,CC+SILI,20     Status = CP READ   HRC245DK 00208101
+         CCW   NOP,0,SILI,1                 (the end)          HRC245DK 00208151
+         SPACE 1                                               HRC245DK 00208201
+*        Read Input Area (after ATTN)                          HRC245DK 00208251
+         SPACE 1                                               HRC245DK 00208301
+INP66CCW CCW   RMI66,RMDATA,CC+SILI,3       Read CSR addr & keyHRC245DK 00208351
+         CCW   SBA66,@INPT66,CC+SILI,2      Move to InputArea  HRC245DK 00208401
+         CCW   RD66,INDATA,SILI,L'INDATA    Read response      HRC245DK 00208451
+         SPACE 1                                               HRC245DK 00208551
+*        Get key press in HOLDING state                        HRC245DK 00208601
+         SPACE 1                                               HRC245DK 00208651
+RMI66CCW CCW   RMI66,RMDATA,CC+SILI,3       Read CSR addr & keyHRC245DK 00208701
+         CCW   NOP,0,SILI,1                 (the end)          HRC245DK 00208751
+         SPACE 1                                               HRC245DK 00208801
+*        Echo operator input to prompt line                    HRC245DK 00208851
+*        -- clear input area                                   HRC245DK 00208901
+*        -- restore RUNNING status                             HRC245DK 00208951
+         SPACE 1                                               HRC245DK 00209001
+ECH66CCW CCW   SBA66,@ECHO,CC+SILI,2        Move to prompt ln  HRC245DK 00209051
+ECH66MSG CCW   WRT66,*-*,CC+SILI,*-*        Write the message  HRC245DK 00209101
+ECH66DTA CCW   WRT66,*-*,CC+SILI,*-*        Echo the response  HRC245DK 00209151
+         CCW   SBA66,@INPT66,CC+SILI,2      Move to InputArea  HRC245DK 00209201
+         CCW   WRT66,NULLINPT,CC+SILI,140   set to nulls       HRC245DK 00209251
+         CCW   CSR66,@INPT66,CC+SILI,2      Cursor = InputArea HRC245DK 00209301
+         CCW   SBA66,@STAT66,CC+SILI,2      Move to StatusArea HRC245DK 00209351
+         CCW   WRT66,$RUNNING,CC+SILI,20    Status = RUNNING   HRC245DK 00209401
+         CCW   NOP,0,SILI,1                 (the end)          HRC245DK 00209451
+ECH66OHD EQU   0              Echo line overhead               HRC245DK 00209501
+         SPACE 1                                               HRC245DK 00209551
+*        Set Status = RUNNING                                  HRC245DK 00209601
+*        -- clear input area                                   HRC245DK 00209651
+*        -- restore RUNNING status                             HRC245DK 00209701
+         SPACE 1                                               HRC245DK 00209751
+RUN66CCW CCW   SBA66,@INPT66,CC+SILI,2      Move to InputArea  HRC245DK 00209801
+         CCW   WRT66,NULLINPT,CC+SILI,140   set to nulls       HRC245DK 00209851
+         CCW   CSR66,@INPT66,CC+SILI,2      Cursor = InputArea HRC245DK 00209901
+         CCW   SBA66,@STAT66,CC+SILI,2      Move to StatusArea HRC245DK 00209951
+         CCW   WRT66,$RUNNING,CC+SILI,20    Status = RUNNING   HRC245DK 00210001
+         CCW   NOP,0,SILI,1                 (the end)          HRC245DK 00210051
+         SPACE 1                                               HRC245DK 00210101
+*        Set Status Area = HOLDING                             HRC245DK 00210151
+         SPACE 1                                               HRC245DK 00210201
+HLD66CCW CCW   SBA66,@STAT66,CC+SILI,2      Move to StatusArea HRC245DK 00210251
+         CCW   WRT66,$HOLDING,CC+SILI,20    Status = HOLDING   HRC245DK 00210301
+         CCW   NOP,0,SILI,1                 (the end)          HRC245DK 00210351
+         SPACE 1                                               HRC245DK 00210401
+*        Clear data area preserving                            HRC245DK 00210451
+*        Cursor, Input Area, and Status                        HRC245DK 00210501 ---
+         SPACE 1                                               HRC245DK 00210551
+CLR66CCW CCW   RMI66,CLRMI,CC+SILI,3        Save cursor adr    HRC245DK 00210601
+         CCW   CSR66,@ORIG66,CC+SILI,2      Set cursor = 0,0   HRC245DK 00210651
+         CCW   SBA66,@INPT66,CC+SILI,2      Move to InputArea  HRC245DK 00210701
+         CCW   RD66,CLRDATA,CC+SILI,160     Save last 2 lines  HRC245DK 00210751
+         CCW   ERS66,0,CC+SILI,1            Erase the screen   HRC245DK 00210801
+         CCW   SBA66,@INPT66,CC+SILI,2      Move to InputArea  HRC245DK 00210851
+         CCW   WRT66,CLRDATA,CC+SILI,160    Restore last 2 lineHRC245DK 00210901
+         CCW   CSR66,CLRMI,CC+SILI,2        Restore cursor addrHRC245DK 00210951
+         CCW   NOP,0,SILI,1                 (the end)          HRC245DK 00211001
+         EJECT ,                                               HRC245DK 00211051
+*------------------------------------------------------------- HRC245DK 00211101
+*              327x Graphic Support CCWs                       HRC245DK 00211151
+*------------------------------------------------------------- HRC245DK 00211201
+         SPACE 1                                               HRC245DK 00211251
+*        327x CCW Opcodes                                      HRC245DK 00211301
+         SPACE 1                                               HRC245DK 00211351
+WRT70    EQU   X'01'          Write                            HRC245DK 00211401
+ERS70    EQU   X'05'          Erase/Write                      HRC245DK 00211451
+RB70     EQU   X'02'          Read Buffer                      HRC245DK 00211501
+RM70     EQU   X'06'          Read Modified                    HRC245DK 00211551
+SEL70    EQU   X'0B'          Select                           HRC245DK 00211601
+EAU70    EQU   X'0F'          Erase All Unprotected            HRC245DK 00211651
+         SPACE 1                                               HRC245DK 00211701
+*        Initial screen formatting (DOCLR flag)                HRC245DK 00211751
+         SPACE 1                                               HRC245DK 00211801
+ERS70CCW CCW   ERS70,WRT70D1,CD+SILI,WRT70D1L  WCC; SBA        HRC245DK 00211851
+         CCW   0,@LINE70,CD+SILI,2             current line    HRC245DK 00211901
+MSG70CCW EQU   *-ERS70CCW                                      HRC245DK 00211951
+ERS70MSG CCW   0,*-*,CD+SILI,*-*               message data    HRC245DK 00212001
+         CCW   0,WRT70D2,SILI,ERS70D2L         SBA Input       HRC245DK 00212051
+*                                              SF uprot        HRC245DK 00212101
+*                                              SBA Status      HRC245DK 00212151
+*                                              SF prot;RUNNING HRC245DK 00212201
+*                                              SF prot         HRC245DK 00212251
+         SPACE 1                                               HRC245DK 00212301
+*        Write message to data area                            HRC245DK 00212351
+         SPACE 1                                               HRC245DK 00212401
+WRT70CCW CCW   WRT70,WRT70D1,CD+SILI,WRT70D1L  WCC; SBA        HRC245DK 00212451
+         CCW   0,@LINE70,CD+SILI,2             current line    HRC245DK 00212501
+WRT70MSG CCW   0,*-*,CD+SILI,*-*               message data    HRC245DK 00212551
+         CCW   0,WRT70D2,SILI,WRT70D2L         SBA Input       HRC245DK 00212601
+*                                              SF uprot        HRC245DK 00212651
+*                                              SBA Status      HRC245DK 00212701
+*                                              SF prot;RUNNING HRC245DK 00212751
+         SPACE 1                                               HRC245DK 00212801
+*        Set Status = CP READ                                  HRC245DK 00212851
+         SPACE 1                                               HRC245DK 00212901
+CPR70CCW CCW   WRT70,CPR70D1,SILI,CPR70D1L     WCC; SBA Input  HRC245DK 00212951
+*                                              SF uprot; IC    HRC245DK 00213001
+*                                              SBA Status      HRC245DK 00213051
+*                                              SF high;CP READ HRC245DK 00213101
+         SPACE 1                                               HRC245DK 00213151
+*        Read operator input                                   HRC245DK 00213201
+         SPACE 1                                               HRC245DK 00213251
+INP70CCW CCW   WRT70,INP70D1,CC+SILI,INP70D1L  WCC; SBA Input  HRC245DK 00213301
+         CCW   RM70,RMDATA,CD+SILI,6           AID;csr;SBA;addrHRC245DK 00213351
+         CCW   0,INDATA,SILI,L'INDATA          InputArea       HRC245DK 00213401
+         SPACE 1                                               HRC245DK 00213451
+*        Get key press in HOLDING state                        HRC245DK 00213501
+         SPACE 1                                               HRC245DK 00213551
+RMI70CCW CCW   RM70,RMDATA,SILI,3              AID; C1,C2      HRC245DK 00213601
+         SPACE 1                                               HRC245DK 00213651 ---
+*        Echo operator input to prompt line                    HRC245DK 00213701
+*        -- clear input area                                   HRC245DK 00213751
+*        -- restore RUNNING status                             HRC245DK 00213801
+         SPACE 1                                               HRC245DK 00213851
+ECH70CCW CCW   WRT70,ECH70D1,CD+SILI,ECH70D1L  WCC; SBA Input  HRC245DK 00213901
+*                                              SF hide; IC;    HRC245DK 00213951
+*                                              EAU Status      HRC245DK 00214001
+*                                              SBA             HRC245DK 00214051
+         CCW   0,@ECHO70,CD+SILI,2             prompt line     HRC245DK 00214101
+ECH70MSG CCW   0,*-*,CD+SILI,*-*               message data    HRC245DK 00214151
+         CCW   0,ECH70D2,CD+SILI,ECH70D2L      SF high         HRC245DK 00214201
+ECH70DTA CCW   0,INDATA,CD+SILI,*-*            response data   HRC245DK 00214251
+         CCW   0,ECH70D3,SILI,ECH70D3L         SF prot         HRC245DK 00214301
+*                                              SBA Status      HRC245DK 00214351
+*                                              SF prot;RUNNING HRC245DK 00214401
+ECH70OHD EQU   2              Overhead for echo attributes     HRC245DK 00214451
+         SPACE 1                                               HRC245DK 00214501
+*        After null operator response:                         HRC245DK 00214551
+*        -- clear input area                                   HRC245DK 00214601
+*        -- restore RUNNING status                             HRC245DK 00214651
+         SPACE 1                                               HRC245DK 00214701
+RUN70CCW CCW   WRT70,RUN70D1,SILI,RUN70D1L     WCC; SBA Input  HRC245DK 00214751
+*                                              SF hide; IC;    HRC245DK 00214801
+*                                              EAU Status      HRC245DK 00214851
+*                                              SBA Status      HRC245DK 00214901
+*                                              SF prot;RUNNING HRC245DK 00214951
+         SPACE 1                                               HRC245DK 00215001
+*        Set Status = HOLDING                                  HRC245DK 00215051
+         SPACE 1                                               HRC245DK 00215101
+HLD70CCW CCW   WRT70,HLD70D1,SILI,HLD70D1L     WCC; SBA Status HRC245DK 00215151
+*                                              SF high;HOLDING HRC245DK 00215201
+         SPACE 1                                               HRC245DK 00215251
+*        Clear data area (after HOLDING)                       HRC245DK 00215301
+         SPACE 1                                               HRC245DK 00215351
+CLR70CCW CCW   WRT70,CLR70D1,SILI,CLR70D1L     WCC; SBA[0,0]   HRC245DK 00215401
+*                                              RA[5,79],00     HRC245DK 00215451
+*                                              RA[11,79],00    HRC245DK 00215501
+*                                              RA[@RA3],00     HRC245DK 00215551
+*                                              RA[Input],00    HRC245DK 00215601
+         EJECT ,                                               HRC245DK 00215651
+*--------------------------------------------------------------HRC245DK 00215701
+*        CCWs for 3210/3215 Console                            HRC245DK 00225751
+*--------------------------------------------------------------HRC245DK 00215801
+         SPACE 1                                               HRC245DK 00225851
+*        CCW Op Codes                                          HRC245DK 00225901
+         SPACE 1                                               HRC245DK 00225951
+NOP      EQU   X'03'          Nop CCW opcode                   HRC245DK 00226001
+WRT      EQU   X'09'          Console write CCW opcode         HRC245DK 00226051
+WRTNC    EQU   X'01'          Console write no CR CCW opcode   HRC245DK 00226101
+ALRM     EQU   X'0B'          Console alarm CCw                HRC245DK 00226151
+RD       EQU   X'0A'          Console read CCW opcode          HRC245DK 00226201
+         SPACE 1                                               HRC245DK 00226251
+ALRM3210 CCW   ALRM,0,CC+SILI,1         Sound the alarm        HRC245DK 00226301
+WRT3210  CCW   WRT,*-*,CC+SILI,*-*      Write/carriage return  HRC245DK 00226351
+         CCW   NOP,0,SILI,1             (the end)              HRC245DK 00226401
+         SPACE 1                                               HRC245DK 00226451
+RD3210   CCW   RD,INDATA,SILI,INDATAL   Read operator response HRC245DK 00226501
+./ R 00245000 00262000 $ 00245001 50
+         EJECT ,                                               HRC245DK 00245001
+*------------------------------------------------------------- HRC245DK 00245051
+*              3066 Constants & Buffer Locations               HRC245DK 00245101
+*------------------------------------------------------------- HRC245DK 00245151
+         SPACE 1                                               HRC245DK 00245201
+*                             RMI byte 2:                      HRC245DK 00245251
+ENTER66  EQU   X'80'            3066 ENTER Mask                HRC245DK 00245301
+CANCEL66 EQU   X'40'            3066 CANCEL Mask               HRC245DK 00245351
+LASTLN66 EQU   33             3066 last line of data area      HRC245DK 00245401
+         SPACE 1                                               HRC245DK 00245451
+@ORIG66  DC    AL1(0,0)       3066 Screen origin               HRC245DK 00245501
+@INPT66  DC    AL1(33,0)      3066 Input area                  HRC245DK 00245551
+@STAT66  DC    AL1(34,60)     3066 Status area                 HRC245DK 00245601
+         SPACE 3                                               HRC245DK 00245651
+*------------------------------------------------------------- HRC245DK 00245701
+*              327x Buffer Locations, Orders, & Attributes     HRC245DK 00245751
+*------------------------------------------------------------- HRC245DK 00245801
+         SPACE 1                                               HRC245DK 00245851
+*        Write Control Characters (WCC)                        HRC245DK 00245901
+         SPACE 1                                               HRC245DK 00245951
+WCCNULL  EQU   X'C0'          Nothing special                  HRC245DK 00246001
+WCCRSMDT EQU   X'C3'          KB Restore; Reset MDTs           HRC245DK 00246051
+WCCNOMDT EQU   X'C2'          KB Restore                       HRC245DK 00246101
+WCCALRM  EQU   X'04'          WCC Alarm bit                    HRC245DK 00246151
+         SPACE 1                                               HRC245DK 00246201
+*        327x Buffer Orders                                    HRC245DK 00246251
+         SPACE 1                                               HRC245DK 00246301
+SBA      EQU   X'11'          Set Buffer Address               HRC245DK 00246351
+SF       EQU   X'1D'          Start Field                      HRC245DK 00246401
+IC       EQU   X'13'          Insert Cursor                    HRC245DK 00246451
+RA       EQU   X'3C'          Repeat to Address                HRC245DK 00246501
+EAU      EQU   X'12'          Erase All Unprotected            HRC245DK 00246551
+         SPACE 1                                               HRC245DK 00246601
+*        Field Attributes                                      HRC245DK 00246651
+         SPACE 1                                               HRC245DK 00246701
+ATTRPROT EQU   X'60'          Protected; normal                HRC245DK 00246751
+ATTRHIGH EQU   X'E8'          Protected; intense               HRC245DK 00246801
+ATTRINPT EQU   X'C1'          Unprotected; normal; MDT         HRC245DK 00246851
+ATTRHIDE EQU   X'4D'          Unprotected; hidden; MDT         HRC245DK 00246901
+         SPACE 1                                               HRC245DK 00246951
+*        327x Attention Id (AID) Codes                         HRC245DK 00247001
+         SPACE 1                                               HRC245DK 00247051
+AIDCLEAR EQU   X'6D'          Clear                            HRC245DK 00247101
+AIDPA1   EQU   X'6C'          PA1/Dup                          HRC245DK 00247151
+AIDPA2   EQU   X'6E'          PA2/Cancel                       HRC245DK 00247201
+AIDENTER EQU   X'7D'          Enter                            HRC245DK 00247251
+         SPACE 1                                               HRC245DK 00247301
+*        Buffer Locations                                      HRC245DK 00247351
+         SPACE 1                                               HRC245DK 00247401
+@LINE70  DC    AL2(*-*)       327x current output line         HRC245DK 00247451
+@ECHO70  DC    AL2(*-*)       327x last prompt line            HRC245DK 00247501
+@ORIG70  EQU   X'4040'        327x Screen origin (0,0)         HRC245DK 00247551
+@INPT70  EQU   X'5B5F'        327x Input area    (21,79)       HRC245DK 00247601
+@STAT70  EQU   X'5D6B'        327x Status area   (23,59)       HRC245DK 00247651
+@LAST70  EQU   X'5D7F'        327x Last location (23,79)       HRC245DK 00247701
+@RA1@70  EQU   X'C75F'        327x RA#1 end      (5,79)        HRC245DK 00247751
+@RA2@70  EQU   X'4E7F'        327x RA#2 end      (11,79)       HRC245DK 00247801
+@RA3@70  EQU   X'D65F'        327x RA#3 end      (17,79)       HRC245DK 00247851
+LASTLN70 EQU   22             327x last line of data area      HRC245DK 00247901
+         SPACE 1                                               HRC245DK 00247951
+*        Alternate buffer addresses for 3278-2A                HRC245DK 00248001
+         SPACE 1                                               HRC245DK 00248051
+@INPT2A  DC    X'D65F'        Mod2A Input area   (17,79)       HRC245DK 00248101
+@STAT2A  DC    X'D86B'        Mod2A Status area  (19,59)       HRC245DK 00248151
+@LAST2A  DC    X'D87F'        Mod2A Last location(19,79)       HRC245DK 00248201
+@RA3@2A  DC    X'D26F'        Mod2A RA#3 end     (14,79)       HRC245DK 00248251
+LASTLN2A EQU   18             Mod2A last line of data area     HRC245DK 00248301
+         EJECT ,                                               HRC245DK 00248351
+*------------------------------------------------------------- HRC245DK 00248401
+*              327x Data Streams                               HRC245DK 00248451
+*------------------------------------------------------------- HRC245DK 00248501
+         SPACE 1                                               HRC245DK 00248551
+*        Write message to data area                            HRC245DK 00248601
+         SPACE 1                                               HRC245DK 00248651
+WRT70D1  EQU   *                                               HRC245DK 00248701
+         DC    AL1(WCCRSMDT)      Restore keyboard, reset MDTs HRC245DK 00248751
+         DC    AL1(SBA)           SBA [@LINE70]                HRC245DK 00248801
+WRT70D1L EQU   *-WRT70D1                                       HRC245DK 00248851
+*                                 message data                 HRC245DK 00248901
+WRT70D2  EQU   *                                               HRC245DK 00248951
+         DC    AL1(SBA)           SBA                          HRC245DK 00249001
+@WRTINPT DC    AL2(@INPT70)       InputArea                    HRC245DK 00249051
+         DC    AL1(SF,ATTRINPT)   SF Unprotected MDT           HRC245DK 00249101
+         DC    AL1(IC)            IC                           HRC245DK 00249151
+         DC    AL1(SBA)           SBA                          HRC245DK 00249201
+@WRTSTAT DC    AL2(@STAT70)       StatusArea                   HRC245DK 00249251
+         DC    AL1(SF,ATTRPROT)   SF Protected                 HRC245DK 00249301
+         DC    CL19'RUNNING'      'RUNNING'                    HRC245DK 00249351
+WRT70D2L EQU   *-WRT70D2                                       HRC245DK 00249401
+         DC    AL1(SF,ATTRPROT)   SF Protected (if formatting) HRC245DK 00249451
+ERS70D2L EQU   *-WRT70D2                                       HRC245DK 00249501
+         SPACE 1                                               HRC245DK 00249551
+*        Set Status = CP READ                                  HRC245DK 00249601
+         SPACE 1                                               HRC245DK 00249651
+CPR70D1  EQU   *                                               HRC245DK 00249701
+         DC    AL1(WCCNOMDT)      Restore keyboard             HRC245DK 00249751
+         DC    AL1(SBA)           SBA                          HRC245DK 00249801
+@CPRINPT DC    AL2(@INPT70)       InputArea                    HRC245DK 00249851
+         DC    AL1(SF,ATTRINPT)   SF Unprotected MDT           HRC245DK 00249901
+         DC    AL1(IC)            IC                           HRC245DK 00249951
+         DC    AL1(SBA)           SBA [@STAT70]                HRC245DK 00250001
+@CPRSTAT DC    AL2(@STAT70)       StatusArea                   HRC245DK 00250051
+         DC    AL1(SF,ATTRHIGH)   SF high                      HRC245DK 00250101
+         DC    CL19'CP READ'      'CP READ'                    HRC245DK 00250151
+CPR70D1L EQU   *-CPR70D1                                       HRC245DK 00250201
+         SPACE 1                                               HRC245DK 00250251
+*        Prepare to read operator input                        HRC245DK 00250301
+         SPACE 1                                               HRC245DK 00250351
+INP70D1  EQU   *                                               HRC245DK 00250401
+         DC    AL1(WCCNULL,SBA)                                HRC245DK 00250451
+@INPINPT DC    AL2(@INPT70)       InputArea                    HRC245DK 00250501
+INP70D1L EQU   *-INP70D1                                       HRC245DK 00250551
+         SPACE 1                                               HRC245DK 00250601
+*        Echo operator input to prompt line                    HRC245DK 00250651
+*        -- clear input area                                   HRC245DK 00250701
+*        -- restore RUNNING status                             HRC245DK 00250751
+         SPACE 1                                               HRC245DK 00250801
+ECH70D1  EQU   *                                               HRC245DK 00250851
+         DC    AL1(WCCRSMDT)      Restore keyboard, reset MDTs HRC245DK 00250901
+         DC    AL1(SBA)           SBA                          HRC245DK 00250951
+@ECHINPT DC    AL2(@INPT70)       InputArea                    HRC245DK 00251001
+         DC    AL1(SF,ATTRHIDE)   SF hide                      HRC245DK 00251051
+         DC    AL1(IC)            IC                           HRC245DK 00251101
+         DC    AL1(EAU)           EAU                          HRC245DK 00251151
+@ECHSTAT DC    AL2(@STAT70)       StatusArea                   HRC245DK 00251201
+         DC    AL1(SBA)           SBA [@ECHO70]                HRC245DK 00251251
+ECH70D1L EQU   *-ECH70D1                                       HRC245DK 00251301 ---
+*                                 message data                 HRC245DK 00251351
+ECH70D2  EQU   *                                               HRC245DK 00251401
+         DC    AL1(SF,ATTRHIGH)   SF high                      HRC245DK 00251451
+ECH70D2L EQU   *-ECH70D2                                       HRC245DK 00251501
+*                                 response data                HRC245DK 00251551
+ECH70D3  EQU   *                                               HRC245DK 00251601
+         DC    AL1(SF,ATTRPROT)   SF prot                      HRC245DK 00251651
+         DC    AL1(SBA)           SBA                          HRC245DK 00251701
+@ECHSTA3 DC    AL2(@STAT70)       StatusArea                   HRC245DK 00251751
+         DC    AL1(SF,ATTRPROT)   SF prot                      HRC245DK 00251801
+         DC    CL19'RUNNING'      'RUNNING'                    HRC245DK 00251851
+ECH70D3L EQU   *-ECH70D3                                       HRC245DK 00251901
+         SPACE 1                                               HRC245DK 00251951
+*        Set Status = RUNNING                                  HRC245DK 00252001
+*        -- clear input area                                   HRC245DK 00252051
+*        -- restore RUNNING status                             HRC245DK 00252101
+         SPACE 1                                               HRC245DK 00252151
+RUN70D1  EQU   *                                               HRC245DK 00252201
+         DC    AL1(WCCRSMDT)      Restore keyboard, reset MDTs HRC245DK 00252251
+         DC    AL1(SBA)           SBA                          HRC245DK 00252301
+@RUNINPT DC    AL2(@INPT70)       InputArea                    HRC245DK 00252351
+         DC    AL1(SF,ATTRHIDE)   SF hide                      HRC245DK 00252401
+         DC    AL1(IC)            IC                           HRC245DK 00252451
+         DC    AL1(EAU)           EAU                          HRC245DK 00252501
+@RUNSTAT DC    AL2(@STAT70)       StatusArea                   HRC245DK 00252551
+         DC    AL1(SBA)           SBA                          HRC245DK 00252601
+@RUNSTA2 DC    AL2(@STAT70)       StatusArea                   HRC245DK 00252651
+         DC    AL1(SF,ATTRPROT)   SF prot                      HRC245DK 00252701
+         DC    CL19'RUNNING'      'RUNNING'                    HRC245DK 00252751
+RUN70D1L EQU   *-RUN70D1                                       HRC245DK 00252801
+         SPACE 1                                               HRC245DK 00252851
+*        Set Status = HOLDING                                  HRC245DK 00252901
+         SPACE 1                                               HRC245DK 00252951
+HLD70D1  EQU   *                                               HRC245DK 00253001
+         DC    AL1(WCCNOMDT)      Restore keyboard             HRC245DK 00253051
+         DC    AL1(SBA)           SBA                          HRC245DK 00253101
+@HLDSTAT DC    AL2(@STAT70)       StatusArea                   HRC245DK 00253151
+         DC    AL1(SF,ATTRHIGH)   SF high                      HRC245DK 00253201
+         DC    CL19'HOLDING'      'HOLDING'                    HRC245DK 00253251
+HLD70D1L EQU   *-HLD70D1                                       HRC245DK 00253301
+         SPACE 1                                               HRC245DK 00253351
+*        Clear data area                                       HRC245DK 00253401
+         SPACE 1                                               HRC245DK 00253451
+CLR70D1  EQU   *                                               HRC245DK 00253501
+         DC    AL1(WCCRSMDT)      Restore keyboard, reset MDTs HRC245DK 00253551
+         DC    AL1(SBA),AL2(@ORIG70)      SBA [0,0]            HRC245DK 00253601
+         DC    AL1(RA),AL2(@RA1@70),X'00' RA [5,79] 00         HRC245DK 00253651
+         DC    AL1(RA),AL2(@RA2@70),X'00' RA [11,79] 00        HRC245DK 00253701
+         DC    AL1(RA)                    RA                   HRC245DK 00253751
+@CLRRA3  DC    AL2(@RA3@70)               RA-end-3             HRC245DK 00253801
+         DC    AL1(0,RA)                  00; RA               HRC245DK 00253851
+@CLRINPT DC    AL2(@INPT70)               InputArea            HRC245DK 00253901
+         DC    AL1(0)                     00                   HRC245DK 00253951
+CLR70D1L EQU   *-CLR70D1                                       HRC245DK 00254001
+         EJECT ,                                               HRC245DK 00254051
+./ I 00263000 $ 00263050 50
+         ORG   OPREGS         Map the return registers         HRC245DK 00263050
+OPREG0   DS    F              Return R0 = response length      HRC245DK 00263000
+OPREG1   DS    F              Return R1 -> response data       HRC245DK 00263150
+         ORG   ,                                               HRC245DK 00263100
+         SPACE 1                                               HRC245DK 00263250
+OP2REGS  DC    16F'0'         2nd level register save          HRC245DK 00263200
+IOREGS   DC    16F'0'         I/O routine register save        HRC245DK 00263350
+HLDSAVE  DC    F'0'           Save area for HOLDING            HRC245DK 00263300
+HLDSAVE2 DC    5F'0'          more regs from HOLDING           HRC245DK 00263450
+ATTNSAVE DC    F'0'           Save area for WAITATTN           HRC245DK 00263400
+./ R 00267000 00272200 $ 00267001 100
+DOREAD   EQU   X'80'          Read flag (in PARM2)             HRC245DK 00267001
+         SPACE 1                                               HRC245DK 00267101
+STATUS   DC    X'00'          Status flags                     HRC245DK 00267201
+DIDINIT  EQU   X'80'          X------- Did One-time init       HRC245DK 00267301
+CNGRAF   EQU   X'40'          -X------ Graphic console         HRC245DK 00267401
+CN3215   EQU   X'20'          --X----- Hardcopy console        HRC245DK 00267501
+DOCLR    EQU   X'10'          ---X---- Clear screen needed     HRC245DK 00267601
+NODATA   EQU   X'08'          ----X--- No data entered         HRC245DK 00267701
+DIDRES   EQU   X'04'          -----X-- Resume PSW built        HRC245DK 00267801
+*        EQU   X'02'          ------X- (available)             HRC245DK 00267901
+*        EQU   X'01'          -------X (available)             HRC245DK 00268001
+         SPACE 1                                               HRC245DK 00268101
+CONSGRTY DC    X'00'          Graphic screen type (RDEVDVTY)   HRC245DK 00268201
+MODEL2A  EQU   X'0C'          .. value for  3278-2A            HRC245DK 00268301
+CONSTYPC DC    AL1(*-*)       Console device class             HRC245DK 00268401
+CONSTYPE DC    AL1(*-*)       Console device type              HRC245DK 00268501
+CONSADDR DC    XL2'00'        Console address                  HRC245DK 00268601
+         SPACE 1                                               HRC245DK 00268701
+$RUNNING DC    CL20'RUNNING'  Status = RUNNING                 HRC245DK 00268801
+$CPREAD  DC    CL20'CP READ'  Status = CP READ                 HRC245DK 00268901
+$HOLDING DC    CL20'HOLDING'  Status = HOLDING                 HRC245DK 00269001
+         SPACE 1                                               HRC245DK 00269101
+SYSMASK  DC    X'00'          System Mask save                 HRC245DK 00269201
+         DC    XL1'0'         (available)                      HRC245DK 00269301
+@LINE    DC    H'0'           Next data line addr (r,c)        HRC245DK 00269401
+@ECHO    DC    H'0'           Prompt line addr (r,c)           HRC245DK 00269501
+MAXLINE  DC    H'0'           Highest line in data area        HRC245DK 00269601
+LINECT   DC    H'0'           Lines in last message            HRC245DK 00269701
+MSGLEN   DC    H'0'           Length of last message           HRC245DK 00269801
+MAXECHO  DC    H'0'           Max length for echo              HRC245DK 00269901
+CSWSTAT  DC    H'0'           Accumulated CSW status           HRC245DK 00270001
+CSWCOUNT DC    H'0'           CSW residual count               HRC245DK 00270101
+         SPACE 1                                               HRC245DK 00270201
+INLEN    DC    H'0'           Length of operator response      HRC245DK 00270301
+RMDATA   DC    XL6'00'        AID, Cursor, SBA, addr           HRC245DK 00270401
+INDATA   DC    XL140'00'      Response data                    HRC245DK 00270501
+INDATAL  EQU   L'INDATA       (length)                         HRC245DK 00270601
+INP66LEN EQU   L'INDATA       Max read length                  HRC245DK 00270701
+INP70LEN EQU   L'INDATA       Max read length                  HRC245DK 00270801
+NULLINPT DC    XL140'00'      Nulls to clear InputArea         HRC245DK 00270901
+CLRMI    DS    XL3            Save 3066 cursor                 HRC245DK 00271001
+CLRDATA  DS    XL160          Save last 2 3066 rows            HRC245DK 00271101

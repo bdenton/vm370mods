@@ -1,0 +1,14 @@
+./ * HRC241DK - Improved PFKey RETRIEVE Function
+./ *
+./ * New DSECT to map the PF Key Retrieve Block which is the
+./ * main control structure for the RETRIEVE PF key function.
+./ * This control block points to the CP virtual storage page
+./ * allocated to hold the retrieve data ring buffer. It also 
+./ * contains the insert and retrieve cursors for the buffer.
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 20-Jan-2025 WDENTON  Initial version for VM/370-CE 1.1.3
+./ *
