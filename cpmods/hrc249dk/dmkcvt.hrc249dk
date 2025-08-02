@@ -1,0 +1,215 @@
+./ * HRC249DK - Add 3270 buffer address helper methods
+./ *
+./ * Add a conversion methods to convert 3270 buffer locations 
+./ * to/from 12-bit notation.
+./ * -- DMKCVTRC - Converts 0-based row/column to two bytes
+./ *               for the 12-bit based buffer address
+./ * -- DMKCVTBA - Converts the two-byte 3270 buffer address
+./ *               address to 0-based row/column
+./ * -- DMKCVT12 - Converts the 14-bit linear buffer address
+./ *               to two bytes with the 12-bit based address
+./ * -- DMKCVT14 - Converts the 2-byte buffer address to the
+./ *               14-bit decoded buffer address                
+./ *
+./ * HISTORY:
+./ * 18-Nov-2024 WDENTON  Initial version for VM370CE V1 R1.2
+./ *  3-Jun-2025 WDENTON  Added extra conversion methods
+./ *
+./ I 00015000 $ 00015100 100
+*        DMKCVTRC - Convert 327x row/col to buffer address     HRC249DK 00015100
+*        DMKCVTBA - Convert 327x buffer address to row/col     HRC249DK 00015200
+*        DMKCVT12 - Convert 14-bit address to 12-bit address   HRC249DK 00015300
+*        DMKCVT14 - Convert 2-byte encoded addr to 14-bit      HRC249DK 00015400
+./ I 00030100 $ 00030200 100
+         ENTRY DMKCVTRC                                        HRC249DK 00030200
+         ENTRY DMKCVTBA                                        HRC249DK 00030300
+         ENTRY DMKCVT12                                        HRC249DK 00030400
+         ENTRY DMKCVT14                                        HRC249DK 00030500
+         EXTRN DMKTBL68                                        HRC249DK 00030600
+./ R 00654000 $ 00653003 10
+         EJECT ,                                               HRC249DK 00653003
+*                                                              HRC249DK 00653013
+* SUBROUTINE NAME -                                            HRC249DK 00653023
+*                                                              HRC249DK 00653033
+*        DMKCVTRC                                              HRC249DK 00653043
+*                                                              HRC249DK 00653053
+* FUNCTION -                                                   HRC249DK 00653063
+*                                                              HRC249DK 00653073
+*        Convert a 3270 screen location (row, column) into     HRC249DK 00653083
+*        the equivalent buffer address                         HRC249DK 00653093
+*                                                              HRC249DK 00653103
+* ATTRIBUTES -                                                 HRC249DK 00653113
+*                                                              HRC249DK 00653123
+*        Serially reusable, resident, called via BALR          HRC249DK 00653133
+*                                                              HRC249DK 00653143
+* ENTRY POINT -                                                HRC249DK 00653153
+*                                                              HRC249DK 00653163
+*        DMKCVTRC - Convert row/column to 3270 buffer addr     HRC249DK 00653173
+*                                                              HRC249DK 00653183
+* ENTRY CONDITIONS -                                           HRC249DK 00653193
+*                                                              HRC249DK 00653203
+*        R0 = 327x screen position (column)                    HRC249DK 00653213
+*        R1 = 327x screen position (row)                       HRC249DK 00653223
+*        R2 = 327x screen width                                HRC249DK 00653233
+*                                                              HRC249DK 00653243
+*        Note: Row and column numbers are both                 HRC249DK 00653253
+*              relative to zero                                HRC249DK 00653263
+*                                                              HRC249DK 00653273
+* EXIT CONDITIONS -                                            HRC249DK 00653283
+*                                                              HRC249DK 00653293
+*        R1 = 3270 buffer address (low-order half word)        HRC249DK 00653303
+*                                                              HRC249DK 00653313
+         SPACE 3                                               HRC249DK 00653323
+DMKCVTRC DS    0H                                              HRC249DK 00653333
+         USING *,R15                                           HRC249DK 00653343
+         STM   R0,R1,TEMPSAVE Save working registers           HRC249DK 00653353
+         MR    R0,R2          Raw address = Row# * width       HRC249DK 00653363
+         A     R1,TEMPSAVE      + column#                      HRC249DK 00653373
+         C     R1,F4095       Larger than 12 bits?             HRC249DK 00653383
+         BH    CVT68A         yes, assume 14 bit then          HRC249DK 00653393
+*                             no, convert to 6-bit form        HRC249DK 00653403
+         SLDL  R0,26          top 6 bits                       HRC249DK 00653413
+         SRL   R1,26          bottom 6 bits                    HRC249DK 00653423
+         STC   R0,TEMPSAVE+6  Save in return value             HRC249DK 00653433
+         STC   R1,TEMPSAVE+7  ...                              HRC249DK 00653443
+         L     R1,=A(DMKTBL68)                                 HRC249DK 00653453
+         TR    TEMPSAVE+6(2),0(R1) convert to 3270 6-bit       HRC249DK 00653463
+         L     R1,TEMPSAVE+4  and set return value             HRC249DK 00653473
+CVT68A   DS    0H                                              HRC249DK 00653483
+         L     R0,TEMPSAVE    Restore caller's R0              HRC249DK 00653493
+         BR    R14            and return                       HRC249DK 00653503
+         DROP  R15                                             HRC249DK 00653513
+         EJECT ,                                               HRC249DK 00653523
+*                                                              HRC249DK 00653533
+* SUBROUTINE NAME -                                            HRC249DK 00653543
+*                                                              HRC249DK 00653553
+*        DMKCVTBA                                              HRC249DK 00653563
+*                                                              HRC249DK 00653573
+* FUNCTION -                                                   HRC249DK 00653583
+*                                                              HRC249DK 00653593
+*        Convert a 3270 buffer address to row/column           HRC249DK 00653603
+*                                                              HRC249DK 00653613
+* ATTRIBUTES -                                                 HRC249DK 00653623
+*                                                              HRC249DK 00653633
+*        Serially reusable, resident, called via BALR          HRC249DK 00653643
+*                                                              HRC249DK 00653653
+* ENTRY POINT -                                                HRC249DK 00653663
+*                                                              HRC249DK 00653673
+*        DMKCVTBA - Convert 3270 buffer addresses to row/col   HRC249DK 00653683
+*                                                              HRC249DK 00653693
+* ENTRY CONDITIONS -                                           HRC249DK 00653703
+*                                                              HRC249DK 00653713
+*        R0 = 327x buffer address                              HRC249DK 00653723
+*        R2 = 327x screen width                                HRC249DK 00653733
+*                                                              HRC249DK 00653743
+* EXIT CONDITIONS -                                            HRC249DK 00653753
+*                                                              HRC249DK 00653763
+*        R0 = 3270 column number (zero-based)                  HRC249DK 00653773
+*        R1 = 3270 row number (zero-based)                     HRC249DK 00653783
+*                                                              HRC249DK 00653793
+         SPACE 3                                               HRC249DK 00653803
+DMKCVTBA DS    0H                                              HRC249DK 00653813
+         USING *,R15                                           HRC249DK 00653823
+         STH   R0,TEMPSAVE    Save working registers           HRC249DK 00653833
+         TM    TEMPSAVE,X'C0' Is this 14-bit address?          HRC249DK 00653843
+         BZ    BA14           ..yes, just divide               HRC249DK 00653853
+         SRDL  R0,6           Low 6-bits                       HRC249DK 00653863
+         SRL   R0,2           drop 2 bits                      HRC249DK 00653873
+         SRDL  R0,6           High 6-bits                      HRC249DK 00653883
+         XR    R0,R0          clear out the top                HRC249DK 00653893
+         SRL   R1,18          Right end of R1                  HRC249DK 00653903
+         B     BADIV          Divide by row width              HRC249DK 00653913
+BA14     DS    0H                                              HRC249DK 00653923
+         LR    R1,R0                                           HRC249DK 00653933
+         XR    R0,R0          Address in R1                    HRC249DK 00653943
+BADIV    DS    0H                                              HRC249DK 00653953
+         DR    R0,R2          Addr/width (R0=col#, R1=row#)    HRC249DK 00653963
+         BR    R14            and return                       HRC249DK 00653973
+         DROP  R15                                             HRC249DK 00653983
+         EJECT ,                                               HRC249DK 00653993
+*                                                              HRC249DK 00654003
+* SUBROUTINE NAME -                                            HRC249DK 00654013
+*                                                              HRC249DK 00654023
+*        DMKCVT12                                              HRC249DK 00654033
+*                                                              HRC249DK 00654043
+* FUNCTION -                                                   HRC249DK 00654053
+*                                                              HRC249DK 00654063
+*        Convert a 14-bit 3270 buffer addresss to encoded      HRC249DK 00654073
+*        12-bit buffer address                                 HRC249DK 00654083
+*                                                              HRC249DK 00654093
+* ATTRIBUTES -                                                 HRC249DK 00654103
+*                                                              HRC249DK 00654113
+*        Serially reusable, resident, called via BALR          HRC249DK 00654123
+*                                                              HRC249DK 00654133
+* ENTRY POINT -                                                HRC249DK 00654143
+*                                                              HRC249DK 00654153
+*        DMKCVT12 - Convert row/column to 3270 buffer addr     HRC249DK 00654163
+*                                                              HRC249DK 00654173
+* ENTRY CONDITIONS -                                           HRC249DK 00654183
+*                                                              HRC249DK 00654193
+*        R1 = 14-bit linear buffer address                     HRC249DK 00654203
+*                                                              HRC249DK 00654213
+* EXIT CONDITIONS -                                            HRC249DK 00654223
+*                                                              HRC249DK 00654233
+*        R1 = 3270 buffer address (low-order half word)        HRC249DK 00654243
+*                                                              HRC249DK 00654253
+         SPACE 3                                               HRC249DK 00654263
+DMKCVT12 DS    0H                                              HRC249DK 00654273
+         USING *,R15                                           HRC249DK 00654283
+         STM   R0,R1,TEMPSAVE Save working registers           HRC249DK 00654293
+         C     R1,F4095       Larger than 12 bits?             HRC249DK 00654303
+         BH    CVT12A         yes, assume 14 bit then          HRC249DK 00654313
+*                             no, convert to 6-bit form        HRC249DK 00654323
+         SLDL  R0,26          top 6 bits                       HRC249DK 00654333
+         SRL   R1,26          bottom 6 bits                    HRC249DK 00654343
+         STCM  R0,7,TEMPSAVE+4  Save in return value           HRC249DK 00654353
+         STC   R1,TEMPSAVE+7    ... also clear top 2 bytes     HRC249DK 00654363
+         L     R1,=A(DMKTBL68)                                 HRC249DK 00654373
+         TR    TEMPSAVE+6(2),0(R1) convert to 3270 6-bit       HRC249DK 00654383
+         LM    R0,R1,TEMPSAVE and set return value             HRC249DK 00654393
+CVT12A   DS    0H                                              HRC249DK 00654403
+         BR    R14            and return                       HRC249DK 00654423
+         DROP  R15                                             HRC249DK 00654433
+         EJECT ,                                               HRC249DK 00654443
+*                                                              HRC249DK 00654453
+* SUBROUTINE NAME -                                            HRC249DK 00654463
+*                                                              HRC249DK 00654473
+*        DMKCVT14                                              HRC249DK 00654483
+*                                                              HRC249DK 00654493
+* FUNCTION -                                                   HRC249DK 00654503
+*                                                              HRC249DK 00654513
+*        Convert a 2-byte encoded 3270 buffer address to       HRC249DK 00654523
+*        its 14-bit linear buffer address                      HRC249DK 00654533
+*                                                              HRC249DK 00654543
+* ATTRIBUTES -                                                 HRC249DK 00654553
+*                                                              HRC249DK 00654563
+*        Serially reusable, resident, called via BALR          HRC249DK 00654573
+*                                                              HRC249DK 00654583
+* ENTRY POINT -                                                HRC249DK 00654593
+*                                                              HRC249DK 00654603
+*        DMKCVT14 - Convert 2-byte address to decoded binary   HRC249DK 00654613
+*                                                              HRC249DK 00654623
+* ENTRY CONDITIONS -                                           HRC249DK 00654633
+*                                                              HRC249DK 00654643
+*        R1 = 2-byte encoded buffer address                    HRC249DK 00654653
+*                                                              HRC249DK 00654663
+* EXIT CONDITIONS -                                            HRC249DK 00654673
+*                                                              HRC249DK 00654683
+*        R1 = 14-bit linear buffer location                    HRC249DK 00654693
+*                                                              HRC249DK 00654703
+         SPACE 3                                               HRC249DK 00654713
+DMKCVT14 DS    0H                                              HRC249DK 00654723
+         USING *,R15                                           HRC249DK 00654733
+         STM   R0,R1,TEMPSAVE Save working registers           HRC249DK 00654743
+*                                                              HRC249DK 00654753
+         TM    TEMPSAVE+6,X'C0' Already in 14-bit form?        HRC249DK 00654763
+         BZR   R14              yes, just return               HRC249DK 00654773
+*                                                              HRC249DK 00654783
+         N     R1,=XL4'3F3F'  Drop top 2 bits in each byte     HRC249DK 00654793
+         SLDL  R0,24          R0 has top 6 bits                HRC249DK 00654803
+         SLL   R1,2           R1 has bottom 6 bits             HRC249DK 00654813
+         SRDL  R0,26          Mash them together               HRC249DK 00654823
+         ST    R1,TEMPSAVE+4  Return value in R1               HRC249DK 00654833
+         LM    R0,R1,TEMPSAVE and set return value             HRC249DK 00654843
+         BR    R14            and return                       HRC249DK 00654853
+         DROP  R15                                             HRC249DK 00654863

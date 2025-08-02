@@ -1,0 +1,17 @@
+./ * HRC248DK - Expand input line size from 130 to 255
+./ *
+./ * In preparation for supporting dynamic display terminal 
+./ * screen size, this update changes the CP command line   
+./ * size from 136 to 255.
+./ *
+./ * HISTORY:
+./ * 10-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00491000 $ 00491100
+         LA    R0,BUFSIZE     Size for BUFFER                  HRC248DK 00491100
+./ R 00494000 $ 00494100
+         MVC   8(BUFINLTH-8,R1),0(R1) ...                      HRC248DK 00494100
+./ R 00503000 $ 00503100
+         USING BUFFER,R1                                       HRC248DK 00503100
+./ R 01069000 $ 01069100
+         USING BUFFER,R1                                       HRC248DK 01069100

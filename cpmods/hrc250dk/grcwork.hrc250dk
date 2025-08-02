@@ -1,0 +1,12 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Adds new COPY member that contains static constants       
+./ * and DSECTS of parameters, etc. that are used in the    
+./ * interface between DMKGRF and HDKGRC channel program       
+./ * generation calls.
+./ *
+./ * Also contains the common DSECT for the screen status area
+./ *
+./ * HISTORY:
+./ * 23-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *

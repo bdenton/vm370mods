@@ -1,0 +1,1276 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Updates the Diag8C processing to return the WSF/RPQ    
+./ * data if the user's buffer is big enough.               
+./ *
+./ * Enhances the initialization logic to build the    
+./ * GRFXBLOK for all 327x displays. This will contain 
+./ * all the extended fields needed to manage display 
+./ * scrceens of any size.
+./ *
+./ * HISTORY:
+./ * 15-May-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ * 27-May-2025 WDENTON  Add limit checks and 3066 support
+./ * 29-Jul-2025 WDENTON  Add support for Logical Devices
+./ *
+./ R 00022000 00024000 $ 00022010 300 
+*        HDKD8CEN - Build and initialize the display device    HRC250DK 00022010
+*                   extension block (GRFXBLOK) for the 327x    HRC250DK 00022310
+*                   device when it is enabled. This includes   HRC250DK 00022610
+*                   issuing a Sense Id CCW to determine device HRC250DK 00022910
+*                   and control unit identities followed by    HRC250DK 00023210
+*                   a Write-Structured-Field Read-Partition-   HRC250DK 00023510
+*                   Query to find screen geometry and other    HRC250DK 00023810
+*                   capabilities. If the WSF/RPQ fails or is   HRC250DK 00024110
+*                   invalid, the geometry is determined        HRC250DK 00024410
+*                   based on buffer size.                      HRC250DK 00024710
+./ R 00078000 $ 00078005
+*        GPR  9 = Address of the GRFXBLOK                      HRC250DK 00078005
+./ R 00116000 00116500 $ 00116100 100
+         EXTRN DMKSCNRD                Get RDEV address        HRC250DK 00116100
+         EXTRN DMKPGTVG                Get CP virtual stg page HRC250DK 00116200
+         EXTRN DMKPGTVR                Rlse CP virtual stg     HRC250DK 00116300
+         EXTRN DMKPTRUL                Unlock CP stg page      HRC250DK 00116400
+         EXTRN DMKTBL68                3270 buffer addr xlate  HRC250DK 00116500
+./ R 00128000 $ 00127805 100
+         L     R4,0(,R5)               Get user's buffer vaddr HRC250DK 00127805
+         L     R1,4(R5)          Rx+1  Get virtual device addr HRC250DK 00127905
+         ICM   R5,15,0(R6)       Ry    Get Ry (buffer length)  HRC250DK 00128005
+./ D 00130000
+./ D 00132000
+./ R 00136400 00136600 $ 00136405 100
+         LH    R0,VMVTERM              Offset to cons VDEVBLOK HRC250DK 00136405
+         AL    R0,VMDVSTRT             -> console VDEVBLOK     HRC250DK 00136505
+         CLR   R0,R8                   Is that the request?    HRC250DK 00136605
+./ I 00147400 $ 00147420 50
+         CLI   RDEVTYPE,TYP3277        Is it a display device? HRC250DK 00147420
+         BE    ISGRAF                  ..yes.. OK              HRC250DK 00147470
+         CLI   RDEVTYPE,TYP3066        m168 concole?           HRC250DK 00147520
+         BE    ISGRAF                  ..yes.. OK              HRC250DK 00147570
+./ R 00148000 $ 00148100 100
+ISGRAF   DS    0H                                              HRC250DK 00148100
+         USING GRFXBLOK,R9             Accessing the GRFXBLOK  HRC250DK 00148200
+         ICM   R9,15,RDEVGRFX          ...                     HRC250DK 00148300
+         BZ    NOTGRAF                 not there.. bad         HRC250DK 00148400
+./ R 00169000 00186000 $ 00169100 200
+*                                                              HRC250DK 00169100
+         LH   R1,GRFXCOLS              Screen width (columns)  HRC250DK 00169300
+         STH  R1,SAVEWRK2+2            ...                     HRC250DK 00169500
+*                                                              HRC250DK 00169700
+         LH   R1,GRFXROWS              Screen height (rows)    HRC250DK 00169900
+         STH  R1,SAVEWRK2+4            ...                     HRC250DK 00170100
+./ R 00188000 00200000 $ 00188100 300
+*                                                              HRC250DK 00188100
+* ------------------------------------------------------------ HRC250DK 00188400
+*                                                              HRC250DK 00188700
+*        Moving results to user's buffer:                      HRC250DK 00189000
+*        -- First part: six bytes from SAVEWRK2                HRC250DK 00189300
+*        -- Second part: GRFXRPQA+1 length GRFXRPWL-1          HRC250DK 00189600
+*                                                              HRC250DK 00189900
+*        SAVEWRK3+3 progress flags                             HRC250DK 00190200
+*                                                              HRC250DK 00190500
+*        R2 = (temp) Current user buffer raddr                 HRC250DK 00190800
+*        R3 = (temp) Length of piece to move                   HRC250DK 00191100
+*                                                              HRC250DK 00191400
+*        the next two are manually tracked based               HRC250DK 00191700
+*        on the calculated value or R3                         HRC250DK 00192000
+*        R4 = Current user buffer vaddr                        HRC250DK 00192300
+*        R5 = Remaining buffer length                          HRC250DK 00192600
+*                                                              HRC250DK 00192900
+*        these two will be adjusted by the MVCL                HRC250DK 00193200
+*        execution.                                            HRC250DK 00193500
+*        R6 = CP source real address                           HRC250DK 00193800
+*        R7 = Remaining source length                          HRC250DK 00194100
+*                                                              HRC250DK 00194400
+         LA    R6,SAVEWRK2             1st six bytes are here  HRC250DK 00194700
+         LA    R7,6                    ...                     HRC250DK 00195000
+*                                                              HRC250DK 00195300
+MOV010   DS    0H                                              HRC250DK 00195600
+         LR    R1,R4                   Get user buffer vaddr   HRC250DK 00195900
+./ R 00206000 $ 00206100 100
+         CALL  DMKPSASP                Check prot violation    HRC250DK 00206100
+         BNZ   PROTERR                 Return protection error HRC250DK 00206200
+./ R 00211000 00230000 $ 00211100 300
+*                                                              HRC250DK 00211100
+*   First, figure the length of remaining data to be           HRC250DK 00211400
+*   moved into the user's buffer. This is: MIN(R5, R7)         HRC250DK 00211700
+*                                                              HRC250DK 00212000
+MOV020   DS    0H                                              HRC250DK 00212300
+         LR    R3,R7                   Remaining data to move  HRC250DK 00212600
+         CR    R3,R5                   Is remaining buffer big HRC250DK 00212900
+         BNH   *+6                       enough to hold it?    HRC250DK 00213200
+         LR    R3,R5                   no, truncate            HRC250DK 00213500
+*                                                              HRC250DK 00213800
+*   Make sure we won't run off the end of the real buffer      HRC250DK 00214100
+*   page. If needed, reduce the length to stay within the      HRC250DK 00214400
+*   currently paged in buffer page.                            HRC250DK 00214700
+*                                                              HRC250DK 00215000
+*-- R2 -> real address of user's buffer                        HRC250DK 00215300
+         LR    R1,R2                   Calc space remaining:   HRC250DK 00215600
+         O     R1,F4095                  current | x'FFF'      HRC250DK 00215900
+         LA    R1,1(,R1)                  + 1                  HRC250DK 00216200
+         SR    R1,R2                      - current            HRC250DK 00216500
+*                                                              HRC250DK 00216800
+         CR    R3,R1                   Take the minimum        HRC250DK 00217100
+         BNH   *+6                     ...                     HRC250DK 00217400
+         LR    R3,R1                   ...                     HRC250DK 00217700
+*                                                              HRC250DK 00218000
+*   User buffer virtual controls (R4 & R5) need                HRC250DK 00218300
+*   manual adjustment to match the updates that                HRC250DK 00218600
+*   the MVCL instruction will make on the source               HRC250DK 00218900
+*   controls (R6 & R7) during its execution.                   HRC250DK 00219200
+*                                                              HRC250DK 00219500
+         LA    R4,0(R3,R4)             Adjust buffer vaddr     HRC250DK 00219800
+         SR    R5,R3                    and remaining length   HRC250DK 00220100
+*                                                              HRC250DK 00220400
+         MVCL  R2,R6                   Move a chunk of data    HRC250DK 00220700
+*                                      Results: R2' = R2 + R3  HRC250DK 00221000
+*                                               R3' = 0        HRC250DK 00221300
+*                                               R6' = R6 + R3  HRC250DK 00221600
+*                                               R7' = R7 - R3  HRC250DK 00221900
+*                                                              HRC250DK 00222200
+         LTR   R5,R5                   At end of buffer?       HRC250DK 00222500
+         BNP   MOVFIN                  yes, we're done         HRC250DK 00222800
+*                                                              HRC250DK 00223100
+         LTR   R7,R7                   More to be moved?       HRC250DK 00223400
+         BNZ   MOV010                  yes, get next buffer pg HRC250DK 00223700
+*                                                              HRC250DK 00224000
+         CLI   SAVEWRK3+3,0            Already done WSF/RPC?   HRC250DK 00224300
+         BNE   MOVFIN                  yes, then all done      HRC250DK 00224600
+         MVI   SAVEWRK3+3,1            Set the 1-time flag     HRC250DK 00224900
+*                                                              HRC250DK 00225200
+         LH    R7,GRFXRPQL             Length of WSF/RPQ data  HRC250DK 00225500
+         BCTR  R7,0                    - 1 for AID (x'88')     HRC250DK 00225800
+         LTR   R7,R7                   any left?               HRC250DK 00226100
+         BNP   MOVFIN                  no, all done            HRC250DK 00226400
+*                                                              HRC250DK 00226700
+         L     R1,GRFXRPQA             Get CP buffer vaddr     HRC250DK 00227000
+         LA    R1,1(,R1)               skip over AID (x'88')   HRC250DK 00227300
+         TRANS 6,1,                    Bring in WSF/RPQ data   HRC250DKx00227600
+               OPT=(BRING,DEFER,SYSTEM),                       HRC250DKx00227900
+               IOER=IOERR,             Error in paging         HRC250DKx00228200
+               ADEX=ADDRERR            Error in addressing     HRC250DK 00228500
+         B     MOV010                  move this to buffer     HRC250DK 00228800
+./ R 00232000 00234000 $ 00232100 200
+MOVFIN   DS    0H                                              HRC250DK 00232100
+         L     R1,SAVER6        Ry     Set residual length     HRC250DK 00232300
+         ST    R5,0(,R1)               ... unused buffer len   HRC250DK 00232500
+./ I 00237000 $ 00237100
+         L     R5,SAVER5               Get back Rx ptr         HRC250DK 00237100
+./ R 00258000 00259000 $ 00258100
+         EJECT ,                                               HRC250DK 00258100
+./ R 00294000 00297500 $ 00294100
+*        None                                                  HRC250DK 00294100
+./ I 00348000 $ 00348005 20
+         SPACE 3                                               HRC250DK 00348005
+         XC    SAVEWRK2,SAVEWRK2       Clear locked page addr  HRC250DK 00348025
+         XC    SAVEWRK3,SAVEWRK3       Clear other work area   HRC250DK 00348045
+*                                                              HRC250DK 00348065
+*        Ensure we are running on the System VMBLOK            HRC250DK 00348085
+*                                                              HRC250DK 00348105
+         CL    R11,ASYSVM              Are running as system?  HRC250DK 00348125
+         BE    NOSWITCH                ..yes, continue         HRC250DK 00348145
+         MVI   SAVEWRK3+1,1            Set switch flag         HRC250DK 00348165
+         CHARGE SWITCH,ASYSVM          Switch to system VMBLOK HRC250DK 00348185
+NOSWITCH DS    0H                                              HRC250DK 00348205
+         SPACE 3                                               HRC250DK 00348225
+* +------------------------------------------------------------HRC250DK 00348245
+* +      Allocate and initialize a new GRFXBLOK or             HRC250DK 00348265
+* +      reinitialize an existing one.                         HRC250DK 00348285
+* +------------------------------------------------------------HRC250DK 00348305
+         SPACE 1                                               HRC250DK 00348325
+         USING GRFXBLOK,R9                                     HRC250DK 00348345
+         ICM   R9,15,RDEVGRFX          Already have a GRFXBLOK?HRC250DK 00348365
+         BZ    NEWGRFX                 ..no, go alloc new one  HRC250DK 00348385
+         ICM   R1,15,GRFXRPQA          Is there a RPQ boffer?  HRC250DK 00348405
+         BZ    INITGRFX                ..no, just clear the oldHRC250DK 00348425
+         CALL  DMKPGTVR                ..yes, release CP vpage HRC250DK 00348445
+         B     INITGRFX                and clear old GRFXBLOK  HRC250DK 00348465
+         SPACE 1                                               HRC250DK 00348485
+NEWGRFX  DS    0H                                              HRC250DK 00348505
+         LA    R0,GRFXLEND             Extension len in dwords HRC250DK 00348525
+         CALL  DMKFREE                 Allocate the storage    HRC250DK 00348545
+         LR    R9,R1                   Set permanent addressingHRC250DK 00348565
+         ST    R9,RDEVGRFX             and hook to RDEVBLOK    HRC250DK 00348585
+         SPACE 1                                               HRC250DK 00348605
+INITGRFX DS    0H                                              HRC250DK 00348625
+         XC    0(GRFXLEN,R9),0(R9)     Clear the GRFXBLOK      HRC250DK 00348645
+*        Clear extended features flags                         HRC250DK 00348665
+         NI    RDEVGRIC,255-RDEVEXTC-RDEVEXTH-RDEVPSS-RDEVAD14 HRC250DK 00348685
+         SPACE 1                                               HRC250DK 00348705
+         CLI   RDEVTYPE,TYP3066        m168 console?           HRC250DK 00348725
+         BNE   NOT3066                 ..no, skip              HRC250DK 00348745
+*------------------------------------------------------------- HRC250DK 00348765
+*        Build a static GRFXBLOK for the 3066 console          HRC250DK 00348785
+*------------------------------------------------------------- HRC250DK 00348805
+         SPACE 1                                               HRC250DK 00348825
+         MVC   GRFXBLOK(GRFXLEN),GRFX3066 3066 static values   HRC250DK 00348840
+         B     RETURN0                 and just normal return  HRC250DK 00348860
+NOT3066  DS    0H                                              HRC250DK 00348880
+         SPACE 1                                               HRC250DK 00348900
+./ R 00361000 00364000 $ 00361055 10
+         CALL  DMKSCNRD                Get dev addr            HRC250DK 00361055
+         STH   R1,IOBRADD              CUU to IOBLOK           HRC250DK 00361065
+         ST    R8,IOWRDEV              Save RDEV ptr across i/oHRC250DK 00362095
+         SPACE 3                                               HRC250DK 00362105
+* +------------------------------------------------------------HRC250DK 00362115
+* +      Handle logical devices (Diag7C) a bit differently     HRC250DK 00362125
+* +------------------------------------------------------------HRC250DK 00362145
+         SPACE 1                                               HRC250DK 00362155
+         TM    RDEVADD,RDEVLDEV        Initializing LDEV?      HRC250DK 00362156
+         BNO   NOTLDEV1                no, proceed w/senseId   HRC250DK 00362157
+         BAL   R14,FINDLDEV            Set geometry from mdl#  HRC250DK 00362158
+         LTR   R15,R15                 Results OK?             HRC250DK 00362175
+         BNZ   IOERROR                 ..I/O error, pass back  HRC250DK 00362185
+         B     GEOMETRY                Calc buffer addrs, etc. HRC250DK 00362185
+NOTLDEV1 DS    0H                                              HRC250DK 00362185
+         SPACE 3                                               HRC250DK 00362105
+* +------------------------------------------------------------HRC250DK 00362115
+* +      First issue a Sense-Id CCW to see what sort           HRC250DK 00362125
+* +      of device we're dealing with                          HRC250DK 00362135
+* +------------------------------------------------------------HRC250DK 00362145
+         SPACE 1                                               HRC250DK 00362155
+         BAL   R14,SENSEID             Issue Sense-Id CCW      HRC250DK 00362165
+         LTR   R15,R15                 Results OK?             HRC250DK 00362175
+         BM    IOERROR                 ..I/O error, pass back  HRC250DK 00362185
+         BNZ   LEGACY                  ..old style device      HRC250DK 00362195
+         SPACE 3                                               HRC250DK 00362205
+* +------------------------------------------------------------HRC250DK 00362215
+* +      For newer devices, issue Write-Structured-Field       HRC250DK 00362225
+* +      for a Read-Partition: Query operation to get          HRC250DK 00362235
+* +      a fuller description of the actual device             HRC250DK 00362245
+* +------------------------------------------------------------HRC250DK 00362255
+         SPACE 1                                               HRC250DK 00362265
+         BAL   R14,WSFRPQ              Issue WSF/RPQ           HRC250DK 00362275
+         LTR   R15,R15                 Results OK?             HRC250DK 00362285
+         BM    IOERROR                 ..I/O error, pass back  HRC250DK 00362295
+         BZ    GEOMETRY                ..ok, go calc addresses HRC250DK 00362305
+         SPACE 3                                               HRC250DK 00362315
+* +------------------------------------------------------------HRC250DK 00362325
+* +      For older devices (or WSF/RPQ not valid), we          HRC250DK 00362335
+* +      need to determins screen dimensions by doing          HRC250DK 00362345
+* +      a full buffer read after erasing the screen           HRC250DK 00362355
+* +------------------------------------------------------------HRC250DK 00362365
+         SPACE 1                                               HRC250DK 00362375
+LEGACY   DS    0H                                              HRC250DK 00362385
+         BAL   R14,READSIZE            Use buffer sz for model HRC250DK 00362395
+         LTR   R15,R15                 Results OK?             HRC250DK 00362405
+         BM    IOERROR                 ..I/O error, pass back  HRC250DK 00362415
+         SPACE 3                                               HRC250DK 00362425
+* +------------------------------------------------------------HRC250DK 00362435
+* +      Finally, once we know screen size, calculate the      HRC250DK 00362445
+* +      buffer addresses needed to build the CP screens       HRC250DK 00362455
+* +------------------------------------------------------------HRC250DK 00362465
+         SPACE 1                                               HRC250DK 00362475
+GEOMETRY DS    0H                                              HRC250DK 00362485
+         CLI   RDEVTYPE,TYP3287        Did it become a printer?HRC250DK 00362495
+         BE    RETURN0                 yes, no addresses neededHRC250DK 00362505
+         BAL   R14,SETADDRS            Calc buffer addresses   HRC250DK 00362515
+         B     FIN                     Return the R15 value    HRC250DK 00362525
+         SPACE 3                                               HRC250DK 00362535
+* +------------------------------------------------------------HRC250DK 00362545
+* +      Normal exit: R15 = 0                                  HRC250DK 00362555
+* +------------------------------------------------------------HRC250DK 00362565
+         SPACE 1                                               HRC250DK 00362575
+RETURN0  DS    0H                                              HRC250DK 00362585
+         SR    R15,R15                 Set RC=0                HRC250DK 00362595
+FIN      DS    0H                                              HRC250DK 00362605
+         BAL   R14,CLEANUP             Clean up things         HRC250DK 00362615
+         EXIT  ,                       and exit                HRC250DK 00362625
+         SPACE 3                                               HRC250DK 00362635
+* +------------------------------------------------------------HRC250DK 00362645
+* +      I/O error exit: R15 = 4                               HRC250DK 00362655
+* +------------------------------------------------------------HRC250DK 00362665
+         SPACE 1                                               HRC250DK 00362675
+IOERROR  DS    0H                                              HRC250DK 00362685
+         LA    R15,4                   Set RC=4                HRC250DK 00362695
+         B     FIN                     then clean up & exit    HRC250DK 00362705
+         EJECT ,                                               HRC250DK 00362715
+***************************************************************HRC250DK 00362725
+*                                                              HRC250DK 00362735
+*        C L E A N U P                                         HRC250DK 00362745
+*                                                              HRC250DK 00362755
+*        Perform all clean up actions & release temp storage   HRC250DK 00362765
+*                                                              HRC250DK 00362775
+*        Input:                                                HRC250DK 00362785
+*              R8  = RDEVBLOK                                  HRC250DK 00362795
+*              R10 = IOBLOK (+ work area)                      HRC250DK 00362805
+*              R14 = return address                            HRC250DK 00362815
+*              R15 = return code                               HRC250DK 00362825
+*                                                              HRC250DK 00362835
+*        Output:                                               HRC250DK 00362845
+*              IOBLOK+work released                            HRC250DK 00362855
+*              RPQ buffer page unlocked                        HRC250DK 00362865
+*                                                              HRC250DK 00362875
+***************************************************************HRC250DK 00362885
+         SPACE 1                                               HRC250DK 00362895
+CLEANUP  DS    0H                                              HRC250DK 00362905
+         STM   R14,R15,SAVEWRK4        Save linkage regs       HRC250DK 00362915
+         SPACE 1                                               HRC250DK 00362925
+*                                                              HRC250DK 00362935
+*        First unlock the CP virtual page that is              HRC250DK 00362945
+*        allocated for the RPQ buffer                          HRC250DK 00362955
+*                                                              HRC250DK 00362965
+         ICM   R1,15,RDEVGRFX          Have we done anything?  HRC250DK 00362975
+         BZ    NOVPAGE                 ..no, nothing to do     HRC250DK 00362985
+         ICM   R1,15,GRFXRPQA          Allocates RPQ vpage?    HRC250DK 00362995
+         BZ    NOVPAGE                 ..no, no cleanup needed HRC250DK 00363005
+         ICM   R2,15,SAVEWRK2          Page needs unlocking?   HRC250DK 00363015
+         BZ    NOVPAGE                 ..no, nothing needed    HRC250DK 00363025
+         CALL  DMKPTRUL                ..yes, unlock the page  HRC250DK 00363035
+NOVPAGE  DS    0H                                              HRC250DK 00363045
+*                                                              HRC250DK 00363055
+*        Done with IOBLOK+work area storage                    HRC250DK 00363065
+*                                                              HRC250DK 00363075
+         LA    R0,HDKWKSZ              IOBLOK+work size in dwdsHRC250DK 00363085 
+         LR    R1,R10                  IOBLOK ptr to R1        HRC250DK 00363095
+         CALL  DMKFRET                 Release the storage     HRC250DK 00363105
+*                                                              HRC250DK 00363115
+*        Switch back to caller's VMBLOK if needed              HRC250DK 00363125
+*                                                              HRC250DK 00363135
+         CLI   SAVEWRK3+1,0            Did we switch at entry? HRC250DK 00363145
+         BE    NOSWIT2                 no, just do nothing     HRC250DK 00363155
+         CHARGE SWITCH,SAVER11         yes, switch back        HRC250DK 00363165
+NOSWIT2  DS    0H                                              HRC250DK 00363175
+*                                                              HRC250DK 00363185
+*        and return                                            HRC250DK 00363195
+*                                                              HRC250DK 00363205
+         LM    R14,R15,SAVEWRK4        restore linkage regs    HRC250DK 00363215
+         BR    R14                     and return              HRC250DK 00363225
+         EJECT ,                                               HRC250DK 00363235
+***************************************************************HRC250DK 00363245
+*                                                              HRC250DK 00363255
+*        S E N S E I D                                         HRC250DK 00363265
+*                                                              HRC250DK 00363275
+*        Issue a Sense-Id (x'E4') CCW and analyze the results  HRC250DK 00363285
+*                                                              HRC250DK 00363295
+*        Input:                                                HRC250DK 00363305
+*              R8  = RDEVBLOK                                  HRC250DK 00363315
+*              R9  = GRFXBLOK                                  HRC250DK 00363325
+*              R10 = IOBLOK (+ work area)                      HRC250DK 00363335
+*              R14 = return address                            HRC250DK 00363345
+*                                                              HRC250DK 00363355
+*        Output:                                               HRC250DK 00363365
+*              R15 = completion status:                        HRC250DK 00363375
+*                    <  0 -- I/O error occured                 HRC250DK 00363385
+*                    == 0 -- successful                        HRC250DK 00363395
+*                    >  0 -- failed, is probably legacy device HRC250DK 00363405
+*                                                              HRC250DK 00363415
+***************************************************************HRC250DK 00363425
+         SPACE 1                                               HRC250DK 00363435
+SENSEID  DS    0H                                              HRC250DK 00363445
+         ST    R14,SAVEWRK4            Save return address     HRC250DK 00363455
+         SPACE 3                                               HRC250DK 00363465
+*        Set up and issue a SENSE ID command to the            HRC250DK 00363475
+*        device to, hopefully, get the "real" device           HRC250DK 00363485
+*        and control unit type and model. This is used         HRC250DK 00363495
+*        to find out if the Read-Partition-Query is            HRC250DK 00363505
+*        supported.                                            HRC250DK 00363515
+         SPACE 1                                               HRC250DK 00363525
+         MVC   IOWCCW1,SIDCCW          Set up SENSE IO chan prgHRC250DK 00363535
+         LA    R5,IOWDATA              the result will go here HRC250DK 00363545
+         STCM  R5,7,IOWCCW1+1          ...                     HRC250DK 00363555
+         SPACE 1                                               HRC250DK 00363565
+*--------------------------------------------------------------HRC250DK 00363575
+*        Issue the SENSE ID channel program                    HRC250DK 00363585
+*--------------------------------------------------------------HRC250DK 00363595
+         SPACE 1                                               HRC250DK 00363605
+         LA    R1,IOWCCW1              Point IOBLOK at chan prgHRC250DK 00363615
+         OI    IOBSPEC3,IOBBYPER       IOS should ignore errorsHRC250DK 00363625
+         SPACE 1                                               HRC250DK 00363635 
+         BAL   R5,CPIO                 and let 'er rip         HRC250DK 00363645   
+         SPACE 1                                               HRC250DK 00363655
+*--------------------------------------------------------------HRC250DK 00363665
+*        Check the completion status                           HRC250DK 00363675
+*--------------------------------------------------------------HRC250DK 00363685
+         SPACE 1                                               HRC250DK 00363695
+         TM    IOBSPEC3,IOBHADER       was there an I/O error? HRC250DK 00363705      
+         BZ    SENSEOK                 no, data is valid       HRC250DK 00363715
+         TM    IOBFSNS1,CMDREJ         Command-Reject?         HRC250DK 00363725
+         BO    SIDRET4                 yes, can't do WSF/RPQ   HRC250DK 00363735
+         B     SIDIOERR                no, set error code      HRC250DK 00363745
+         SPACE 1                                               HRC250DK 00363755
+SENSEOK  DS    0H                                              HRC250DK 00363765
+         LA    R5,IOWDATA              Access the E4 results   HRC250DK 00363545
+         USING SIDDATA,R5              R5 is still valid       HRC250DK 00363775
+         LH    R1,IOWCCW1+6            Calc SnsId data length  HRC250DK 00363785
+         SH    R1,IOBCSW+6             ...                     HRC250DK 00363795
+         SPACE 1                                               HRC250DK 00363805
+*--------------------------------------------------------------HRC250DK 00363815
+*        Save Sense-ID result to GRFXBLOK                      HRC250DK 00363825
+*        (result length in R1)                                 HRC250DK 00363835
+*--------------------------------------------------------------HRC250DK 00363845
+         SPACE 1                                               HRC250DK 00363855
+         CH    R1,=AL2(SIDMINLN)       At least have CU info?  HRC250DK 00363865
+         BL    SIDRET4                 ..no, must be old CU    HRC250DK 00363875
+         MVC   GRFXCUTY,SIDCUTY        set CU type number      HRC250DK 00363885
+         MVC   GRFXCUMD,SIDCUMD        set CU model number     HRC250DK 00363895      
+         OI    GRFXE4FL,GRFXCUOK       the CU id is valid      HRC250DK 00363905
+         SPACE 1                                               HRC250DK 00363915
+         CH    R1,=AL2(SIDFULLN)       Results have dev info?  HRC250DK 00363925
+         BL    SETXSEL                 ..no, must be old CU    HRC250DK 00363935
+         MVC   GRFXDVTY,SIDDVTY        set Dev type number     HRC250DK 00363945
+         MVC   GRFXDVMD,SIDDVMD        set Dev model number    HRC250DK 00363955
+         ICM   R1,7,GRFXDVID           Got valid values?       HRC250DK 00363965
+         BZ    SETXSEL                 ..no, done              HRC250DK 00363975
+         OI    GRFXE4FL,GRFXDVOK       ..yes, set is-valid flagHRC250DK 00363985
+         SPACE 1                                               HRC250DK 00363995
+         DROP  R5                      Done with Sns-Id data   HRC250DK 00364005
+         SPACE 3                                               HRC250DK 00364015
+SETXSEL  DS    0H                                              HRC250DK 00364025
+         CLC   GRFXCUID,=X'32741D'     is this a 3274-1D CU?   HRC250DK 00364035
+         BE    EXTSEL                  yes, can do ext. selectsHRC250DK 00364045   
+         SPACE 1                                               HRC250DK 00364055
+         CLC   GRFXCUID,=X'31741D'     is this a 3174-1L CU?   HRC250DK 00364065
+         BNE   SIDRET0                 no, don't do ext selectsHRC250DK 00364075   
+         SPACE 1                                               HRC250DK 00364085
+EXTSEL   DS    0H                                              HRC250DK 00364095
+         OI    RDEVGRIC,RDEVXSEL       CU handles ext selects  HRC250DK 00364105 
+         SPACE 3                                               HRC250DK 00364115
+SIDRET0  DS    0H                                              HRC250DK 00364125
+         SR    R15,R15                 RC = 0                  HRC250DK 00364135
+         B     SIDFIN                                          HRC250DK 00364145
+SIDRET4  DS    0H                                              HRC250DK 00364155
+         LA    R15,4                   RC = 4 : Legacy device  HRC250DK 00364165
+         B     SIDFIN                                          HRC250DK 00364175
+SIDIOERR DS    0H                                              HRC250DK 00364185
+         LH    R15,=H'-4'              RC = -1 : I/O error     HRC250DK 00364195
+SIDFIN   DS    0H                                              HRC250DK 00364205
+         L     R14,SAVEWRK4            Return to caller        HRC250DK 00364215
+         BR    R14                     ...                     HRC250DK 00364225
+         EJECT ,                                               HRC250DK 00364235
+***************************************************************HRC250DK 00364245
+*                                                              HRC250DK 00364255
+*        W S F R P Q                                           HRC250DK 00364265
+*                                                              HRC250DK 00364275
+*        Issue a Write-Structured-Field CCW with a Read        HRC250DK 00364285
+*        Paartition: Query content. Then examine the           HRC250DK 00364295
+*        results to set device geometry and options            HRC250DK 00364305
+*                                                              HRC250DK 00364315
+*        Input:                                                HRC250DK 00364325
+*              R8  = RDEVBLOK                                  HRC250DK 00364335
+*              R9  = GRFXBLOK                                  HRC250DK 00364345
+*              R10 = IOBLOK (+ work area)                      HRC250DK 00364355
+*              R14 = return address                            HRC250DK 00364365
+*                                                              HRC250DK 00364375
+*        Output:                                               HRC250DK 00364385
+*              R15 = completion status:                        HRC250DK 00364395
+*                    <  0 -- I/O error occured                 HRC250DK 00364405
+*                    == 0 -- successful                        HRC250DK 00364415
+*                    >  0 -- failed, is probably legacy device HRC250DK 00364425
+*                                                              HRC250DK 00364435
+***************************************************************HRC250DK 00364445
+         SPACE 1                                               HRC250DK 00364455
+WSFRPQ   DS    0H                                              HRC250DK 00364465
+         ST    R14,SAVEWRK4            Save return address     HRC250DK 00364475
+         SPACE 3                                               HRC250DK 00364485
+*        No point in issuing the WSFQ command if we know       HRC250DK 00364495
+*        the device or control unit does not support it.       HRC250DK 00364505
+*        Use a READ BUFFER instead to determine the screen     HRC250DK 00364515
+*        size.                                                 HRC250DK 00364525
+         SPACE 1                                               HRC250DK 00364535
+         CLI   RDEVTYPE,TYP3277        3277 display ?          HRC250DK 00364545
+         BE    WSFRET4                 yes, no WSF support     HRC250DK 00364555
+         CLI   RDEVTYPE,TYP3284        3284 display printer ?  HRC250DK 00364565
+         BE    WSFRET4                 yes, no WSF support     HRC250DK 00364575
+         SPACE 1                                               HRC250DK 00364585
+         CLC   GRFXCUID,=X'32741B'     3274-1B  control unit ? HRC250DK 00364595
+         BE    WSFRET4                 yes, no WSF support     HRC250DK 00364605
+         SPACE 1                                               HRC250DK 00364615
+         CLC   GRFXCUTY,=X'4381'       3278/9 model 2A/2C ?    HRC250DK 00364625
+         BNE   TRYWSFQ                 no, go try WSF/RPQ      HRC250DK 00364635
+         SPACE 1                                               HRC250DK 00364645
+*                                                              HRC250DK 00364655
+*        Special handling for 3278-2A and 3279-2C consoles     HRC250DK 00364665
+*                                                              HRC250DK 00364675
+         SPACE 1                                               HRC250DK 00364685
+         MVI   GRFXERAS,CCWEW          use the ERASE WRITE ccw HRC250DK 00364695
+         MVC   GRFXROWS,MD2AROWS       set model 2A/2C goemetryHRC250DK 00364705 
+         MVC   GRFXCOLS,MD2ACOLS       ..  = 20x80             HRC250DK 00364715
+         SPACE 1                                               HRC250DK 00364725
+         B     WSFRET0                 return success          HRC250DK 00364735
+         EJECT ,                                               HRC250DK 00364745
+***************************************************************HRC250DK 00364755
+*                                                              HRC250DK 00364765
+*        Set up and issue a Write-Structured-Field command     HRC250DK 00364775
+*        with the Read Partition Query field. This will        HRC250DK 00364785
+*        return DE when the command is processed by the        HRC250DK 00364795
+*        control unit. Later, an Attn interrupt will be        HRC250DK 00364805
+*        posted when the device has generated the response.    HRC250DK 00364815
+*        DMKGRFIN will then invoke HDKGINRD to issue a         HRC250DK 00364825
+*        Read-Modified CCW to read the RPQ response.           HRC250DK 00364835
+*                                                              HRC250DK 00364845
+***************************************************************HRC250DK 00364855
+         SPACE 1                                               HRC250DK 00364865
+TRYWSFQ  DS    0H                                              HRC250DK 00364875  
+         MVC   IOWCCW1,WSFCCW          Set up WSF/RPQ ccws     HRC250DK 00364885
+         LA    R1,WSFDATA               with this data         HRC250DK 00364895
+         STCM  R1,7,IOWCCW1+1          ...                     HRC250DK 00364905
+         SPACE 1                                               HRC250DK 00364915
+*--------------------------------------------------------------HRC250DK 00364925
+*        Issue the WSF/RPQ channel program                     HRC250DK 00364935
+*--------------------------------------------------------------HRC250DK 00364945
+         SPACE 1                                               HRC250DK 00364955
+         LA    R1,IOWCCW1              Point IOBLOK at chan prgHRC250DK 00364965
+         OI    IOBSPEC3,IOBBYPER       IOS should ignore errorsHRC250DK 00364975
+         SPACE 1                                               HRC250DK 00364985
+./ R 00367000 00368000 $ 00367005 100
+         SPACE 1                                               HRC250DK 00367005
+*--------------------------------------------------------------HRC250DK 00367105
+*        Check the completion status                           HRC250DK 00367205
+*--------------------------------------------------------------HRC250DK 00367305
+         SPACE 1                                               HRC250DK 00367405
+         TM    IOBSPEC3,IOBHADER       was there an I/O error? HRC250DK 00367505
+         BZ    WAITATTN                no, Write was good      HRC250DK 00367605
+         TM    IOBFSNS1,CMDREJ         Command-Reject?         HRC250DK 00367705
+         BO    WSFRET4                 yes, can't do WSF/RPQ   HRC250DK 00367805
+         B     WSFIOERR                no, return I/O error    HRC250DK 00367905
+         SPACE 1                                               HRC250DK 00368005
+*--------------------------------------------------------------HRC250DK 00368105
+*        Await the ATTN interrupt when CU has composed         HRC250DK 00368205
+*        the RPQ response                                      HRC250DK 00368305
+*--------------------------------------------------------------HRC250DK 00368405
+         SPACE 1                                               HRC250DK 00368505
+WAITATTN DS    0H                                              HRC250DK 00368605
+./ R 00387000 $ 00387010 100
+         L     R8,IOWRDEV              Reload RDEVBLOK ptr     HRC250DK 00387010
+         L     R9,RDEVGRFX             and reload GRFXBLOK ptr HRC250DK 00387110
+./ R 00389000 00392000 $ 00389005 100
+         SPACE 1                                               HRC250DK 00389005
+         TM    IOBCSW+4,UC             Device error?           HRC250DK 00389105
+         BO    WSFIOERR                yes, return I/O error   HRC250DK 00389205
+         TM    IOBCSW+4,ATTN           Make sure it is ATTN    HRC250DK 00389305
+         BNO   WAITATTN                ... wait for that       HRC250DK 00389405 
+         SPACE 3                                               HRC250DK 00389505
+*--------------------------------------------------------------HRC250DK 00389605
+*        Allocate a page of CP virtual storage for the         HRC250DK 00389705
+*        Read-Partition-Query response and prepare the         HRC250DK 00389805
+*        Read-Modified channel program.                        HRC250DK 00389905
+*--------------------------------------------------------------HRC250DK 00390005
+         SPACE 1                                               HRC250DK 00390105
+         ICM   R1,15,GRFXRPQA          RPQ buffer allocated?   HRC250DK 00390205
+         BNZ   LOCKIT                  yes, just lock it       HRC250DK 00390305 
+         CALL  DMKPGTVG                Allocate CP virt page   HRC250DK 00390405
+         ST    R1,GRFXRPQA             (save in GRFXBLOK)      HRC250DK 00390505
+LOCKIT   DS    0H                                              HRC250DK 00390605
+         TRANS 2,1,                    Lock buffer             HRC250DKx00390705
+               OPT=(BRING,DEFER,LOCK,SYSTEM)                   HRC250DK 00390805
+         ST    R2,SAVEWRK2             (Save physical addr)    HRC250DK 00390005
+         SPACE 1                                               HRC250DK 00391005
+         MVC   IOWCCW1(RMDCCWL),RMDCCW Move in CCWs            HRC250DK 00391105
+         STCM  R2,7,IOWCCW2+1          and plug in buffer addr HRC250DK 00391205
+         SPACE 3                                               HRC250DK 00391305
+*--------------------------------------------------------------HRC250DK 00391405
+*        Issue the Read-Modified channel program               HRC250DK 00391505
+*--------------------------------------------------------------HRC250DK 00391605
+         SPACE 1                                               HRC250DK 00391705
+         LA    R1,IOWCCW1              Point IOBLOK at chanprogHRC250DK 00391805
+         OI    IOBSPEC3,IOBBYPER       IOS should ignore errorsHRC250DK 00391905
+         SPACE 1                                               HRC250DK 00392005
+./ R 00394000 00410000 $ 00394005
+         SPACE 1                                               HRC250DK 00394005
+*--------------------------------------------------------------HRC250DK 00394005
+*        Check the completion status                           HRC250DK 00394005
+*--------------------------------------------------------------HRC250DK 00394005
+         SPACE 1                                               HRC250DK 00394005
+         TM    IOBSPEC3,IOBHADER       was there an I/O error? HRC250DK 00394005
+         BNZ   WSFRET4                 yes, setup w/o RPQ data HRC250DK 00394005
+         SPACE 1                                               HRC250DK 00394005
+         L     R2,SAVEWRK2             -> RPQ buffer           HRC250DK 00394005 
+         CLI   0(R2),AIDSTFLD          Structured fld response?HRC250DK 00394005
+         BNE   WSFRET4                 no, set up w/o RPQ data HRC250DK 00394005
+         SPACE 1                                               HRC250DK 00394005
+         LH    R3,IOWCCW2+6            Calc the amount read    HRC250DK 00394005
+         SH    R3,IOBCSW+6             ...                     HRC250DK 00394005
+         BNP   WSFRET4                 ... nothing.. ignore    HRC250DK 00394005
+         STH   R3,GRFXRPQL             Save length in GRFXBLOK HRC250DK 00394005
+         SPACE 1                                               HRC250DK 00394005
+         BCT   R3,WSFRET4              Reduce length for AID   HRC250DK 00394005
+         LA    R2,1(,R2)               and bump past the AID   HRC250DK 00394005
+         LA    R4,0(R3,R2)             point to the end        HRC250DK 00394005
+         BCTR  R4,0                    ...                     HRC250DK 00394005
+         SPACE 1                                               HRC250DK 00394005
+         USING SFLD,R2            (Structured Field addressing)HRC250DK 00394005
+         EJECT ,                                               HRC250DK 00394005
+***************************************************************HRC250DK 00394005
+*                                                              HRC250DK 00394005
+*        Scan all the structured fields in the                 HRC250DK 00394005
+*        Read Partition Query response                         HRC250DK 00394005
+*                                                              HRC250DK 00394005
+***************************************************************HRC250DK 00394005
+         SPACE 1                                               HRC250DK 00394005
+./ R 00412000 $ 00412005
+         CLI   QRQCODE,QRUA            ID usable area?         HRC250DK 00412005
+./ R 00414000 $ 00414005
+         CLI   QRQCODE,QRHI            ID Highlight?           HRC250DK 00414005
+./ R 00416000 $ 00416005
+         CLI   QRQCODE,QRCOL           ID Color?               HRC250DK 00416005
+./ R 00418000 $ 00418005
+         CLI   QRQCODE,QRCHS           ID Character sets?      HRC250DK 00418005
+./ R 00420000 $ 00420005
+         CLI   QRQCODE,QRANP           Alphanumeric partitions?HRC250DK 00420005
+./ R 00422000 $ 00422005
+         CLI   QRQCODE,QRIP            Implicit oaartition?    HRC250DK 00422005
+./ R 00424000 00431000 $ 00424005 100
+         SPACE 3                                               HRC250DK 00424005
+*--------------------------------------------------------------HRC250DK 00424105
+*        End of the Structured Field scan loop                 HRC250DK 00424205
+*--------------------------------------------------------------HRC250DK 00424305
+         SPACE 1                                               HRC250DK 00424405
+NEXTID   DS    0H                                              HRC250DK 00424505
+         SR    R4,R4                   Get length of current   HRC250DK 00424605
+         ICM   R4,3,SFLEN                structured field      HRC250DK 00424705 
+         SR    R3,R4                   Reduce length remaining HRC250DK 00424805
+         BNP   WSFRET0                 Done... do buffer addrs HRC250DK 00424905
+         AR    R2,R4                   Bump ptr to next SF     HRC250DK 00425005
+         B     CHKIDS                  and process that one    HRC250DK 00425105
+         SPACE 3                                               HRC250DK 00425205
+WSFRET0  DS    0H                                              HRC250DK 00425305
+         SR    R15,R15                 RC = 0                  HRC250DK 00425405
+WSFFIN   DS    0H                                              HRC250DK 00425505
+         L     R14,SAVEWRK4            Return to caller        HRC250DK 00425605
+         BR    R14                     ...                     HRC250DK 00425705
+WSFRET4  DS    0H                                              HRC250DK 00425805
+         LA    R15,4                   RC = 4 : Legacy device  HRC250DK 00425905
+         B     WSFFIN                                          HRC250DK 00426005
+WSFIOERR DS    0H                                              HRC250DK 00426105
+         LH    R15,=H'-4'              RC = -1 : I/O error     HRC250DK 00426205
+         B     WSFFIN                                          HRC250DK 00426305
+         SPACE 3                                               HRC250DK 00426405
+*                                                              HRC250DK 00426505
+*        Usable Area (x'81') Query Reply field                 HRC250DK 00426605
+*                                                              HRC250DK 00426705
+         SPACE 1                                               HRC250DK 00426805
+./ R 00433000 00434000 $ 00433100 1000
+         TM    QRUAFLG1,QRUA1214       14-bit buf addrs?       HRC250DK 00433100
+         BNO   *+8                     no, next check          HRC250DK 00434100
+./ I 00435000 $ 00435105 100
+         SPACE 1                                               HRC250DK 00435105
+         TM    SAVEWRK3,1              Had IP structured field?HRC250DK 00435205
+         BO    NEXTID                  yes, use those values   HRC250DK 00435305
+         TM    QRUAFLG2,QRUAPELS       Dimensions in pels?     HRC250DK 00435405
+         BO    NEXTID                  yes, don't use values   HRC250DK 00435505
+         SPACE 1                                               HRC250DK 00435605
+         MVC   GRFXROWS,QRUAH          Set height in cells     HRC250DK 00435705
+         MVC   GRFXCOLS,QRUAW          Set width in cells      HRC250DK 00435805
+./ R 00437000 $ 00437050 50
+         SPACE 3                                               HRC250DK 00437050
+*                                                              HRC250DK 00437100
+*        Color (x'86') Query Reply field                       HRC250DK 00437150
+*                                                              HRC250DK 00437200
+         SPACE 1                                               HRC250DK 00437250
+./ R 00439000 00442000 $ 00439105 100
+*                                                              HRC250DK 00439105
+*        Loop thru the color attribute pairs to see if the     HRC250DK 00439205
+*        device is capable of displaying more than the default HRC250DK 00439305
+*        colors. Set the flag if it is.                        HRC250DK 00439405
+*                                                              HRC250DK 00439505
+         SR    R0,R0                   Get the color pair countHRC250DK 00439605
+         ICM   R0,1,QRCOLNP            ...                     HRC250DK 00439705
+         BZ    NEXTID                  Ignore if zero pairs    HRC250DK 00439805
+         LA    R5,QRCOLCAV             => 1st pair             HRC250DK 00439905
+COLLP    DS    0H                                              HRC250DK 00440005
+         CLI   0(R5),0                 Default CAV?            HRC250DK 00440105
+         BE    COLNX                   yes, try next one       HRC250DK 00440205
+         CLI   1(R5),0                 Non-default CID?        HRC250DK 00440305
+         BE    COLSET                  yes, set flag           HRC250DK 00440405
+COLNX    DS    0H                                              HRC250DK 00440505
+         LA    R5,2(,R5)               next pair               HRC250DK 00440605
+         BCT   R0,COLLP                and look at them all    HRC250DK 00440705
+         B     NEXTID                  next field              HRC250DK 00440805
+COLSET   DS    0H                                              HRC250DK 00440905
+./ R 00445000 $ 00445050 50
+         SPACE 3                                               HRC250DK 00445050
+*                                                              HRC250DK 00445100
+*        Extended Hilighting (x'87') Query Reply field         HRC250DK 00445150
+*                                                              HRC250DK 00445200
+         SPACE 1                                               HRC250DK 00445250
+./ R 00447000 00450000 $ 00447105 100
+*                                                              HRC250DK 00447105
+*        Loop thru the value/action pairs to see if the        HRC250DK 00447205
+*        device is capable of displaying more than the         HRC250DK 00447305
+*        default highlight values. Set the flag if it is.      HRC250DK 00447405 
+*                                                              HRC250DK 00447505
+         SR    R0,R0                   Get value/action        HRC250DK 00447605
+         ICM   R0,1,QRHINP                pair count.          HRC250DK 00447705
+         BZ    NEXTID                  Ignore if zero pairs    HRC250DK 00447805
+         LA    R5,QRHIVAL              => 1st pair             HRC250DK 00447905
+HILP     DS    0H                                              HRC250DK 00448005
+         CLI   0(R5),0                 Default VAL?            HRC250DK 00448105
+         BE    HINX                    yes, try next one       HRC250DK 00448205
+         CLI   1(R5),0                 Non-default ACT?        HRC250DK 00448305
+         BE    HISET                   yes, set flag           HRC250DK 00448405
+HINX     DS    0H                                              HRC250DK 00448505
+         LA    R5,2(,R5)               next pair               HRC250DK 00448605
+         BCT   R0,HILP                 and look at them all    HRC250DK 00448705
+         B     NEXTID                  next field              HRC250DK 00448805
+HISET    DS    0H                                              HRC250DK 00448905
+./ R 00453000 $ 00453050 50
+         SPACE 3                                               HRC250DK 00453050
+*                                                              HRC250DK 00453100
+*        Character Sets (x'85') Query Reply field              HRC250DK 00453150
+*                                                              HRC250DK 00453200
+         SPACE 1                                               HRC250DK 00453250
+./ R 00455000 $ 00455005
+         TM    QRCHSFL1,QRCHSPSS       Loadable PSS supported? HRC250DK 00455005
+./ I 00456000 $ 00456010 30
+*                                                              HRC250DK 00456010
+*        Loop thru the active PSS descriptors                  HRC250DK 00456040
+*        looking for one flagged as loadable                   HRC250DK 00456070
+*                                                              HRC250DK 00456100
+         SR    R5,R5                   Get size of the         HRC250DK 00456130
+         ICM   R5,3,SFLEN                structured field      HRC250DK 00456160
+         BZ    NEXTID                  get out if  bad data    HRC250DK 00456190
+         AR    R5,R2                   -> end of struct fld    HRC250DK 00456220
+         BCTR  R5,0                    ... ast byte actually   HRC250DK 00456250
+         SR    R6,R6                   Get size of descriptor  HRC250DK 00456280
+         IC    R6,QRCHSDL              ...                     HRC250DK 00456310
+         LA    R4,QRCHSDSC             -> 1st PSS descriptor   HRC250DK 00456340
+         USING QRCHSDSC,R4             (temp addressing)       HRC250DK 00456370
+CHSLOOP  DS    0H                                              HRC250DK 00456400
+         CR    R4,R5                   End of PSS descriptors? HRC250DK 00456430
+         BNL   NEXTID                  yes, done with this fld HRC250DK 00456460
+         TM    QRCHSDFL,QRCHSDLD       Loadable flag set?      HRC250DK 00456490
+         BO    CHSLODBL                yes, save setting       HRC250DK 00456520
+         AR    R4,R6                   next descriptor         HRC250DK 00456550
+         B     CHSLOOP                                         HRC250DK 00456580
+         DROP  R4                                              HRC250DK 00456610
+CHSLODBL DS    0H                                              HRC250DK 00456640
+./ R 00459000 $ 00459050 50
+         SPACE 3                                               HRC250DK 00459050
+*                                                              HRC250DK 00459100
+*        Alpha Numeric Partitions (x'84') Query Reply field    HRC250DK 00459150
+*                                                              HRC250DK 00459200
+         SPACE 1                                               HRC250DK 00459250
+./ R 00461000 $ 00461005
+         MVC   RDEVPART,QRANPNA        Max A/N partition count HRC250DK 00461005
+./ R 00463000 $ 00463050 50
+         SPACE 3                                               HRC250DK 00463050
+*                                                              HRC250DK 00463100
+*        Implicit Partition (x'a6') Query Reply field          HRC250DK 00463150
+*                                                              HRC250DK 00463200
+         SPACE 1                                               HRC250DK 00463250
+./ R 00465000 00516000 $ 00465100 100
+*                                                              HRC250DK 00465100
+*        Loop thru the self-defining parameters                HRC250DK 00465200
+*                                                              HRC250DK 00465300
+         SR    R5,R5                   Get size of the         HRC250DK 00465400
+         ICM   R5,3,SFLEN                structured field      HRC250DK 00465500
+         BZ    NEXTID                  get out if bad data     HRC250DK 00465600
+         AR    R5,R2                   -> end of struct fld    HRC250DK 00465700
+         BCTR  R5,0                    ... ast byte actually   HRC250DK 00465800
+         SR    R6,R6                   (clear for work)        HRC250DK 00465900
+         LA    R4,QRIPSDPS             -> 1st self-def parm    HRC250DK 00466000
+         USING QRIPSDPS,R4             (temp addressing)       HRC250DK 00466100
+IPLOOP   DS    0H                                              HRC250DK 00466200
+         CR    R4,R5                   End of parameters?      HRC250DK 00466300
+         BNL   NEXTID                  yes, done with field    HRC250DK 00466400
+         SPACE 1                                               HRC250DK 00466500
+         CLI   IPSDID,SDPIPSD          Display partition size? HRC250DK 00466600
+         BNE   IPPRT                   ..no, try printer       HRC250DK 00466700
+         MVI   RDEVTYPE,TYP3278        Set display device type HRC250DK 00466800
+         MVC   GRFXROWS,IPSDHA         Set height in cells     HRC250DK 00466900
+         MVC   GRFXCOLS,IPSDWA         Set width in cells      HRC250DK 00467000
+         MVI   SAVEWRK3,1              Tell Usable Area        HRC250DK 00467100
+         SPACE 1                                               HRC250DK 00467200
+IPNEXT   DS    0H                                              HRC250DK 00467300
+         IC    R6,IPSDL                Get this parm length    HRC250DK 00467400
+         AR    R4,R6                   Bump pointer            HRC250DK 00467500
+         B     IPLOOP                   and process them all   HRC250DK 00467600
+         SPACE 1                                               HRC250DK 00467700
+IPPRT    DS    0H                                              HRC250DK 00467800
+         CLI   IPSPID,SDPIPSP          Partition size (printer)HRC250DK 00467900
+         BNE   IPNEXT                  ..no, try next          HRC250DK 00468000
+         MVI   RDEVTYPE,TYP3287        ..yes, set RDEV to prt  HRC250DK 00468100
+         B     IPNEXT                  and look at next parm   HRC250DK 00468200
+         SPACE 1                                               HRC250DK 00468300
+         DROP  R2,R4                                           HRC250DK 00468400
+         EJECT ,                                               HRC250DK 00468500
+***************************************************************HRC250DK 00468600
+*                                                              HRC250DK 00468700
+*        R E A D S I Z E                                       HRC250DK 00468800
+*                                                              HRC250DK 00468900
+*        Determine display model & screen geometry based       HRC250DK 00469000
+*        on buffer size                                        HRC250DK 00469100
+*                                                              HRC250DK 00469200
+*        Input:                                                HRC250DK 00469300
+*              R8  = RDEVBLOK                                  HRC250DK 00469400
+*              R9  = GRFXBLOK                                  HRC250DK 00469500
+*              R10 = IOBLOK (+ work area)                      HRC250DK 00469600
+*              R14 = return address                            HRC250DK 00469700
+*                                                              HRC250DK 00469800
+*        Output:                                               HRC250DK 00469900
+*              R15 = completion status:                        HRC250DK 00470000
+*                    <  0 -- I/O error occured                 HRC250DK 00470100
+*                    == 0 -- successful                        HRC250DK 00470200
+*                                                              HRC250DK 00470300
+***************************************************************HRC250DK 00470400
+         SPACE 1                                               HRC250DK 00470500
+READSIZE DS    0H                                              HRC250DK 00470600
+         ST    R14,SAVEWRK4            Save return address     HRC250DK 00470700
+         SPACE 3                                               HRC250DK 00470800
+*        End up here when either the Sense-Id CCW or some part HRC250DK 00470900
+*        of the WSF-RPQ operation fails. The logic here will   HRC250DK 00471000
+*        determine the screen geometry by doing a Read-Buffer  HRC250DK 00471100
+*        and analyzing the size of the data returned. (Not     HRC250DK 00471200
+*        really reading since the RB CCW SKIP bit is on.)      HRC250DK 00471300
+         SPACE 1                                               HRC250DK 00471400
+*        First issue an Erase-Write-Alternate to clear         HRC250DK 00471500
+*        screen content and place it in its alternate          HRC250DK 00471600
+*        configuration.                                        HRC250DK 00471700
+         SPACE 1                                               HRC250DK 00471800
+         MVC   IOWCCW1(EWACCWL),EWACCW Setup the EWA CCWs      HRC250DK 00471900
+         LA    R1,ERSDATA              w/real addr of WCC      HRC250DK 00472000
+         STCM  R1,7,IOWCCW2+1          .. in 2nd CCW           HRC250DK 00472100
+         LA    R1,IOWCCW1              EWA operation           HRC250DK 00472200
+         OI    IOBSPEC3,IOBBYPER       IOS should ignore error HRC250DK 00472300
+         SPACE 1                                               HRC250DK 00472400
+         BAL   R5,CPIO                 and let 'er rip         HRC250DK 00472500
+         SPACE 1                                               HRC250DK 00472600
+         TM    IOBSPEC3,IOBHADER       was there an I/O error? HRC250DK 00472700
+         BNO   DOREAD                  ..no, just do the RB    HRC250DK 00472800
+         SPACE 1                                               HRC250DK 00472900
+         MVC   IOWCCW1(EWCCWL),EWCCW   Try just Erase-Wwrite   HRC250DK 00473000
+         LA    R1,ERSDATA              w/real addr of WCC      HRC250DK 00473100
+         STCM  R1,7,IOWCCW2+1          .. in 2nd CCW           HRC250DK 00473200
+         LA    R1,IOWCCW1              EW operation            HRC250DK 00473300
+         OI    IOBSPEC3,IOBBYPER       IOS should ignore errorsHRC250DK 00473400
+         SPACE 1                                               HRC250DK 00473500
+         BAL   R5,CPIO                 and let 'er rip         HRC250DK 00473600
+         SPACE 1                                               HRC250DK 00473700
+         TM    IOBSPEC3,IOBHADER       was there an I/O error? HRC250DK 00473800
+         BNZ   SIZIOERR                ..yes, return the error HRC250DK 00473900
+         SPACE 1                                               HRC250DK 00474000
+*        Issue a Read-Buffer with a large data length          HRC250DK 00474100
+*        but with SKIP flag on. Then use the residual          HRC250DK 00474200
+*        length result to figure the size of the, now,         HRC250DK 00474300
+*        totally empty display buffer. This size will          HRC250DK 00474400
+*        be used to determine the 327x model number            HRC250DK 00474500
+*        and, thus, display geometry.                          HRC250DK 00474600
+         SPACE 1                                               HRC250DK 00474700
+DOREAD   DS    0H                                              HRC250DK 00474800
+         MVC   IOWCCW1(RBCCWL),RBCCW   Issue Read-Buffer with..HRC250DK 00474900
+         LA    R1,IOWCCW1              EW operation            HRC250DK 00475000
+         NI    IOBSPEC3,255-IOBBYPER   (revert err handling)   HRC250DK 00475100
+         SPACE 1                                               HRC250DK 00475200
+         BAL   R5,CPIO                 and let 'er rip         HRC250DK 00475300
+         SPACE 1                                               HRC250DK 00475400
+         TM    IOBSTAT,IOBFATAL        was there an I/O error? HRC250DK 00475500
+         BO    SIZIOERR                ..yes, return the error HRC250DK 00475600
+         SPACE 1                                               HRC250DK 00475700
+         LH    R1,IOWCCW2+6            Calc Read-Buffer length HRC250DK 00475800
+         SH    R1,IOBCSW+6             ...                     HRC250DK 00475900
+         S     R1,F3                   - 3 for AID+Cursor      HRC250DK 00476000
+         SPACE 1                                               HRC250DK 00476100
+         USING TUBEINFO,R2             Access the buffer size  HRC250DK 00476200
+         LA    R2,TUBETAB                lookup able           HRC250DK 00476300
+         LA    R0,TUBECNT              Get entry count         HRC250DK 00476400
+TUBELP   DS    0H                                              HRC250DK 00476500
+         CH    R1,TUBEBUFF             Match on buffer size    HRC250DK 00476600
+         BE    TUBEGOT                 .. got it               HRC250DK 00476700
+         LA    R2,TUBELEN(,R2)         Next entry              HRC250DK 00476800
+         BCT   R0,TUBELP               and search them all     HRC250DK 00476900
+         LA    R2,TUBE2                default to Mod2         HRC250DK 00477000
+         SPACE 1                                               HRC250DK 00477100
+TUBEGOT  DS    0H                                              HRC250DK 00477200
+         MVC   GRFXROWS,TUBEROWS       Set rows/cols based     HRC250DK 00477300
+         MVC   GRFXCOLS,TUBECOLS         on the buffer size    HRC250DK 00477400
+         SPACE 1                                               HRC250DK 00477500
+         DROP  R2                                              HRC250DK 00477600
+         SPACE 3                                               HRC250DK 00477700
+SIZRET0  DS    0H                                              HRC250DK 00477800
+         SR    R15,R15                 RC = 0                  HRC250DK 00477900
+SIZFIN   DS    0H                                              HRC250DK 00478000
+         L     R14,SAVEWRK4            Return to caller        HRC250DK 00478100
+         BR    R14                     ...                     HRC250DK 00478200
+SIZRET4  DS    0H                                              HRC250DK 00478300
+         LA    R15,4                   RC = 4 : Legacy device  HRC250DK 00478400
+         B     SIZFIN                                          HRC250DK 00478500
+SIZIOERR DS    0H                                              HRC250DK 00478600
+         LH    R15,=H'-4'              RC = -1 : I/O error     HRC250DK 00478700
+         B     SIZFIN                                          HRC250DK 00478800
+         EJECT ,                                               HRC250DK 00478900
+***************************************************************HRC250DK 00479000
+*                                                              HRC250DK 00479100
+*        F I N D L D E V                                       HRC250DK 00479200
+*                                                              HRC250DK 00479300
+*        Initialize the geometry in GRFXBLOK for Logical       HRC250DK 00479400
+*        Devices (Diag7C) based on declared model number       HRC250DK 00479500
+*                                                              HRC250DK 00479800
+*        Input:                                                HRC250DK 00479900
+*              R8  = RDEVBLOK                                  HRC250DK 00480000
+*              R9  = GRFXBLOK                                  HRC250DK 00480100
+*              R10 = IOBLOK (+ work area)                      HRC250DK 00480200
+*              R14 = return address                            HRC250DK 00480300
+*                                                              HRC250DK 00480400
+*        Output:                                               HRC250DK 00480500
+*              R15 = completion status:                        HRC250DK 00480600
+*                    <  0 -- I/O error occured                 HRC250DK 00480700
+*                    == 0 -- successful                        HRC250DK 00480800
+*                    >  0 -- failed, is probably legacy device HRC250DK 00480900
+*                                                              HRC250DK 00481000
+***************************************************************HRC250DK 00481100
+         SPACE 1                                               HRC250DK 00481200
+FINDLDEV DS    0H                                              HRC250DK 00481300
+         ST    R14,SAVEWRK4            Save return address     HRC250DK 00481400
+*                                                              HRC250DK 00482500
+*        Try to set geometry based on model                    HRC250DK 00482600
+*                                                              HRC250DK 00482700
+         IC    R1,RDEVMDL              Get declared model #    HRC250DK 00482800
+         USING TUBEINFO,R2             Access the buffer size  HRC250DK 00482900
+         LA    R2,TUBETAB                lookup table          HRC250DK 00483000
+         LA    R0,TUBECNT              Get entry count         HRC250DK 00483100
+LDEVLP1  DS    0H                                              HRC250DK 00483200
+         CLM   R1,1,TUBEMDL            Match on model number?  HRC250DK 00483300
+         BE    LDEVGOT1                .. got it               HRC250DK 00483400
+         LA    R2,TUBELEN(,R2)         Next entry              HRC250DK 00483500
+         BCT   R0,GEOMLP               and search them all     HRC250DK 00483600
+         LA    R15,8                   bad model number        HRC250DK 00483600
+         B     LDEVRET                 and pass back to caller HRC250DK 00483600
+*                                                              HRC250DK 00483600
+LDEVGOT1 DS    0H                                              HRC250DK 00483600
+         MVC   GRFXROWS,TUBEROWS       Set geometry from       HRC250DK 00485500
+         MVC   GRFXCOLS,TUBECOLS         declared LDEV model   HRC250DK 00485600
+         SPACE 1                                               HRC250DK 00477500
+         DROP  R2                                              HRC250DK 00477600
+         SPACE 1                                               HRC250DK 00477700
+         SR    R15,R15                 Set good RC             HRC250DK 00483600
+LDEVRET  DS    0H                                              HRC250DK 00483600
+         L     R14,SAVEWRK4            Return to caller        HRC250DK 00483600
+         BR    R14                                             HRC250DK 00483600
+         EJECT ,                                               HRC250DK 00478900
+***************************************************************HRC250DK 00479000
+*                                                              HRC250DK 00479100
+*        S E T A D D R S                                       HRC250DK 00479200
+*                                                              HRC250DK 00479300
+*        Now that display station geometry (rows, columns)     HRC250DK 00479400
+*        is known, the various size-dependent screen addreses  HRC250DK 00479500
+*        can be calculated and the rest of the GRFXBLOK        HRC250DK 00479600
+*        (and parts of RDEVBLOK) can be completed.             HRC250DK 00479700
+*                                                              HRC250DK 00479800
+*        Input:                                                HRC250DK 00479900
+*              R8  = RDEVBLOK                                  HRC250DK 00480000
+*              R9  = GRFXBLOK                                  HRC250DK 00480100
+*              R10 = IOBLOK (+ work area)                      HRC250DK 00480200
+*              R14 = return address                            HRC250DK 00480300
+*                                                              HRC250DK 00480400
+*        Output:                                               HRC250DK 00480500
+*              R15 = completion status:                        HRC250DK 00480600
+*                    <  0 -- I/O error occured                 HRC250DK 00480700
+*                    == 0 -- successful                        HRC250DK 00480800
+*                    >  0 -- failed, is probably legacy device HRC250DK 00480900
+*                                                              HRC250DK 00481000
+***************************************************************HRC250DK 00481100
+         SPACE 1                                               HRC250DK 00481200
+SETADDRS DS    0H                                              HRC250DK 00481300
+         ST    R14,SAVEWRK4            Save return address     HRC250DK 00481400
+         SPACE 3                                               HRC250DK 00481500
+*                                                              HRC250DK 00481600
+*        First a sanity check of overall dimensions.           HRC250DK 00481700
+*        Cannot exceed 255 rows or columns                     HRC250DK 00481800
+*                                                              HRC250DK 00481900
+         CLI   GRFXROWS,0              Rows > 255?             HRC250DK 00482000
+         BNE   DFLTMOD2                ..yes, force to Mod2    HRC250DK 00482100
+         CLI   GRFXCOLS,0              Columns > 255?          HRC250DK 00482200
+         BNE   DFLTMOD2                ..yes, force to Mod2    HRC250DK 00482300
+         SPACE 1                                               HRC250DK 00482400
+*                                                              HRC250DK 00482500
+*        Try to set model based on geometry                    HRC250DK 00482600
+*                                                              HRC250DK 00482700
+         ICM   R1,15,GRFXROWS          Get rows/cols           HRC250DK 00482800
+         USING TUBEINFO,R2             Access the buffer size  HRC250DK 00482900
+         LA    R2,TUBETAB                lookup table          HRC250DK 00483000
+         LA    R0,TUBECNT              Get entry count         HRC250DK 00483100
+GEOMLP   DS    0H                                              HRC250DK 00483200
+         C     R1,TUBEGEOM             Match on rows/cols      HRC250DK 00483300
+         BE    GEOMGOT                 .. got it               HRC250DK 00483400
+         LA    R2,TUBELEN(,R2)         Next entry              HRC250DK 00483500
+         BCT   R0,GEOMLP               and search them all     HRC250DK 00483600
+         SPACE 1                                               HRC250DK 00483700
+         MVI   RDEVMDL,2               Default to Mod2         HRC250DK 00483800
+         MVI   GRFXERAS,CCWEWA         but use EWA CCWs        HRC250DK 00483900
+         B     GOCALC                  and calculate           HRC250DK 00484000
+         SPACE 1                                               HRC250DK 00484100
+DFLTMOD2 DS    0H                      Set 3270-2 default      HRC250DK 00484200
+         ICM   R1,15,GRFXRPQA          Allocated RPQ vpage?    HRC250DK 00364395
+         BZ    NORPQPG                 ..no, no cleanup needed HRC250DK 00364405
+         ICM   R2,15,SAVEWRK2          Page needs unlocking?   HRC250DK 00364515
+         BZ    NOUNLK                  ..no, nothing needed    HRC250DK 00364625
+         CALL  DMKPTRUL                ..yes, unlock the page  HRC250DK 00364735
+NOUNLK   DS    0H                                              HRC250DK 00364845
+         CALL  DMKPGTVR                release CP vpage        HRC250DK 00344945
+         SR    R1,R1                   and clean RPQ stuff     HRC250DK 00485000
+         ST    R1,GRFXRPQA             ... vpage ptr           HRC250DK 00485100
+         STH   R1,GRFXRPQL             ... length              HRC250DK 00485200
+NORPQPG  DS    0H                                              HRC250DK 00485300
+         LA    R2,TUBE2                Get Model 2 values      HRC250DK 00485400
+         MVC   GRFXROWS,TUBEROWS       Default row count       HRC250DK 00485500
+         MVC   GRFXCOLS,TUBECOLS       Default column count    HRC250DK 00485600
+         NI    RDEVGRIC,255-RDEVEXTC-RDEVEXTH-RDEVPSS-RDEVAD14 HRC250DK 00485785
+         SPACE 1                                               HRC250DK 00485800
+GEOMGOT  DS    0H                                              HRC250DK 00485900
+         MVC   RDEVMDL,TUBEMDL         Set model for Diag24    HRC250DK 00486000
+         MVC   GRFXERAS,TUBECCW        and the EW/EWA opcode   HRC250DK 00486100
+         DROP  R2                                              HRC250DK 00486200
+         SPACE 1                                               HRC250DK 00486300
+*       The screen buffer addresses are saved in the           HRC250DK 00486400
+*       GRFXBLOK so they do not have to calculated every       HRC250DK 00486500
+*       time they are needed. They are saved in the            HRC250DK 00486600
+*       format that the display will return in an inbound      HRC250DK 00486700
+*       data stream. If ALL screen address are  addressable    HRC250DK 00486800
+*       in 12 bits, 12 bit addresses are ALWAYS returned.      HRC250DK 00486900
+*       If ANY screen address is over 12 bits, 14 bit          HRC250DK 00487000
+*       addresses are ALWAYS returned.                         HRC250DK 00487100
+         SPACE 1                                               HRC250DK 00487200
+GOCALC   DS    0H                                              HRC250DK 00487300
+         LH    R1,GRFXCOLS             Calculate the input     HRC250DK 00487400
+         SLL   R1,1                    ... area length         HRC250DK 00487500
+         SH    R1,=AL2(STATLEN)        ... in bytes and        HRC250DK 00487600
+         STH   R1,GRFXINPL             ... save it             HRC250DK 00487700
+         SPACE 1                                               HRC250DK 00487800
+         LH    R2,GRFXROWS             Calculate the output    HRC250DK 00487900
+         BCTR  R2,0                    ... area length         HRC250DK 00488000
+         STC   R2,GRFXINL2             ... (last input ln)     HRC250DK 00488100
+         BCTR  R2,0                    ... - 1 more            HRC250DK 00488200
+         STC   R2,GRFXINL1             ... (1st input area ln  HRC250DK 00488300
+         MH    R2,GRFXCOLS             ... in bytes            HRC250DK 00488400
+         STH   R2,GRFXOUTL             ... and save it         HRC250DK 00488500
+         SPACE 1                                               HRC250DK 00488600
+         AR    R1,R2                   Output area length      HRC250DK 00488700
+*                                      + Input area length     HRC250DK 00488800
+         STH   R1,GRFX@STA             = Status attr           HRC250DK 00488900
+         LA    R1,L'STATSTAT(,R1)      + Status length         HRC250DK 00489000
+         STH   R1,GRFX@SYS             = Sysid attr            HRC250DK 00489100
+         LA    R1,L'STATSYID(,R1)      + Sysid length          HRC250DK 00489200
+         STH   R1,GRFX@LST             = Output area attr      HRC250DK 00489300
+*                                      (also last screen loc)  HRC250DK 00489400
+         MVI   GRFXATOA,FLDPROT        last attr = prot-low    HRC250DK 00489500
+         SPACE 1                                               HRC250DK 00489600
+         STH   R2,GRFXORGI             1st byte of input area  HRC250DK 00489700
+         BCTR  R2,0                    Last byte of output     HRC250DK 00489800
+         STH   R2,GRFX@INP             ... is input area attr  HRC250DK 00489900
+         SPACE 1                                               HRC250DK 00490000
+         IC    R1,GRFXINL1             Last out area line#     HRC250DK 00490100
+         BCTR  R1,0                    ...                     HRC250DK 00490200
+         STC   R1,GRFXOALZ             ...                     HRC250DK 00490300
+         SPACE 1                                               HRC250DK 00490400
+         LH    R1,GRFXCOLS             Set RDEV line length    HRC250DK 00490500
+         STC   R1,RDEVLLEN             to screen width         HRC250DK 00490600
+         SPACE 1                                               HRC250DK 00489400
+         TM    RDEVGRIC,RDEVAD14       14-bit addressing ok?   HRC250DK 00489800
+         BO    SETRET0                 yes, use addr as-is     HRC250DK 00489900
+         MH    R1,GRFXROWS             Rows * cols = size      HRC250DK 00489500
+         CH    R1,=XL2'0FFF'           Will it fit in 12 bits? HRC250DK 00489600
+         BNH   SET12BIT                yes.. encode as 12-bit  HRC250DK 00489700
+         OI    RDEVGRIC,RDEVAD14       no.. set 14-bit flag    HRC250DK 00489700
+         B     SETRET0                 and return              HRC250DK 00489700
+         SPACE 1                                               HRC250DK 00490000
+SET12BIT DS    0H                                              HRC250DK 00489700
+         LA    R1,GRFX@INP             Convert Input area attr HRC250DK 00490100
+         BAL   R5,CVT1412              ...                     HRC250DK 00490200
+         LA    R1,GRFX@STA             Convert Status area attrHRC250DK 00490300
+         BAL   R5,CVT1412              ...                     HRC250DK 00490400
+         LA    R1,GRFX@SYS             Convert Sysid area attr HRC250DK 00490500
+         BAL   R5,CVT1412              ...                     HRC250DK 00490600
+         LA    R1,GRFX@LST             Convert Output area attrHRC250DK 00490700
+         BAL   R5,CVT1412              ...                     HRC250DK 00490800
+         SPACE 3                                               HRC250DK 00490900
+SETRET0  DS    0H                                              HRC250DK 00491000
+         SR    R15,R15                 RC = 0                  HRC250DK 00491100
+SETFIN   DS    0H                                              HRC250DK 00491200
+         L     R14,SAVEWRK4            Return to caller        HRC250DK 00491300
+         BR    R14                     ...                     HRC250DK 00491400
+         SPACE 3                                               HRC250DK 00491500
+CVT1412  DS    0H                                              HRC250DK 00491600
+         LH    R15,0(,R1)              Split 12-bit address    HRC250DK 00491700
+         SR    R14,R14                 ... into two 6-bit      HRC250DK 00491800
+         SLDL  R14,26                  ... pieces.             HRC250DK 00491900
+         SRL   R15,26                  ...                     HRC250DK 00492000
+         STC   R14,0(,R1)              ... and store them in   HRC250DK 00492100
+         STC   R15,1(,R1)              ... the GRFXBLOK        HRC250DK 00492200
+         L     R14,=A(DMKTBL68)        ... translate to 3270   HRC250DK 00492300
+         TR    0(2,R1),0(R14)          ... 6-bit form          HRC250DK 00492400
+         BR    R5                                              HRC250DK 00492500
+         EJECT ,                                               HRC250DK 00492600
+./ R 00523000 $ 00523010
+         ST    R5,IOWIORET             Save caller return addr HRC250DK 00523010
+./ R 00540000 00541000 $ 00540010 500
+         L     R5,IOWIORET             Load caller return addr HRC250DK 00540010
+         L     R8,IOWRDEV              Restore RDEVBLOK ptr    HRC250DK 00541510
+         L     R9,RDEVGRFX             Restore GRFXBLOK ptr    HRC250dk 00542010
+./ R 00548000 00572000 $ 00548100 100
+         EJECT ,                                               HRC250DK 00548100
+***************************************************************HRC250DK 00548200
+*                                                              HRC250DK 00548300
+*        Display terminal initialization channel programs      HRC250DK 00548400
+*                                                              HRC250DK 00548500
+***************************************************************HRC250DK 00548600
+         SPACE 1                                               HRC250DK 00548700
+*------------------------------------------------------------- HRC250DK 00548800
+*        Sense-Id Channel Program                              HRC250DK 00548900
+*------------------------------------------------------------- HRC250DK 00549000
+         SPACE 1                                               HRC250DK 00549100
+SIDCCW   CCW   X'E4',*-*,SILI,SIDDATAL                         HRC250DK 00549200
+SIDCCWL  EQU   *-SIDCCW                                        HRC250DK 00549300
+         SPACE 1                                               HRC250DK 00549400
+*------------------------------------------------------------- HRC250DK 00549500
+*        WSF-RPQ Channel Program                               HRC250DK 00549600
+*------------------------------------------------------------- HRC250DK 00549700
+         SPACE 1                                               HRC250DK 00549800
+WSFCCW   CCW   CCWWSF,*-*,SILI,WSFDATAL                        HRC250DK 00549900
+WSFCCWL  EQU   *-WSFCCW                                        HRC250DK 00550000
+         SPACE 1                                               HRC250DK 00550100
+*------------------------------------------------------------- HRC250DK 00550200
+*        Read-Modified Channel PRogram (to finish WSF-RPQ)     HRC250DK 00550300
+*------------------------------------------------------------- HRC250DK 00550400
+         SPACE 1                                               HRC250DK 00550500
+RMDCCW   CCW   CCWSEL,0,CC+SILI,1                              HRC250DK 00550600
+         CCW   CCWRM,*-*,SILI,4096                             HRC250DK 00550700
+RMDCCWL  EQU   *-RMDCCW                                        HRC250DK 00550800
+         SPACE 1                                               HRC250DK 00550900
+*------------------------------------------------------------- HRC250DK 00551000
+*        Erase-Write & EW Alt Channel Programs                 HRC250DK 00551100
+*        (to reset before the Read-Buffer)                     HRC250DK 00551200
+*------------------------------------------------------------- HRC250DK 00551300
+         SPACE 1                                               HRC250DK 00551400
+EWACCW   CCW   CCWSEL,0,CC+SILI,1                              HRC250DK 00551500
+         CCW   CCWEWA,*-*,CC+SILI,ERSDATAL                     HRC250DK 00551600
+         CCW   CCWNOP,0,SILI,1                                 HRC250DK 00551700
+EWACCWL  EQU   *-EWACCW                                        HRC250DK 00551800
+         SPACE 1                                               HRC250DK 00551900
+EWCCW    CCW   CCWSEL,0,CC+SILI,1                              HRC250DK 00552000
+         CCW   CCWEW,*-*,CC+SILI,ERSDATAL                      HRC250DK 00552100
+         CCW   CCWNOP,0,SILI,1                                 HRC250DK 00552200
+EWCCWL   EQU   *-EWCCW                                         HRC250DK 00552300
+         SPACE 1                                               HRC250DK 00552400
+*------------------------------------------------------------- HRC250DK 00552500
+*        Read Buffer Channel Program                           HRC250DK 00552600
+*        (to discover screen geometry)                         HRC250DK 00558700
+*------------------------------------------------------------- HRC250DK 00552800
+         SPACE 1                                               HRC250DK 00552900
+RBCCW    CCW   CCWSEL,0,CC+SILI,1                              HRC250DK 00553000
+         CCW   CCWRB,0,SKIP+SILI,MAXBUFLN                      HRC250DK 00553100
+RBCCWL   EQU   *-RBCCW                                         HRC250DK 00553200
+MAXBUFLN EQU   X'4003'                 14-bit len + AID/Cursor HRC250DK 00553300
+         SPACE 3                                               HRC250DK 00553400
+***************************************************************HRC250DK 00553500
+*                                                              HRC250DK 00553600
+*        Data streams                                          HRC250DK 00553700
+*                                                              HRC250DK 00553800
+***************************************************************HRC250DK 00553900
+         SPACE 1                                               HRC250DK 00554000
+*--------------------------------------------------------------HRC250DK 00554100
+*        Sense-ID (X'E4') result data                          HRC250DK 00554200
+*--------------------------------------------------------------HRC250DK 00554300
+         SPACE 1                                               HRC250DK 00554400
+SIDDATA  DSECT ,                                               HRC250DK 00554500
+SIDUNK1  DS    XL1                     Extra something (x'ff') HRC250DK 00554600
+SIDCUID  DS    0XL3                    Control Unit type/model HRC250DK 00554700
+SIDCUTY  DS    XL2                     Control Unit type numberHRC250DK 00554800
+SIDCUMD  DS    XL1                     Control Unit mdl number HRC250DK 00554900
+SIDMINLN EQU   *-SIDDATA               (minimum length)        HRC250DK 00555000
+SIDDVID  DS    0XL3                    Device type/model       HRC250DK 00555100
+SIDDVTY  DS    XL2                     Device type number      HRC250DK 00555200
+SIDDVMD  DS    XL1                     Device model number     HRC250DK 00555300
+SIDFULLN EQU   *-SIDDATA               (length w/device id)    HRC250DK 00555400
+         DS    XL1                     (pad to dword)          HRC250DK 00555500
+SIDDATAL EQU   *-SIDDATA               Length in bytes         HRC250DK 00555600
+         SPACE 1                                               HRC250DK 00555700
+HDKD8C   CSECT ,                                               HRC250DK 00555800
+         SPACE 1                                               HRC250DK 00555900
+*--------------------------------------------------------------HRC250DK 00556000
+*        WSF-RPQ Data Stream                                   HRC250DK 00556100
+*--------------------------------------------------------------HRC250DK 00556200
+         SPACE 1                                               HRC250DK 00556300
+WSFDATA  EQU   *                       Write Structure Fields  HRC250DK 00556400
+         SPACE 1                                               HRC250DK 00556500
+WSFKBRS  EQU   *                         SF to restore the kbd HRC250DK 00556600
+         DC    AL2(WSFKBRSL)               Field length        HRC250DK 00556700
+         DC    AL1(SFO3DS)                 SFID: 3270DS Outbnd HRC250DK 00556800
+         DC    X'00'                       PID                 HRC250DK 00556900
+         DC    AL1(CMDW)                   Command: write      HRC250DK 00557000
+         DC    AL1(WCCUNLK)                3270 WCC: restore kbHRC250DK 00557100
+WSFKBRSL EQU   *-WSFKBRS                                       HRC250DK 00557200
+         SPACE 1                                               HRC250DK 00557300
+WSFRPQA  EQU   *                         Structure Fld to RPQ  HRC250DK 00557400
+         DC    AL2(WSFRPQL)                Field length        HRC250DK 00557500
+         DC    AL1(SFORP)                  SFID: Read PartitionHRC250DK 00557600
+         DC    X'FF'                       PID: (FF=query oper)HRC250DK 00557700
+         DC    AL1(SFRPQRY)                Read Type: Query    HRC250DK 00557800
+WSFRPQL  EQU   *-WSFRPQA                                       HRC250DK 00557900
+         SPACE 1                                               HRC250DK 00558000
+WSFDATAL EQU   *-WSFDATA               Overall WSF I/O length  HRC250DK 00558100
+         SPACE 1                                               HRC250DK 00558200
+*--------------------------------------------------------------HRC250DK 00558300
+*        Simple WCC for EW/EWA CCWs                            HRC250DK 00558400
+*--------------------------------------------------------------HRC250DK 00558500
+         SPACE 1                                               HRC250DK 00558600
+ERSDATA  EQU   *                                               HRC250DK 00558700
+         DC    AL1(WCCUNLK)                                    HRC250DK 00558800
+ERSDATAL EQU   *-ERSDATA                                       HRC250DK 00558900
+         SPACE 3                                               HRC250DK 00559000
+***************************************************************HRC250DK 00559100
+*                                                              HRC250DK 00559200
+*        Screen geometry based on size of buffer.              HRC250DK 00559300
+*        (Determined by issuing a Read-Buffer CCW              HRC250DK 00559400
+*         after first erasing the screen)                      HRC250DK 00559500
+*                                                              HRC250DK 00559600
+***************************************************************HRC250DK 00559700
+         SPACE 1                                               HRC250DK 00559800
+TUBETAB  DS    0H                                              HRC250DK 00559900
+TUBE2A   DC    AL2(20*80),X'2A',AL1(CCWEW)                     HRC250DK 00560000
+MD2AROWS DC    AL2(20)                                         HRC250DK 00560100
+MD2ACOLS DC    AL2(80)                                         HRC250DK 00560200
+TUBELEN  EQU   *-TUBETAB                                       HRC250DK 00560300
+TUBE2    DC    AL2(24*80),X'02',AL1(CCWEW),AL2(24,80)          HRC250DK 00560400
+TUBE3    DC    AL2(32*80),X'03',AL1(CCWEWA),AL2(32,80)         HRC250DK 00560500
+TUBE4    DC    AL2(43*80),X'04',AL1(CCWEWA),AL2(43,80)         HRC250DK 00560600
+TUBE5    DC    AL2(27*132),X'05',AL1(CCWEWA),AL2(27,132)       HRC250DK 00560700
+TUBECNT  EQU   (*-TUBETAB)/TUBELEN                             HRC250DK 00560800
+         SPACE 1                                               HRC250DK 00560900
+TUBEINFO DSECT ,                  Map the table entry          HRC250DK 00561000
+TUBEBUFF DS    H                    Buffer length              HRC250DK 00561100
+TUBEMDL  DS    XL1                  RDEVMDL value              HRC250DK 00561200
+TUBECCW  DS    XL1                  EW/EWA CCW to use          HRC250DK 00561300
+TUBEGEOM DS    0XL4                 Geometry                   HRC250DK 00561400
+TUBEROWS DS    H                    .. rows                    HRC250DK 00561500
+TUBECOLS DS    H                    .. cols                    HRC250DK 00561600
+         SPACE 3                                               HRC250DK 00562500
+HDKD8C   CSECT ,                                               HRC250DK 00562600
+         SPACE 1                                               HRC250DK 00562700
+GRFX3066 DS    0D                                              HRC250DK 00562800
+ROWS3066 DC    H'35'      Size of physical screen (rows)       HRC250DK 00562900
+COLS3066 DC    H'80'      Size of physical screen (cols)       HRC250DK 00563000
+INPL3066 DC    AL2(140)   Input area length                    HRC250DK 00563100
+OUTL3066 DC    AL2(33*80) Output area length                   HRC250DK 00563200
+@INP3066 DC    AL1(33,0)  Input area attr buffer addr          HRC250DK 00563300
+@STA3066 DC    AL1(34,60) Status area attr buffer addr         HRC250DK 00563400
+@SYS3066 DC    AL1(34,70) System ID attr buffer addr           HRC250DK 00563500
+@LST3066 DC    AL1(34,79) Bottom-right buffer address          HRC250DK 00563600
+RPQA3066 DC    A(0)       WSF RPQ data CP virtual address      HRC250DK 00563700
+RPQL3066 DC    H'0'        ''  ''  ''  length                  HRC250DK 00563800
+ERAS3066 DC    XL1'00'    EW/EWA opcode                        HRC250DK 00563900
+E4FL3066 DC    XL1'00'    SenseId flags                        HRC250DK 00564000
+CUID3066 DC    XL3'00'    SnsId Control Unit id:               HRC250DK 00564100
+DVID3066 DC    XL3'00'    SnsId Device id:                     HRC250DK 00564200
+INL13066 DC    AL1(33)    1st input area line                  HRC250DK 00564300
+INL23066 DC    AL1(34)    last input area line                 HRC250DK 00564400
+OALZ3066 DC    AL1(32)    last output area line                HRC250DK 00564500
+ATOA3066 DC    AL1(0)     lower-right attr (n/a for 3066)      HRC250DK 00564600
+ORGI3066 DC    AL2(33*80) input area origin                    HRC250DK 00564800
+RSV13066 DC    XL4'00'    (available)                          HRC250DK 00564900
+BUFF3066 DC    64XL1'00'  Buffer for orders & data             HRC250DK 00565000
+         EJECT ,                                               HRC250DK 00565100
+./ I 00579000 $ 00579100 100
+         COPY  GRFXBLOK           327x device extensions       HRC250DK 00579100
+         COPY  GRCWORK            For status area layout       HRC250DK 00579200
+         COPY  HDK3270            327x equates                 HRC250DK 00579300
+         COPY  HDKSFLDS           327x structured fields       HRC250DK 00579400
+./ R 00587000 00592000 $ 00587005 500 
+IOWCCW1  DS    D                       CCW #1                  HRC250DK 00587005
+IOWCCW2  DS    D                       CCW #2                  HRC250DK 00587505
+IOWCCW3  DS    D                       CCW #3                  HRC250DK 00588005
+IOWCCW4  DS    D                       CCW #4                  HRC250DK 00588505
+IOWRDEV  DS    A                       -> RDEVBLOK             HRC250DK 00589005
+IOWIORET DS    A                       CPIO return addr        HRC250DK 00589505
+IOWDATA  DS    XL64                    Up to 64 bytes of data  HRC250DK 00590005

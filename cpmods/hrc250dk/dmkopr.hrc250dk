@@ -1,0 +1,16 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Change to test RDEVMDL for Model 2A instead of the   
+./ * obsolete RDEVGRTY
+./ * 
+./ * HISTORY:
+./ * 29-Jul-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00196401 00196451 $ 00196402 50
+         IC    R0,RDEVMDL     also save the screen type        HRC250DK 00196402
+         STC   R0,CONSMDL     ...                              HRC250DK 00196452
+./ R 00197201 $ 00197202
+         CLI   CONSMDL,MODEL2A  Special stuff for model 2A     HRC250DK 00197202
+./ R 00268201 00268301 $ 00268202 100
+CONSMDL  DC    X'00'          Graphic screen type (RDEVMDL)    HRC250DK 00268202
+MODEL2A  EQU   X'2A'          .. value for  3278-2A            HRC250DK 00268302

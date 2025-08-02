@@ -1,0 +1,12 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Add new module to dynamically build channel programs    
+./ * and data streams for 327x display terminals. The data     
+./ * streams are built based on the screen geomeetry and 
+./ * device features that were discovered by HDKD8C when
+./ * the device was enabled and stored in the GRFXBLOK 
+./ * attached to the RDEVBLOK.
+./ * 
+./ * HISTORY:
+./ * 19-Jul-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *

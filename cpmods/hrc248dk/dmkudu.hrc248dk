@@ -1,0 +1,12 @@
+./ * HRC248DK - Expand input line size from 130 to 255
+./ *
+./ * In preparation for supporting dynamic display terminal 
+./ * screen size, this update changes the CP command line   
+./ * size from 130 to 255.
+./ *
+./ * HISTORY:
+./ *  6-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00993000 00994000 $ 00993100 1000
+         MVC   0(8,R1),BLANKS Clear buffer to blanks           HRC248DK 00993100
+         MVC   8(BUFINLTH-8,R1),0(R1) . . .                    HRC248DK 00994100

@@ -1,0 +1,51 @@
+./ * HRC248DK - Expand input line size from 130 to 255
+./ *
+./ * In preparation for supporting dynamic display terminal 
+./ * screen size, this update changes the CP command line   
+./ * size from 136 to 255.
+./ *
+./ * HISTORY:
+./ *  5-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./  I 00434000 $ 00434100 100
+         LR    R3,R0          Save length for clearing         HRC248DK 00434100              
+         SLL   R3,3           * 8 for byte length              HRC248DK 00434200
+./ R 00437000 00441000 $ 00437100 1000
+         LR    R2,R1          -> buffer to be cleared          HRC248DK 00437100
+         XR    R1,R1          clear to zero                    HRC248DK 00438100
+         MVCL  R2,R0          ...                              HRC248DK 00439100
+./ R 00587241 $ 00587251 10
+         XC    BUFPRE,BUFPRE      Clear buffer preamble        HRC248DK 00587251
+         MVC   BUFDATA,BUFPRE     ... and the rest             HRC248DK 00587261
+./ R 00611000 $ 00611100 30 
+PFREJ    DS    0H                                              HRC248DK 00611100
+         XC    BUFPRE,BUFPRE      Clear buffer preamble        HRC248DK 00611130
+         MVC   BUFDATA,BUFPRE     ... and the rest             HRC248DK 00611160
+./ R 00821000 $ 00821010
+         LA    R0,BUFINLTH*2  Get size of APL/TEXT buffer      HRC248DK 00821010
+./ R 00841000 $ 00841100 100
+         XC    0(6,R1),0(R1)  Clear buffer preamble            HRC248DK 00841100
+         MVC   6(L'BUFDATA,R1),0(R1) and the rest              HRC248DK 00841200
+         MVC   BUFNXT-BUFFER(8,R1),0(R1) ...                   HRC248DK 00841300
+./ R 00844000 $ 00844100
+         LA    R14,L'BUFDATA  Get max length of data           HRC248DK 00844100
+./ R 00856000 $ 00856100 100
+KEYCLC   DS    0H                                              HRC248DK 00856100
+         CLC   BUFAID,0(R1)   Matching AID?                    HRC248DK 00856200
+./ R 00869081 $ 00869085
+         CLI   BUFDATA,X'00'      Any data entered?            HRC248DK 00869085
+./ R 00869361 00869401 $ 00869365 40
+         LA    R1,BUFDATA         Addr of input data           HRC248DK 00869365
+         LA    R0,L'BUFDATA       Max input length             HRC248DK 00869405
+./ R 00878000 $ 00878100 100
+SETBUF   DS    0H                                              HRC248DK 00878100
+         LA    R3,BUFDATA     Data address                     HRC248DK 00878200
+./ R 00880000 $ 00880005
+         LA    R1,L'BUFDATA   Max buffer input allowed         HRC248DK 00880005
+./ R 01461000 $ 01461100
+         LA    R0,L'BUFDATA   Get max buffer size              HRC248DK 01461100
+./ * The next change fixes a problem in HRC450DK that can
+./ * cause an infinite loop wieh APL or TEXT is enabled
+./ R 01594010 $ 01594015
+         B     FAKESUBB       yes, translate next char         HRC248DK 01549015
+./ D 02087000

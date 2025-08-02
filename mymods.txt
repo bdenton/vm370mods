@@ -3,7 +3,7 @@ CP Mods
 HRC240DK - Better alternate nucleus
 HRC241DK - Improved PFkey RETRIEVE functionality
 HRC242DK - IOSQR bypass error processing
-HRC243DK - Add DMKIOSRQ entry for synchronous I/O
+HRC243DK - Add DMKIOSYN entry for synchronous I/O
 HRC244DK - Hercules UR Output Handshake
 HRC245DK - Add DMKOPRRD as standalone CFMRD function
 HRC246DK - Alternate nucleus - prompt for SYSRES
@@ -29,5 +29,5 @@ HRC250DK - Support any screen size
 
 CMS Mods
 =========
-HRC240DS -   - Update support for record lengths 80-255
-HRC246DS -   - Expand command line size to 255
+HRC240DS - Update support for record lengths 80-255
+HRC248DS - Expand command line size to 255

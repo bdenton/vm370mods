@@ -1,0 +1,45 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Revert the 327x logo back to a simple matrix since the  
+./ * actual buffer orders sent to the device will be generated
+./ * dynamically at runtime based on screen geometry.    
+./ *
+./ * Adds a simple logo descriptor with the size of each logo
+./ * row and the number of rows in the logo.
+./ * 
+./ * Adds a 2nd logo for VM/380. The dimensions must match
+./ * the default VM/370 logo
+./ *
+./ * HISTORY:
+./ * 19-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00004500 $ 00004600 100
+         ENTRY DMKBOXDS       Box descriptor                   HRC250DK 00004600
+         ENTRY DMKBOX80       VM/380 logo                      HRC250DK 00004700
+./ R 00005020 00005880 $ 00005100 100
+DMKBOXDS DS    0H             Logo geeometry description       HRC250DK 00005100
+         DC    AL2(LINESZ)    ... length of each line          HRC250DK 00005200
+         DC    AL2(LINECT)    ... number of lines              HRC250DK 00005200
+./ I 00006020 $ 00006025
+LINESZ   EQU   *-DMKBOXBX     Length of each logo line         HRC250DK 00006025
+./ I 00006172 $ 00007100 100
+LINECT   EQU   (*-DMKBOXBX)/LINESZ Number of lines in logo     HRC250DK 00007100
+         SPACE 3                                               HRC250DK 00007200
+DMKBOX80 EQU   *                                               HRC250DK 00007300
+    DC    CL46'        VV        VV    MM        MM         '  HRC250DK 00007400
+    DC    CL46'        VV        VV    MMM      MMM         '  HRC250DK 00007500
+    DC    CL46' 3333333333      8888888888M    MM00000000   '  HRC250DK 00007600
+    DC    CL46'333333333333    888888888888M  MM0000000000  '  HRC250DK 00007700
+    DC    CL46'33      VV33    88VV    MM88MMMM00MM      00 '  HRC250DK 00007800
+    DC    CL46'         V33    88V     MM88 MM 00MM      00 '  HRC250DK 00007900
+    DC    CL46'          33    V88     M88     00MM      00 '  HRC250DK 00008000
+    DC    CL46'       3333VV  VV 88888888      00MM      00 '  HRC250DK 00008100
+    DC    CL46'       3333 VVVV  88888888      00MM      00 '  HRC250DK 00008200
+    DC    CL46'          33 VV  88     M88     00MM      00 '  HRC250DK 00008300
+    DC    CL46'          33    88        88    00        00 '  HRC250DK 00008400
+    DC    CL46'33        33    88        88    00        00 '  HRC250DK 00008500
+    DC    CL46'333333333333    888888888888     0000000000  '  HRC250DK 00008600
+    DC    CL46' 3333333333      8888888888       00000000   '  HRC250DK 00008700
+    DC    CL46'                                             '  HRC250DK 00008800
+    DC    CL46'   VM/380 Community Edition V1 Release 1.2   '  HRC250DK 00008900
+         SPACE 3                                               HRC250DK 00009000

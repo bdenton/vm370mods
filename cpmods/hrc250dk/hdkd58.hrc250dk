@@ -1,0 +1,16 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Modify Diagnose 58 full-screen logic to remove the      
+./ * reference to the GRTBLOK and call HDKGRC to build          
+./ * the clear-screen channel program & data stream.       
+./ * 
+./ * HISTORY:
+./ * 29-Jul-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 01181050 $ 01181060
+         EXTRN HDKGRCCW                Build channel programs  HDK250DK 01181060
+./ R 03183000 03185000 $ 03183100 100
+         LA    R1,CPIXCLS              Build clear screen CCWs HDK250DK 03183100
+         CALL  HDKGRCCW                  and data stream       HDK250DK 03183200
+./ R 03340000 03341000 $ 03340100
+         COPY  GRCWORK                                         HDK250DK 03340100

@@ -1,0 +1,23 @@
+./ * HRC248DK - Expand input line size from 130 to 255
+./ *
+./ * In preparation for supporting dynamic display terminal 
+./ * screen size, this update changes the CP command line   
+./ * size from 130 to 255.
+./ *
+./ * HISTORY:
+./ * 18-Sep-2024 WDENTON  Initial version for VM370CE V1 R1.2
+./ *  5-Jun-2025 WDENTON  Added fields for 3270 preamble
+./ *
+./ R 00010000 $ 00010001
+*        100   +-----------------------+-----------------------HRC248DK 00010001
+./ R 00012000 $ 00012001
+*        108   +-----------------------+-----------------------HRC248DK 00012001
+./ R 00018000 $ 00018001 100
+BUFIN    DS    0CL(255+6)     Input data * preamble            HRC248DK 00018001
+BUFPRE   DS    0XL6              327x preamble                 HRC248DK 00018101
+BUFAID   DS    XL1                 AID                         HRC248DK 00018201
+BUFCSR   DS    XL2                 cursor address              HRC248DK 00018301
+BUFSBA   DS    XL1                 SBA order                   HRC248DK 00018401
+BUFADDR  DS    XL2                 field address               HRC248DK 00018501
+BUFDATA  DS    XL255               Input data                  HRC248DK 00018601
+BUFRSVD  DS    XL3            (padding for alignment)          HRC238DK 00010701

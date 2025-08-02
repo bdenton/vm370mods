@@ -1,0 +1,17 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Remove part of the logic added by HRC108DK that calls   
+./ * DMKGRTID to put the system id into the 3270 data streams.
+./ * This is no longer appropriate since the data streams
+./ * are now dynamically built based on discovered device
+./ * geometry.
+./ * 
+./ * HISTORY:
+./ * 29-Jul-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ D 00058100
+./ R 00238500 $ 00238503
+*            DMKSYS.  HDKGRC will use the value in DMKSYSID    HRC250DK 00238503
+./ R 00361100 $ 00361200                                   
+         EXTRN DMKSYSIC,DMKSYSID,DMKSYSIL                      HRC250DK 00361200
+./ D 02275700                                   

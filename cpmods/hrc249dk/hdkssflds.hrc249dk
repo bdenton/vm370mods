@@ -1,0 +1,10 @@
+./ * HRC249DK - Add common 3270 support files      
+./ *
+./ * Adds new comprehensive set of equates for all 3270-DS
+./ * Structured Fields and Query Reply results
+./ *
+./ * Source: GA23-0059-07: 3270 Data Stream_Programmers Reference
+./ *
+./ * HISTORY:
+./ * 13-May-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *

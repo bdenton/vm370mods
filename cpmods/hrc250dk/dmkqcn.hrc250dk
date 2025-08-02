@@ -1,0 +1,41 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Remove the 327x data stream processing for the HILIGHT   
+./ * option. Pass the parameter flag along to DMKGRF in the   
+./ * new CONTASK field CONPARM2. This is to allow all data
+./ * stream processing of hilighted output to be managed
+./ * by the consolodated channel program and data stream    
+./ * processing (HDKGRC) added with this update.
+./ *
+./ * HISTORY:
+./ * 22-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00034550 $ 00034555                         
+         EXTRN DMKGRFM2       Default GRFXBLOK for Mod2        HRC250DK 00034555
+./ D 00429340
+./ R 00432090 00434070 $ 00432095 90
+         C     R5,F9          Must have at least 9 extra       HRC250DK 00432095
+         BNL   *+8            Already > 9                      HRC250DK 00433085
+         LA    R5,9           < 9, make it 9 (the minimum)     HRC250DK 00434075
+./ R 00445300 00445400 $ 00445350
+         OI    CONPARM2,HILIGHT/256  Pass HILIGHT option along HRC250DK 00445350
+./ D 00457570 00457920
+./ R 00530250 $ 00530350 25
+CHKAPLEN DS    0H                                              HRC250DK 00530350
+         L     R1,=A(DMKGRFM2) All remotes are Mod2s           HRC250DK 00530375
+./ R 00531250 00531750 $ 00531255 50 
+         L     R1,RDEVGRFX    Access GRFXBLOK                  HRC250DK 00531255
+CHKSIZE  DS    0H                                              HRC250DK 00531305
+         USING GRFXBLOK,R1    ...                              HRC250DK 00531355
+         LH    R10,GRFXOUTL   Get output area length           HRC250DK 00531405
+         DROP  R1                                              HRC250DK 00531455
+./ R 00615190 00616370 $ 00615195 590
+         C     R7,F9          Must have at least 9 extra       HRC250DK 00615195
+         BNL   *+8            Already > 9                      HRC250DK 00615785
+         LA    R7,9           < 9, make it 9 (the minimum)     HRC250DK 00616375
+./ I 00627100 $ 00627200 100
+         IC    R1,CONPARM2-CONTASK(,R8) Copy 2nd parm byte     HRC250DK 00627200
+         STC   R1,CONPARM2              ... for DMKGRF         HRC250DK 00627300
+./ D 01167150 01167300
+./ I 01172000 $ 01172100 100
+         COPY  GRFXBLOK            GRAF RDEV extensions        HRC250DK 01172100

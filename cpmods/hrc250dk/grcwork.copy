@@ -1,0 +1,51 @@
+*COPY GRCWORK                                                           00010000
+         PUSH  PRINT                                                    00020000
+         AIF   ('&SYSPARM' NE 'SUP').GRC01                              00030000
+         PRINT OFF,NOGEN                                                00040000
+.GRC01   ANOP  ,                                                        00050000
+         SPACE 1                                                        00060000
+* +========================================================+            00070000
+* ! +----------------------------------------------------+ !            00080000
+* | |                                                    | |            00090000
+* | |                  G R C W O R K                     | |            00100000
+* | |                                                    | |            00110000
+* | |   Control values and work areas used by HDKGRC     | |            00120000
+* | |                                                    | |            00130000
+* ! +----------------------------------------------------+ !            00140000
+* +========================================================+            00150000
+         SPACE 1                                                        00160000
+*                                                                       00170000
+*        Channel Program Index                                          00180000
+*                                                                       00190000
+*        Specifies which channel program is to be built                 00200000
+*                                                                       00210000
+         SPACE 1                                                        00220000
+*              4*0            Is an error                               00230000
+CPIXRMI  EQU   4*1            Read Manual Input                         00240000
+CPIXFMT  EQU   4*2            Format screen w/logo                      00250000
+CPIXWRT  EQU   4*3            Write to output area                      00260000
+CPIXCLR  EQU   4*4            Clear screen                              00270000
+CPIXCLS  EQU   4*5            Clear screen w/erase write (alternate)    00280000
+CPIXCRD  EQU   4*6            Clear input area                          00290000
+CPIXMRD  EQU   4*7            Clear screen                              00300000
+CPIXIDS  EQU   4*8            Write to input area                       00310000
+CPIXTAB  EQU   4*9            Insert a logical tab                      00320000
+CPIXHLD  EQU   4*10           Set status = HOLDING                      00330000
+CPIXMOR  EQU   4*11           Set status = MORE...                      00340000
+CPIXNAC  EQU   4*12           Set status = NOT ACCEPTED                 00350000
+CPIXRUN  EQU   4*13           Set status = RUNNING                      00360000
+CPIXVMR  EQU   4*14           Set status = VM READ                      00370000
+CPIXCPR  EQU   4*15           Set status = CP READ                      00380000
+CPIXVMP  EQU   4*16           Set status = VM READ inhibit              00390000
+CPIXCPP  EQU   4*17           Set status = CP READ inhibit              00400000
+CPIXWNG  EQU   4*18           Sound warning alarm                       00410000
+         SPACE 3                                                        00420000
+STATAREA DSECT ,                  Map the status area                   00430000
+STATATTR DS    XL1                  attribute                           00440000
+STATSTAT DS    CL9                  status                              00450000
+STATATTI DS    XL1                  sysid attr                          00460000
+STATSYID DS    CL8                  sysid                               00470000
+STATLAST DS    XL1                  last attr                           00480000
+STATLEN  EQU   *-STATAREA                                               00490000
+         EJECT ,                                                        00500000
+         POP   PRINT                                                    00510000

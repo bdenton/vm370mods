@@ -1,0 +1,25 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Modify Diagnose 7C Logical Device logic to remove       
+./ * references to the obsolete RDEVBLOK fields:                
+./ * -- RDEVGRTB
+./ * -- RDEVGRTY
+./ * 
+./ * HISTORY:
+./ * 29-Jul-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00249000 $ 00249100
+         SLL   R3,2                    Times 4 to make index   HRC250DK 00249100
+./ R 00322000 00324000 $ 00322100 100
+         MVC   RDEVMDL,GRFMDL          Set model number        HRC250DK 00322100
+./ R 00361000 00362000 $ 00361100 1000
+GRF3277  EQU   * NAME   MDL      TYPE                          HRC250DK 00361100
+         DC    X'3277',X'02',AL1(TYP3277)             Model 2  HRC250DK 00362100
+./ R 00365000 00369000 $ 00365100 1000
+GRF3278  EQU   * NAME   MDL      TYPE                          HRC250DK 00365100
+         DC    X'3278',X'02',AL1(TYP3278)             Model 2  HRC250DK 00366100
+         DC    X'3278',X'03',AL1(TYP3278)             Model 3  HRC250DK 00367100
+         DC    X'3278',X'04',AL1(TYP3278)             Model 4  HRC250DK 00368100
+         DC    X'3278',X'05',AL1(TYP3278)             Model 5  HRC250DK 00369100
+./ R 02126000 $ 02126100
+GRFMDL   DS    XL1                     RDEVMDL value           HRC250DK 02126100

@@ -1,0 +1,22 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Updates to RDEVBLOK to support dynamic 3270 screen     
+./ * sizing. This update removes the use of GRTBLOK to      
+./ * define static CCWs and buffer order streams. It also
+./ * generalizes the MODEL=DYNAMIC support to extend to
+./ * all 3277/3278 models so the actual screen geometry
+./ * will be determined when the device is enabled. This
+./ * update also introduces the GRFXBLOK extension to
+./ * RDEVBLOK that will contain all the extended fields
+./ * needed to manage display scrceens of any size.
+./ *
+./ * HISTORY:
+./ * 13-May-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00181100 $ 00181105
+RDEVGRFX DS    1F             GRAF: graphic device extensions  HRC250DK 00181105
+./ R 00181440 00181445 $ 00181442 5
+*        EQU   X'08'          GRAF: available bit              HRC250DK 00181442
+RDEVXSEL EQU   X'04'          GRAF: has extended selects       HRC250DK 00181447
+./ R 00195620 $ 00195625
+RDEVAVL1 DS    1X             available (was RDEVGRTY)         HRC250DK 00195625

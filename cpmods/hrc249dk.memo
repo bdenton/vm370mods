@@ -1,0 +1,70 @@
+LOCAL MODIFICATION: HRC249DK
+
+Common 3270 helper functions and support files
+
+Affected Files:
+===============
+
+HDK3270  COPY    (new file)
+HDKSFLDS COPY    (new file)
+DMKCVT   ASSEMBLE
+DMKTBL   ASSEMBLE
+
+Prerequisites:
+==============
+
+none      
+
+Description:
+============
+
+This update adds a couple of conversion functions to help with 
+dynamically building 3270 channel programs and data streams.      
+
+This update also adds a couple of files that contain 3270 data
+stream equates and structured field definitions.      
+
+Details:
+========
+
+HDK3270 COPY (new file)
+------------
+This new file contains equates for all aspects of 3270                    
+data streams and channel programs. The intent is to have
+this file be the consolidated single source for all
+constants related to non-SNA 327x programming.
+
+----------------------------------------------------------------------------
+
+HDKSFLDS COPY (new file)
+-------------
+This new file contains structural definitions for all
+327x inbound and outbould structured fields and all
+query reply field elements.
+
+----------------------------------------------------------------------------
+
+DMKCVT ASSEMBLE
+---------------
+
+This update adds four new entry points to assist in 3270 buffer  
+address calculations:
+
+-- DMKCVTRC - Converts 0-based row/column to two bytes
+              for the 12-bit based buffer address
+-- DMKCVTBA - Converts the two-byte 3270 buffer address
+              address to 0-based row/column
+-- DMKCVT12 - Converts the 14-bit linear buffer address
+              to two bytes with the 12-bit based address
+-- DMKCVT14 - Converts the 2-byte encoded buffer address
+              to the 14-bit linear buffer location
+
+----------------------------------------------------------------------------
+
+DMKTBL ASSEMBLE
+---------------
+
+Add a new table used to convert the 6-bit parts of a 12-bit
+3270 buffer address to the EBCDIC transmission characters
+
+----------------------------------------------------------------------------

@@ -1,0 +1,384 @@
+G66      TITLE 'HDKG66           (CP)  VM370CE: VIRTUAL MACHINE/370 COMX00010000
+               MUNITY EDITION'                                          00020000
+         ISEQ  73,80          Validate sequence numbers                 00030000
+**********************************************************************  00040000
+*                                                                       00050000
+* MODULE NAME -                                                         00060000
+*                                                                       00070000
+*        HDKG66                                                         00080000
+*                                                                       00090000
+* FUNCTION -                                                            00100000
+*                                                                       00110000
+*        Build all of the Channel Programs needed to manage             00120000
+*        3066 display devices.                                          00130000
+*                                                                       00140000
+* ATTRIBUTES -                                                          00150000
+*                                                                       00160000
+*        Reenterable, resident                                          00170000
+*                                                                       00180000
+* ENTRY POINTS -                                                        00190000
+*                                                                       00200000
+*        DMKG66CP - Prepare channel programs                            00210000
+*                                                                       00220000
+**********************************************************************  00230000
+         EJECT ,                                                        00240000
+         COPY  OPTIONS                                                  00250000
+         COPY  LOCAL                                                    00260000
+         SPACE 3                                                        00270000
+HDKG66   CSECT ,                                                        00280000
+         DC    CL8'HDKG66'        Module Id                             00290000
+         DC    AL2(MODEND-HDKG66) Module length                         00300000
+         DC    C'&SYSDATE',C'-'   Compile date                          00310000
+         DC    C'&SYSTIME'        Compile time                          00320000
+         SPACE 3                                                        00330000
+         USING PSA,0                                                    00340000
+         USING TRQBLOK,R5                                               00350000
+         USING CONTASK,R6                                               00360000
+         USING RDEVBLOK,R8                                              00370000
+         USING IOBLOK,R10                                               00380000
+         USING VMBLOK,R11                                               00390000
+         USING SAVEAREA,R13                                             00400000
+         TITLE 'HDKG66:HDKG66CP  (CP)  VM370CE: VIRTUAL MACHINE/370 COMX00410000
+               MUNITY EDITION'                                          00420000
+***************************************************************         00430000
+*                                                                       00440000
+* METHOD NAME -                                                         00450000
+*                                                                       00460000
+*        HDKG66CP                                                       00470000
+*                                                                       00480000
+* FUNCTION -                                                            00490000
+*                                                                       00500000
+*        Build a 3066 display device channel program                    00510000
+*        and its associated data stream.                                00520000
+*                                                                       00530000
+* ENTRY CONDITIONS -                                                    00540000
+*                                                                       00550000
+*        Entered via GOTO from HDKGRCCW                                 00560000
+*                                                                       00570000
+*        R0  = Index of channel program to be built                     00580000
+*        R8  = Address of the RDEVBLOK                                  00590000
+*        R10 = Address of the IOBLOK                                    00600000
+*        R11 = Address of the user's VMBLOK                             00610000
+*        R12 = Address of HDKGINIT entry point                          00620000
+*        R13 = Address of standard SAVEAREA                             00630000
+*                                                                       00640000
+* EXIT CONDITIONS -                                                     00650000
+*                                                                       00660000
+*        R15 = 0 : The RDEVBLOK has been initialized                    00670000
+*                                                                       00680000
+*        R15 = 4 : A Read Partition Query was issued.                   00690000
+*                  Wait for the Attention interrupt that                00700000
+*                  will be generated. A call to HDKGINRD                00710000
+*                  needs to be made when that interrupt occurs.         00720000
+*                                                                       00730000
+*        R15 = 8 : An I/O error occurred while trying th                00740000
+*                  initialize the display device.                       00750000
+*                                                                       00760000
+* NOTES -                                                               00770000
+*                                                                       00780000
+*        Local display device initialization is invoked                 00790000
+*        when an unsolicited Device-End is detected for                 00800000
+*        an enabled device or when an ENABLE command is                 00810000
+*        issued for a disabled device                                   00820000
+*                                                                       00830000
+***************************************************************         00840000
+         SPACE 3                                                        00850000
+HDKG66CP RELOC ,                                                        00860000
+         SPACE 3                                                        00870000
+         CLI   RDEVTYPE,TYP3066   Is this for a 3066?                   00880000
+         BNE   BADCALL            no, just return an error              00890000
+         SPACE 3                                                        00900000
+*-------------------------------------------------------------          00910000
+*        Route to requested build logic                                 00920000
+*-------------------------------------------------------------          00930000
+         SPACE 1                                                        00940000
+ROUTCALL DS    0H                                                       00950000
+         B     VECTOR66(R1)                                             00960000
+VECTOR66 DS    0H                                                       00970000
+         B     BADCALL        CPIX=0  bad call                          00980000
+         B     BLD66RMI       CPIX=1  Read Manual Input                 00990000
+         B     BLD66FMT       CPIX=2  Format screen w/logo              01000000
+         B     BLD66WRT       CPIX=3  Write to output area              01010000
+         B     BLD66CLR       CPIX=4  Clear screen                      01020000
+         B     BLD66CLS       CPIX=5  Clear screen w/EraseWrite         01030000
+         B     BLD66CRD       CPIX=6  Clear input area w/RUNNING        01040000
+         B     BLD66MRD       CPIX=7  Clear input area w/o status       01050000
+         B     BLD66IDS       CPIX=8  Write to input area               01060000
+         B     BLD66TAB       CPIX=9  Insert a logical tab              01070000
+         B     BLD66HLD       CPIX=10 Set status = HOLDING              01080000
+         B     BLD66MOR       CPIX=11 Set status = MORE...              01090000
+         B     BLD66NAC       CPIX=12 Set status = NOT ACCEPTED         01100000
+         B     BLD66RUN       CPIX=13 Set status = RUNNING              01110000
+         B     BLD66VMR       CPIX=14 Set status = VM READ              01120000
+         B     BLD66CPR       CPIX=15 Set status = CP READ              01130000
+         B     BLD66VMP       CPIX=16 Set status = VM READ inhibit      01140000
+         B     BLD66CPP       CPIX=17 Set status = CP READ inhibit      01150000
+         B     BLD66WNG       CPIX=18 Sound warning alarm               01160000
+         SPACE 3                                                        01170000
+*-------------------------------------------------------------          01180000
+*        Return to DMKGRF                                               01190000
+*-------------------------------------------------------------          01200000
+         SPACE 1                                                        01210000
+PASSCONT DS    0H                                                       01220000
+         LA    R1,CONCCW1                                               01230000
+PASSR1   DS    0H                                                       01240000
+         ST    R1,SAVER1      Return R1 = channel program               01250000
+         XR    R15,R15        and RC=0                                  01260000
+DOEXIT   DS    0H                                                       01270000
+         EXIT  ,                                                        01280000
+BADCALL  DS    0H                                                       01290000
+         LA    R15,8                                                    01300000
+         B     DOEXIT                                                   01310000
+         EJECT ,                                                        01320000
+*-------------------------------------------------------------          01330000
+*        R M I - Read operator input                                    01340000
+*-------------------------------------------------------------          01350000
+         SPACE 1                                                        01360000
+BLD66RMI DS    0H                                                       01370000
+         L     R1,IOBCAW      GET CCW ADDRESS                           01380000
+         MVC   0(32,R1),RMI66CCW GET MODEL CCWS                         01390000
+         L     R3,IOBMISC     GET BUFFER ADDRESS                        01400000
+         STCM  R3,7,1(R1)     SET CURSOR DATA ADDRESS                   01410000
+         LA    R3,6(R3)       DATA ADDRESS                              01420000
+         STCM  R3,7,17(R1)    SET ADAT CCW ADDRESS                      01430000
+         B     PASSR1                                                   01440000
+         SPACE 3                                                        01450000
+*-------------------------------------------------------------          01460000
+*        F M T - Format the screen                                      01470000
+*-------------------------------------------------------------          01480000
+         SPACE 1                                                        01490000
+BLD66FMT DS    0H                                                       01500000
+         LA    R1,FMT66CCW    CCW ADDRESS                               01510000
+         B     PASSR1                                                   01520000
+         SPACE 3                                                        01530000
+*-------------------------------------------------------------          01540000
+*        W R T - Write to output area                                   01550000
+*-------------------------------------------------------------          01560000
+         SPACE 1                                                        01570000
+BLD66WRT DS    0H             BUILD 3066 WRITE CCW STRING               01580000
+         LH    R3,CONCNT      DATA COUNT                                01590000
+         MVC   CONCCW1(3*8),WRT66CCW    SET CCWS                        01600000
+         STC   R4,CONCCW1+5   SAVE NUMBER OF LINES                      01610000
+         STH   R3,CONCCW2+6   SET DATA COUNT                            01620000
+         LA    R3,CONDATA     DATA START                                01630000
+         STCM  R3,7,CONCCW2+1 SET CCW ADDRESS                           01640000
+         MVC   CONCCW4(2),RDEVCORD      SET BUFFER ADDRESS              01650000
+         LA    R3,CONCCW4     DATA ADDRESS                              01660000
+         STCM  R3,7,CONCCW1+1  SET CCW ADDESS                           01670000
+         MVI   WRT66ALM,NOP   ASSUME NO ALARM                           01680000
+         TM    CONPARM,ALARM  ALARM WITH THIS MESSAGE                   01690000
+         BZ    PASSCONT       NO, CONT                                  01700000
+         OI    TRQBFLAG,CRTALRM FLAG SCREEN ALARM                       01710000
+         MVI   WRT66ALM,BEL66 SOUND ALARM                               01720000
+         B     PASSCONT       CONT                                      01730000
+         SPACE 3                                                        01740000
+*-------------------------------------------------------------          01750000
+*        C L R - Clear the output area                                  01760000
+*-------------------------------------------------------------          01770000
+         SPACE 1                                                        01780000
+BLD66CLR DS    0H                                                       01790000
+BLD66CLS DS    0H             n/a for 3066                              01800000
+         LA    R1,CLR66CCW    CCW ADDRESS                               01810000
+         B     PASSR1                                                   01820000
+         SPACE 3                                                        01830000
+*-------------------------------------------------------------          01840000
+*        C R D - Clear input area & set status = RUNNING                01850000
+*-------------------------------------------------------------          01860000
+         SPACE 1                                                        01870000
+BLD66CRD DS    0H                                                       01880000
+         MVI   CLRDATA,C' '   BLANK AN AREA                             01890000
+         MVC   CLRDATA+1(159),CLRDATA CLEAR TO BLANKS                   01900000
+         LA    R1,CRD66CCW    POINT TO RUN MSG CCW                      01910000
+         B     PASSR1                                                   01920000
+         SPACE 3                                                        01930000
+*-------------------------------------------------------------          01940000
+*        M R D - Clear input area & leave status alone                  01950000
+*-------------------------------------------------------------          01960000
+         SPACE 1                                                        01970000
+BLD66MRD DS    0H                                                       01980000
+         MVI   CLRDATA,C' '   BLANK AN AREA                             01990000
+         MVC   CLRDATA+1(159),CLRDATA CLEAR TO BLANKS                   02000000
+         LA    R1,MRD66CCW    POINT TO RUN MSG CCW                      02010000
+         B     PASSR1                                                   02020000
+         SPACE 3                                                        02030000
+*-------------------------------------------------------------          02040000
+*        I D S - Write to input area (n/a 3066 has no PF keys)          02050000
+*        T A B - Add a tab to line   (n/a 3066 has no PF keys)          02060000
+*-------------------------------------------------------------          02070000
+         SPACE 1                                                        02080000
+BLD66IDS DS    0H                                                       02090000
+BLD66TAB DS    0H                                                       02100000
+         LA    R1,NOP66CCW    Just return a NOP                         02110000
+         B     PASSR1                                                   02120000
+         SPACE 3                                                        02130000
+*-------------------------------------------------------------          02140000
+*        H L D - Set status = HOLDING                                   02150000
+*-------------------------------------------------------------          02160000
+         SPACE 1                                                        02170000
+BLD66HLD DS    0H                                                       02180000
+         LA    R1,HLD66CCW    CCW ADDRESS                               02190000
+         B     PASSR1                                                   02200000
+         SPACE 3                                                        02210000
+*-------------------------------------------------------------          02220000
+*        M O R - Set status = MORE...                                   02230000
+*-------------------------------------------------------------          02240000
+         SPACE 1                                                        02250000
+BLD66MOR DS    0H                                                       02260000
+         LA    R1,MOR66CCW    CCW ADDRESS                               02270000
+         B     PASSR1                                                   02280000
+         SPACE 3                                                        02290000
+*-------------------------------------------------------------          02300000
+*        N A C - Set status = NOT ACCEPTED                              02310000
+*-------------------------------------------------------------          02320000
+         SPACE 1                                                        02330000
+BLD66NAC DS    0H                                                       02340000
+         LA    R1,NAC66CCW    CCW ADDRESS                               02350000
+         B     PASSR1                                                   02360000
+         SPACE 3                                                        02370000
+*-------------------------------------------------------------          02380000
+*        R U N - Set status = RUNNING                                   02390000
+*-------------------------------------------------------------          02400000
+         SPACE 1                                                        02410000
+BLD66RUN DS    0H                                                       02420000
+         LA    R1,RUN66CCW    CCW ADDRESS                               02430000
+         MVI   WRT66ALM,NOP   SET END TO NOP                            02440000
+         B     PASSR1                                                   02450000
+         SPACE 3                                                        02460000
+*-------------------------------------------------------------          02470000
+*        V M R - Set status = VM READ                                   02480000
+*        V M P - Set status = VM READ (inhibit) n/a for 3066            02490000
+*-------------------------------------------------------------          02500000
+         SPACE 1                                                        02510000
+BLD66VMR DS    0H                                                       02520000
+BLD66VMP DS    0H                                                       02530000
+         LA    R1,VMR66CCW    CCW ADDRESS                               02540000
+         B     PASSR1                                                   02550000
+         SPACE 3                                                        02560000
+*-------------------------------------------------------------          02570000
+*        C P R - Set status = CP READ                                   02580000
+*        C P P - Set status = CP READ (inhibit) n/a for 3066            02590000
+*-------------------------------------------------------------          02600000
+         SPACE 1                                                        02610000
+BLD66CPR DS    0H                                                       02620000
+BLD66CPP DS    0H                                                       02630000
+         LA    R1,CPR66CCW    CCW ADDRESS                               02640000
+         B     PASSR1                                                   02650000
+         SPACE 3                                                        02660000
+*-------------------------------------------------------------          02670000
+*        W N G - Sound the alarm                                        02680000
+*-------------------------------------------------------------          02690000
+         SPACE 1                                                        02700000
+BLD66WNG DS    0H                                                       02710000
+         LA    R1,WNG66CCW    CCW ADDRESS                               02720000
+         B     PASSR1                                                   02730000
+         EJECT ,                                                        02740000
+* 3066 CCW PACKAGES                                                     02750000
+         SPACE 1                                                        02760000
+*        3066 CCW Op Codes                                              02770000
+         SPACE 1                                                        02780000
+WRT66    EQU   X'01'          Write                                     02790000
+CSR66    EQU   X'0F'          Set Cursor                                02800000
+SBA66    EQU   X'27'          Set Buffer Address                        02810000
+RD66     EQU   X'06'          Read                                      02820000
+RMI66    EQU   X'0E'          Read Manual Input                         02830000
+BEL66    EQU   X'0B'          Set Audible Alarm                         02840000
+LOCK66   EQU   X'67'          Lock keyboard                             02850000
+ERS66    EQU   X'07'          Erase                                     02860000
+NOP      EQU   X'03'          Do Nothing                                02870000
+TIC      EQU   X'08'          Link                                      02880000
+         SPACE                                                          02890000
+WRT66CCW CCW   SBA66,*-*,SILI+CC,2                                      02900000
+         CCW   WRT66,*-*,SILI+CC,*-*                                    02910000
+         CCW   TIC,RUN66CCW,0,0    TIC TO WRITE RUNNING                 02920000
+         SPACE                                                          02930000
+RMI66CCW CCW   RMI66,*-*,SILI+CC,3                                      02940000
+         CCW   SBA66,SBA3300,SILI+CC,2                                  02950000
+         CCW   RD66,*-*,SILI+CC,BUFINLTH                                02960000
+         CCW   NOP,0,SILI,1                                             02970000
+         SPACE                                                          02980000
+FMT66CCW CCW   ERS66,0,SILI+CC,1                                        02990000
+         CCW   SBA66,SBA0000,SILI+CC,2                                  03000000
+         CCW   WRT66,VM370ONL,SILI+CC,20                                03010000
+         CCW   SBA66,SBA3460,SILI+CC,2                                  03020000
+         CCW   WRT66,RUNNING,SILI+CC,20                                 03030000
+         CCW   CSR66,SBA3300,SILI+CC,2                                  03040000
+         CCW   NOP,0,SILI,1                                             03050000
+         SPACE                                                          03060000
+HLD66CCW CCW   SBA66,SBA3460,SILI+CC,2                                  03070000
+         CCW   WRT66,HOLDING,SILI+CC,20                                 03080000
+         CCW   NOP,0,SILI,1                                             03090000
+         SPACE                                                          03100000
+MOR66CCW CCW   SBA66,SBA3460,SILI+CC,2                                  03110000
+         CCW   WRT66,MOREMSG,SILI+CC,20                                 03120000
+         CCW   NOP,0,SILI,1                                             03130000
+         SPACE                                                          03140000
+NAC66CCW CCW   SBA66,SBA3460,SILI+CC,2                                  03150000
+         CCW   WRT66,NOTACCPT,SILI+CC,20                                03160000
+WNG66CCW CCW   BEL66,0,SILI+CC,1                                        03170000
+NOP66CCW CCW   NOP,0,SILI,1                                             03180000
+         SPACE                                                          03190000
+CRD66CCW CCW   SBA66,SBA3300,SILI+CC,2                                  03200000
+         CCW   WRT66,CLRDATA,SILI+CC,140                                03210000
+         CCW   SBA66,SBA3460,SILI+CC,2                                  03220000
+         CCW   WRT66,RUNNING,SILI+CC,20                                 03230000
+         CCW   CSR66,SBA3300,SILI+CC,2                                  03240000
+         CCW   NOP,0,SILI,1                                             03250000
+         SPACE 2                                                        03260000
+MRD66CCW CCW   SBA66,SBA3300,SILI+CC,2                                  03270000
+         CCW   WRT66,CLRDATA,SILI+CC,140                                03280000
+         CCW   CSR66,SBA3300,SILI+CC,2                                  03290000
+         CCW   NOP,0,SILI,1                                             03300000
+         SPACE                                                          03310000
+RUN66CCW CCW   SBA66,SBA3460,SILI+CC,2                                  03320000
+         CCW   WRT66,RUNNING,SILI+CC,20                                 03330000
+WRT66ALM CCW   NOP,0,SILI,1                                             03340000
+         SPACE                                                          03350000
+CLR66CCW CCW   RMI66,CLRMI,SILI+CC,3                                    03360000
+         CCW   CSR66,SBA0000,SILI+CC,2                                  03370000
+         CCW   SBA66,SBA3300,SILI+CC,2                                  03380000
+         CCW   RD66,CLRDATA,SILI+CC,160                                 03390000
+         CCW   ERS66,0,SILI+CC,1                                        03400000
+         CCW   SBA66,SBA3300,SILI+CC,2                                  03410000
+         CCW   WRT66,CLRDATA,SILI+CC,160                                03420000
+         CCW   CSR66,CLRMI,SILI+CC,2                                    03430000
+         CCW   NOP,0,SILI,1                                             03440000
+CLRMI    DC    CL3' '                                                   03450000
+CLRDATA  DC    CL160' '                                                 03460000
+         SPACE                                                          03470000
+VMR66CCW CCW   SBA66,SBA3460,SILI+CC,2                                  03480000
+         CCW   WRT66,VMREAD,SILI+CC,20                                  03490000
+         CCW   NOP,0,SILI,1                                             03500000
+         SPACE                                                          03510000
+CPR66CCW CCW   SBA66,SBA3460,SILI+CC,2                                  03520000
+         CCW   WRT66,CPREAD,SILI+CC,20                                  03530000
+         CCW   NOP,0,SILI,1                                             03540000
+         SPACE 3                                                        03550000
+*        CONSTANTS                                                      03560000
+RUNNING  DC    CL20'RUNNING'                                            03570000
+HOLDING  DC    CL20'HOLDING'                                            03580000
+MOREMSG  DC    CL20'MORE...'                                            03590000
+NOTACCPT DC    CL20'NOT ACCEPTED'                                       03600000
+CPREAD   DC    CL20'CP READ'                                            03610000
+VMREAD   DC    CL20'VM READ'                                            03620000
+VM370ONL DC    CL20'VM/370 Online'                                      03630000
+         SPACE                                                          03640000
+SBA0000  DC    AL1(00,00)     CORDINATES FOR TOP OF CRT                 03650000
+SBA3300  DC    AL1(33,00)     COORDINATES FOR READ INPUT DATA           03660000
+SBA3460  DC    AL1(34,60)     COORDINATES FOR SYSTEM STATUS             03670000
+         EJECT ,                                                        03680000
+         LTORG ,                                                        03690000
+         EJECT ,                                                        03700000
+         COPY  EQU                                                      03710000
+         COPY  DEVTYPES                                                 03720000
+         COPY  RBLOKS                                                   03730000
+         COPY  CONBUF                                                   03740000
+         COPY  IOBLOKS                                                  03750000
+         COPY  TIMER                                                    03760000
+         COPY  VMBLOK                                                   03770000
+         COPY  SAVE                                                     03780000
+         PSA                                                            03790000
+         SPACE 3                                                        03800000
+HDKG66   CSECT ,                                                        03810000
+         ORG   ,                                                        03820000
+MODEND   DS    0D                                                       03830000
+         END                                                            03840000

@@ -1,0 +1,123 @@
+LOCAL MODIFICATION: HRC248DK
+
+Expand input line size from 130 to 255 maximum
+
+Affected Files:
+===============
+
+CONBUF   COPY
+DMKALG   ASSEMBLE
+DMKCDM   ASSEMBLE
+DMKCFG   ASSEMBLE
+DMKCFM   ASSEMBLE
+DMKCFO   ASSEMBLE
+DMKCFS   ASSEMBLE
+DMKCPI   ASSEMBLE
+DMKCPS   ASSEMBLE
+DMKCSO   ASSEMBLE
+DMKCST   ASSEMBLE
+DMKCSU   ASSEMBLE
+DMKCSV   ASSEMBLE
+DMKEPS   ASSEMBLE
+DMKERM   ASSEMBLE
+DMKGRF   ASSEMBLE
+DMKMSG   ASSEMBLE
+DMKPED   ASSEMBLE
+DMKRSP   ASSEMBLE
+DMKSCN   ASSEMBLE
+DMKUDU   ASSEMBLE
+DMKVCN   ASSEMBLE
+DMKVDC   ASSEMBLE
+DMKVMD   ASSEMBLE
+
+Prerequisites:
+==============
+
+HRC013DK
+HRC101DK
+HRC241DK
+
+Description:
+============
+
+This update expands the terminal input line length from the default  
+of 130 to a maximum of 255 characters.  This is required in order 
+to support display terminal geometry with greater than 80 columns.  
+
+The core of this modification is the redefinition of the BUFIN field 
+in the BUFFER DSECT (see CONBUF COPY details below).  
+
+Almost all of the changes to the affected files are required because
+the change to the input data size changed the location of the buffer
+control fields at the end of the BUFFER DSECT. Most of the other   
+updates were made to deal with the allocation or initialization of
+the BUFFER with its updated lengths.
+
+Details:
+========
+
+CONBUF COPY
+-----------
+This update redefines the BUFIN field in BUFFER as follows:               
+
+* Explicitly define the structure of the 327x preamble that
+  is part of the Read-Modified operation and occupies the
+  first six bytes of the data received from the terminal.
+
+* Follow this with the new 255 byte BUFFDATA field that will
+  contain the actual data read from the 327x terminal.
+
+Unfortunatly, the BUFFER DSECT has the buffer management fields
+(BUFNXT and BUFCNT) placed after the buffer data. This means 
+that code not otherwise affected by the size change will need 
+to get reassembled to reflect the changed displacements of those 
+fields.
+
+----------------------------------------------------------------------------
+
+DMKGRF ASSEMBLE
+---------------
+
+Code changes here are to deal with the increased input buffer size
+and the new BUFFER fields added to descrribe the Read-Modified preamble
+(AID, cursor, SBA, address).
+
+This update also corrects a bug introduced by HRC450DK that can result
+in an infinite loop if the APL ot TEXT options are active.
+
+----------------------------------------------------------------------------
+
+DMKPED ASSEMBLE
+DMKRSP ASSEMBLE
+DMKUDU ASSEMBLE
+DMKVCN ASSEMBLE
+---------------
+
+Update the code that clears the buffer to reflect the length change
+
+----------------------------------------------------------------------------
+
+DMKALG ASSEMBLE
+DMKCDM ASSEMBLE
+DMKCFG ASSEMBLE
+DMKCFM ASSEMBLE
+DMKCFO ASSEMBLE
+DMKCFS ASSEMBLE
+DMKCPI ASSEMBLE
+DMKCPS ASSEMBLE
+DMKCSO ASSEMBLE
+DMKCST ASSEMBLE
+DMKCSU ASSEMBLE
+DMKCSV ASSEMBLE
+DMKEPS ASSEMBLE
+DMKERM ASSEMBLE
+DMKMSG ASSEMBLE
+DMKSCN ASSEMBLE
+DMKVDC ASSEMBLE
+DMKVMD ASSEMBLE
+---------------
+
+Just reassemble to pick up the structural changes to BUFFER     
+
+----------------------------------------------------------------------------
+

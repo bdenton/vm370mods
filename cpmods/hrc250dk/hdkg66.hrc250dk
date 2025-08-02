@@ -1,0 +1,8 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Add new module to dynamically build channel programs    
+./ * and data streams for the 3066 operator console.           
+./ * 
+./ * HISTORY:
+./ * 25-Jul-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *

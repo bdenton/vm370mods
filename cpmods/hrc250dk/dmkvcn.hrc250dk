@@ -1,0 +1,60 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Removes references to tables in DMKGRT that are indexed  
+./ * by 3270 model number. Uses calculated values in the       
+./ * GRFXBLOK instead.
+./ *
+./ * HISTORY:
+./ * 23-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *  2-Jul-2025 WDENTON  Virtual console writes larger than 2040
+./ *
+./ R 00138100 $ 00138150
+         EXTRN DMKGRFM2       Default GRFXBLOK for Mod2        HRC250DK 00138150
+./ R 00409000 $ 00409100
+         LH    R0,VCONWBSZ    Get buffer size                  HRC250DK 00409100
+./ R 00495000 00497000 $ 00495100 100
+         LA    R15,132        Default max length               HRC250DK 00495100
+         ICM   R14,15,VMTERM  Get console RDEVBLOK             HRC250DK 00495200
+         BZ    CKCMD1         not there.. use defailt          HRC250DK 00495300
+         USING RDEVBLOK,R14   access RDEVBLOK                  HRC250DK 00495400
+         CLI   RDEVTYPC,CLASGRAF Graphical console?            HRC250DK 00495500
+         BNE   CKCMD1         no, use default                  HRC250DK 00495600
+         IC    R15,RDEVLLEN   yes, use actual line length      HRC250DK 00495700
+         DROP  R14                                             HRC250DK 00495800
+         SLL   R15,1          ... * 2                          HRC250DK 00495900
+         SH    R15,=H'20'     ... - status length              HRC250DK 00496000
+         C     R15,F255       > actual max                     HRC250DK 00496100
+         BNH   CKCMD1         no, good to go                   HRC250DK 00496200
+         LA    R15,255        yes, must truncate               HRC250DK 00496300
+CKCMD1   DS    0H                                              HRC250DK 00496400
+         CR    R3,R15         is bigger than allowed?          HRC250DK 00496500
+         BNH   *+6            no, continue                     HRC250DK 00496600
+         LR    R3,R15         yes, set to max                  HRC250DK 00496700
+./ R 00640000 $ 00640100
+         LH    R0,VCONWBSZ    Get old buffer size              HRC250DK 00640100
+./ R 00651000 $ 00651100
+         STH   R0,VCONWBSZ    Save buffer size                 HRC250DK 00651100
+./ R 00819200 00819300 $ 00819230 30
+         IC    R0,RDEVLLEN    Get line length                  HRC250DK 00819230
+         SLR   R15,R15        Clear a 2nd work reg             HRC250DK 00819260
+         IC    R15,VCONDWC    Get line coordinate number       HRC250DK 00819290
+         N     R15,=XL4'0000003F' and clear out erase bit      HRC250DK 00819320
+./ R 00820000 $ 00820100
+         L     R1,=A(DMKGRFM2) All remotes are Mod 2s          HRC250DK 00820100
+./ R 00822300 $ 00822310
+         L     R1,RDEVGRFX    Access GRFXBLOK                  HRC250DK 00822310
+./ R 00822600 00823100 $ 00823100 100
+         USING GRFXBLOK,R1                                     HRC250DK 00823100
+         CLM   R15,1,GRFXINL1 Is this write to input area      HRC250DK 00823200
+./ R 00825100 00825500 $ 00825150 100
+         MR    R14,R0         End addr = start row * row size  HRC250DK 00825150
+         ALR   R15,R4         .. + write length                HRC250DK 00825250
+         CH    R15,GRFXOUTL   Can't be larger than out area    HRC250DK 00823350
+         DROP  R1                                              HRC250DK 00823450
+./ R 00830000 $ 00830100 100
+TSTINPT  DS    0H                                              HRC250DK 00830100
+         SLL   R0,1           Two rows                         HRC250DK 00830200
+         SH    R0,=H'20'      - status area                    HRC250DK 00830300
+         CR    R4,R0          Can't write more than this       HRC250DK 00830400
+./ I 01092000 $ 01092100 100
+         COPY  GRFXBLOK            GRAF RDEV extensions        HRC250DK 01092100

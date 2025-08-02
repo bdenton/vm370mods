@@ -1,0 +1,12 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Support screen writes larger than 2040. Larger screen  
+./ * sizes means that there could be a need for a virtual   
+./ * machine to write more than 2040 bytes to the console
+./ * in a single operation
+./ *
+./ * HISTORY:
+./ *  6-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00943000 $ 00943100
+         LH    R0,VCONWBSZ    Get size in dbl wds              HRC250DK 00943100

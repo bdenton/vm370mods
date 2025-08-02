@@ -1,0 +1,11 @@
+./ * HRC249DK - Add common 3270 support files      
+./ *
+./ * Adds new comprehensive set of equates for all things      
+./ * related to 3270-DS. Includes all buffer orders, attribute
+./ * values, CCW opcodes, special characters, etc.            
+./ *
+./ * Source: GA23-0059-07: 3270 Data Stream Programmers Reference
+./ *
+./ * HISTORY:
+./ * 13-May-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *

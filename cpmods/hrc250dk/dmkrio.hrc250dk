@@ -1,0 +1,7 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Reassemble DMKRIO to pick up changes to RDEVICE macro   
+./ * 
+./ * HISTORY:
+./ * 29-Jul-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *

@@ -1,0 +1,12 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Adds new DSECT - GRFXBLOK - which will contain all of     
+./ * the variable info needed to support any 327x screen    
+./ * geometry. This control block is attached to the RDEVBLOK
+./ * (at RDEVGRFX) and is constructed by HDKD8C via call
+./ * from DMKGRF when the device is enabled.             
+./ *
+./ * HISTORY:
+./ * 13-May-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ * 23-Jun-2025 WDENTON  Added fields for input area line numbers
+./ *
