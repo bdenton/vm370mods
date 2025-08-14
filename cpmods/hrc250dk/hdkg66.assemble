@@ -93,7 +93,8 @@ HDKG66CP RELOC ,                                                        00860000
 *-------------------------------------------------------------          00930000
          SPACE 1                                                        00940000
 ROUTCALL DS    0H                                                       00950000
-         B     VECTOR66(R1)                                             00960000
+         LR    R2,R0          Get input parameter                       00950010
+         B     VECTOR66(R2)   and route the call                        00960000
 VECTOR66 DS    0H                                                       00970000
          B     BADCALL        CPIX=0  bad call                          00980000
          B     BLD66RMI       CPIX=1  Read Manual Input                 00990000

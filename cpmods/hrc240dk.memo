@@ -35,7 +35,7 @@ volume, of any device type, and at any cylinder location.  The intent
 of this update is to completely separate the definition of any alternate
 nucleui from the definition contained on the SYSRES macro.
 
-This update further extends HRC075DK by inlcuding alternate nucleus 
+This update further extends HRC075DK by including alternate nucleus 
 support for the DDR COPY NUCLEUS command. DDR can now copy the nucleus
 from between alternate nucleus locations. The only requirement is that 
 the target volume must have had a nucleus written to it as some point.
@@ -44,6 +44,24 @@ first page of DMKCKP which is record 0/0/2 on the volume.
 
 For completeness, this update also adds the QUERY NUCLEUS command which
 lists details of each alternate nucleus defined for the current system.
+
+Installation Tasks:
+==================
+
+This local modification requires a couple of extra installation steps
+to include it in the CP nucleus:
+
+1. Add new/updated entries to the CP MACLIB. 
+   Update either DMKHRC EXEC or DMKLCL EXEC to include entries for:
+   -- ALTNUC
+   -- PSA
+   -- SYSLOCS
+   -- SYSRES
+   
+2. Update the CP "load list" to include the new modules that are
+   part of this update.  HDKCQN is a new pageable module that   
+   should be added to CPLOAD EXEC (or VRLOAD EXEC). I suggest
+   this be added after HDKCQA.  
 
 Details:
 ========
@@ -55,7 +73,7 @@ in DMKSYS. (The first nucleus is still defined by the SYSRES macro.)
 One ALTNUC macro statement must be included for each alternate nucleus.
 The format of these statements is:
 
-         ALTNUC VOLSER=volser[,DEVTYPE=type],&CYLS=beg | (beg,cnt)
+         ALTNUC VOLSER=volser[,DEVTYPE=type],CYLS=beg | (beg,cnt)
          
 where:
    
@@ -70,10 +88,10 @@ where:
                     3330 | 3333 | 3340
                     3350 | 3375 | 3380
                     
-   CYLS     specifies the locaation of the alternate nucleus on the volume
+   CYLS     specifies the location of the alternate nucleus on the volume
             This parameter can take two forms:
             
-            CYLS=beg       specfies the starting cylinder location. The
+            CYLS=beg       specifies the starting cylinder location. The
                            default space of two (2) cylinders will be
                            allocated for the alternate nucleus. This is
                            usually sufficient for a CP nucleus without
@@ -82,7 +100,7 @@ where:
             CYLS=(beg,cnt) specifies the starting cylinder location and
                            the number of cylinders of the alternate nucleus
                            on the volume. (The current CP nucleus with an
-                           8MB V=R area taakes about 19 3350 cylinders.)
+                           8MB V=R area takes about 19 3350 cylinders.)
 
 ----------------------------------------------------------------------------
 
@@ -166,7 +184,7 @@ not be the SYSRES device.
    RDEVBLOKs for the matching VOLSER
    
 2) Change SWPTABLE build so nucleus pages are taken from the IPL 
-   device and cylinder rance rather than using the values from 
+   device and cylinder range rather than using the values from 
    the SYSRES macro.
 
 Note: All SYSRES values except nucleus location will still be used 
@@ -188,7 +206,7 @@ with DASD as an output target.
 
 In order to have DDR write a nucleus to location other than the 
 location of the input nucleus, the output volume must have 
-previously had a nucleus weitten to it by DMKSAV.
+previously had a nucleus written to it by DMKSAV.
 
 ----------------------------------------------------------------------------
 
@@ -206,7 +224,7 @@ DMKSAV ASSEMBLE
 
 !!!! NOTE !!!!
      Entry conditions from DMKSAVRS to DMKCPINT have changed 
-     to include the starting sylinder of the IPLed nucleus 
+     to include the starting cylinder of the IPLed nucleus 
      in the high-order 2 bytes of R10  
      
 Writes the nucleus to the DMKSYSRS device address. The device 
@@ -214,7 +232,7 @@ type and cylinder range are determined by looking up the
 device's volid in the DMKSYSNT table.
 
 Reads the nucleus from the IPL device. The device type and 
-cylinder range are fouind by looking up the IPL volid in 
+cylinder range are found by looking up the IPL volid in 
 the DMKSYSNT table.
 
 ----------------------------------------------------------------------------

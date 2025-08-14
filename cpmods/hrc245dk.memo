@@ -16,7 +16,7 @@ Description:
 ============
 
 This update adds a new entry point to DMKOPR to provide 
-standaalone operator interaction without the help of any
+standalone operator interaction without the help of any
 of the standard CP console support via DMKQCN
 
 Basic console read and write support is provided for the 
@@ -57,5 +57,5 @@ more complex screen management needed for:
 Much of this new logic was modelled after the standalone 
 console processing in DMKFMT, DMKDDR, and DMKSSP.      
 
-============================================================================
+----------------------------------------------------------------------------
 

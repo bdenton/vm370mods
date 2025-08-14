@@ -39,6 +39,34 @@ CPIXCPR  EQU   4*15           Set status = CP READ                      00380000
 CPIXVMP  EQU   4*16           Set status = VM READ inhibit              00390000
 CPIXCPP  EQU   4*17           Set status = CP READ inhibit              00400000
 CPIXWNG  EQU   4*18           Sound warning alarm                       00410000
+         EJECT ,
+GRFCCWS  DSECT ,                                                        00211040
+         SPACE 1                                                        00211060
+***                GRFCCWS - GRAF Channel Program Build Area            00211080
+*                                                                       00211100
+*         0   +-----------------------------------------------+         00211360
+*             |                   GRFCCW1                     |         00211180
+*         8   +-----------------------------------------------+         00211200
+*             |                   GRFCCW2                     |         00211220
+*        10   +-----------------------------------------------+         00211240
+*             |                   GRFCCW3                     |         00211260
+*        18   +-----------------------------------------------+         00211280
+*             |                   GRFCCW4                     |         00211300
+*        20   +-----------------------+-----------+-----------+         00211120
+*             |        GRFBUFFA       | GRFBUFFL  |  GRFRSV1  |         00211140
+*        28   +-----------------------+-----------------------+         00211160
+*                                                                       00211420
+***                GRFCCWS - GRAF Channel Program Build Area            00211440
+         SPACE 1                                                        00211460
+GRFCCW1  DS    1D        Channel Command Word #1                        00211540
+GRFCCW2  DS    1D        Channel Command Word #2                        00211560
+GRFCCW3  DS    1D        Channel Command Word #3                        00211580
+GRFCCW4  DS    1D        Channel Command Word #4                        00211600
+GRFBUFFA DS    1A        -> large order stream buffer                   00211480
+GRFBUFFL DS    1H        Buffer length (bytes)                          00211500
+GRFRSV1  DS    1H        (available)                                    00211520
+GRFCCWLN EQU   *-GRFCCWS Length (bytes)                                 00211660
+GRFCCWLD EQU   (GRFCCWLN+7)/8   (dwords)                                00211680
          SPACE 3                                                        00420000
 STATAREA DSECT ,                  Map the status area                   00430000
 STATATTR DS    XL1                  attribute                           00440000

@@ -17,9 +17,10 @@
 ./ * 18-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
 ./ * 21-Jun-2025 WDENTON  Add CONPARM2 flag byte
 ./ *  2-Jul-2025 WDENTON  Change VCONWBSZ to halfword
+./ *  7-Aug-2025 WDENTON  Remove GRFCCWs (combined w/GRCWORK)
 ./ *
 ./ R 00050000 $ 00050010 10
-IOBCHPRG DS    1A             -> channel program build area    HRC250DK 00181105
+IOBCCWRK DS    1A             -> channel program build area    HRC250DK 00181105
 ./ R 00089600 $ 00089610
 *              | C*3 | C*4 | RESERVED  |        RESERVED       HRC250DK 00089610
 ./ R 00100200 $ 00100210
@@ -28,38 +29,3 @@ CONPARM2 DS    1X         C*4 2nd DMKQCN parameters byte       HRC250DK 00100210
 *              |        VCONWBUF       |  VCONWCNT | VCONWBSZ  HRC250DK 00188495
 ./ R 00200790 00200880 $ 00200850
 VCONWBSZ DS    1H             Write buffer size in double wordsHRC250DK 00200850
-./ I 00211000 $ 00211020 20              
-         EJECT ,                                               HRC250DK 00211020
-GRFCCWS  DSECT ,                                               HRC250DK 00211040
-         SPACE 1                                               HRC250DK 00211060
-***                GRFCCWS - GRAF Channel Program Build Area   HRC250DK 00211080
-*                                                              HRC250DK 00211100
-*         0   +-----------------------+-----------+-----------+HRC250DK 00211120
-*             |        GRFBUFFA       | GRFBUFFL  |  GRFRSV1  |HRC250DK 00211140
-*         8   +-----------------------+-----------+-----------+HRC250DK 00211160
-*             |                   GRFCCW1                     |HRC250DK 00211180
-*        10   +-----------------------------------------------+HRC250DK 00211200
-*             |                   GRFCCW2                     |HRC250DK 00211220
-*        18   +-----------------------------------------------+HRC250DK 00211240
-*             |                   GRFCCW3                     |HRC250DK 00211260
-*        20   +-----------------------------------------------+HRC250DK 00211280
-*             |                   GRFCCW4                     |HRC250DK 00211300
-*        28   +-----------------------------------------------+HRC250DK 00211320
-*             |                   GRFCCW5                     |HRC250DK 00211340
-*        30   +-----------------------------------------------+HRC250DK 00211360
-*             |                   GRFCCW6                     |HRC250DK 00211380
-*        38   +-----------------------------------------------+HRC250DK 00211400
-*                                                              HRC250DK 00211420
-***                GRFCCWS - GRAF Channel Program Build Area   HRC250DK 00211440
-         SPACE 1                                               HRC250DK 00211460
-GRFBUFFA DS    1A        -> large order stream buffer          HRC250DK 00211480
-GRFBUFFL DS    1H        Buffer length (bytes)                 HRC250DK 00211500
-GRFRSV1  DS    2XL1      (available)                           HRC250DK 00211520
-GRFCCW1  DS    1D        Channel Command Word #1               HRC250DK 00211540
-GRFCCW2  DS    1D        Channel Command Word #2               HRC250DK 00211560
-GRFCCW3  DS    1D        Channel Command Word #3               HRC250DK 00211580
-GRFCCW4  DS    1D        Channel Command Word #4               HRC250DK 00211600
-GRFCCW5  DS    1D        Channel Command Word #5               HRC250DK 00211620
-GRFCCW6  DS    1D        Channel Command Word #6               HRC250DK 00211640
-GRFCCWLN EQU   *-GRFCCWS Length (bytes)                        HRC250DK 00211660
-GRFCCWLD EQU   (GRFCCWLN+1)/8   (dwords)                       HRC250DK 00211680

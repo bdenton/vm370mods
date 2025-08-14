@@ -32,6 +32,22 @@ supported added by update HRC001DK. THese issues are:
       logged on user regardless of whether a RETRIEVE PF key 
       was defined or not.
 
+Installation Tasks:
+==================
+
+This local modification requires a couple of extra installation steps
+to include it in the CP nucleus:
+
+1. Add new/updated entries to the CP MACLIB. 
+   Update either DMKHRC EXEC or DMKLCL EXEC to include entries for:
+   -- VMBLOK
+   -- RTVBLOK
+   
+2. Update the CP "load list" to include the new modules that are
+   part of this update.  HDKGRV is a new pageable module that   
+   should be added to CPLOAD EXEC (or VRLOAD EXEC). I suggest
+   this be added after DMKLOH.  
+
 Details:
 ========
 
@@ -46,7 +62,7 @@ RETRIEVE (or REPLAY).
 The flag is cleared by DMKCFS when no more PF keys are set 
 to either RETRIEVE or REPLAY>
 
-============================================================================
+----------------------------------------------------------------------------
 
 RTVBLOK COPY (new)
 ------------
@@ -104,7 +120,7 @@ Fetching an Entry from Retrieve Ring BUffer
       RTVCURSR--
    RETURN R0=0(Indx)  R1=Indx+1
 
-============================================================================
+----------------------------------------------------------------------------
 
 DMKCFS ASSEMBLE
 ---------------
@@ -132,7 +148,7 @@ function is disabled by:
       >> Release the page of CP virtual storage
       >> FRET the RTVBLOK and clearing VMHRCALL
 
-============================================================================
+----------------------------------------------------------------------------
 
 DMKGRF ASSEMBLE
 ---------------
@@ -148,12 +164,12 @@ features of this enhancement are:
 All of the logic involved with saving and fetching from the retrieve data
 buffer has been moved to the new HDKGRV module.   
 
-============================================================================
+----------------------------------------------------------------------------
 
 HDKGRV ASSEMBLE (new)
 ---------------
 
-Adds a new pagable CP module to contain all of the logic to mnanage
+Adds a new pagable CP module to contain all of the logic to manage
 the data storage for the enhanced PF key RETRIEVE?RECALL function.
 The new module has four entry points that are all called via SVC:
 
@@ -162,5 +178,5 @@ The new module has four entry points that are all called via SVC:
    -- HDKGRVPT - Add a new item to the RETRIEVE buffer
    -- HDKGRVGT - Fetch the next item from the RETRIEVE buffer
 
-============================================================================
+----------------------------------------------------------------------------
 

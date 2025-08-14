@@ -32,6 +32,7 @@
          EXTRN DMKPGTVR                Rlse CP virtual stg     HRC250DK 00116300
          EXTRN DMKPTRUL                Unlock CP stg page      HRC250DK 00116400
          EXTRN DMKTBL68                3270 buffer addr xlate  HRC250DK 00116500
+         EXTRN DMKSYSID                System Id               HRC250DK 00116600
 ./ R 00128000 $ 00127805 100
          L     R4,0(,R5)               Get user's buffer vaddr HRC250DK 00127805
          L     R1,4(R5)          Rx+1  Get virtual device addr HRC250DK 00127905
@@ -197,6 +198,9 @@ INITGRFX DS    0H                                              HRC250DK 00348625
          XC    0(GRFXLEN,R9),0(R9)     Clear the GRFXBLOK      HRC250DK 00348645
 *        Clear extended features flags                         HRC250DK 00348665
          NI    RDEVGRIC,255-RDEVEXTC-RDEVEXTH-RDEVPSS-RDEVAD14 HRC250DK 00348685
+*                                                              HRC250DK 01180000
+         L     R14,=A(DMKSYSID)        Grab the system Id to   HRC250DK 01190000
+         MVC   GRFXSID,0(R14)            put in data streams   HRC250DK 01200000
          SPACE 1                                               HRC250DK 00348705
          CLI   RDEVTYPE,TYP3066        m168 console?           HRC250DK 00348725
          BNE   NOT3066                 ..no, skip              HRC250DK 00348745
@@ -585,7 +589,8 @@ LOCKIT   DS    0H                                              HRC250DK 00390605
          BNP   WSFRET4                 ... nothing.. ignore    HRC250DK 00394005
          STH   R3,GRFXRPQL             Save length in GRFXBLOK HRC250DK 00394005
          SPACE 1                                               HRC250DK 00394005
-         BCT   R3,WSFRET4              Reduce length for AID   HRC250DK 00394005
+         BCT   R3,*+8                  Reduce length for AID   HRC250DK 00394005
+         B     WSFRET4                   and give error if noneHRC250DK 00394015
          LA    R2,1(,R2)               and bump past the AID   HRC250DK 00394005
          LA    R4,0(R3,R2)             point to the end        HRC250DK 00394005
          BCTR  R4,0                    ...                     HRC250DK 00394005
@@ -599,8 +604,11 @@ LOCKIT   DS    0H                                              HRC250DK 00390605
 *                                                              HRC250DK 00394005
 ***************************************************************HRC250DK 00394005
          SPACE 1                                               HRC250DK 00394005
-./ R 00412000 $ 00412005
-         CLI   QRQCODE,QRUA            ID usable area?         HRC250DK 00412005
+./ R 00412000 $ 00412005 10
+         CLI   QRSFID,SFIQR            Query-Reply struct fld? HRC250DK 00412005
+         BNE   NEXTID                  ..no, skip it           HRC250DK 00412015
+*                                                              HRC250DK 00412025
+         CLI   QRQCODE,QRUA            ID usable area?         HRC250DK 00412035
 ./ R 00414000 $ 00414005
          CLI   QRQCODE,QRHI            ID Highlight?           HRC250DK 00414005
 ./ R 00416000 $ 00416005

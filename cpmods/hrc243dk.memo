@@ -21,7 +21,7 @@ simpler way of performing an I/O operation.
 Using this new entry point allows the caller to avoid having 
 to implement a second-level interrupt handler (SLIH) to 
 handle the completion of the I/O event. Instead, the I/O 
-operation results can be processed in a linear fashinn 
+operation results can be processed in a linear fashion 
 right after calling the new DMKIOSRQ entry point.
 
 It is intended that this new entry point be used when 
@@ -50,5 +50,5 @@ when the I/O request is finished. It will:
    2. Restore R13 save area address from IOBMISC
    3. Join common DMKIOS return logic at IOSQXIT
 
-============================================================================
+----------------------------------------------------------------------------
 

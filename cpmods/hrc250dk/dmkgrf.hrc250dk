@@ -19,6 +19,8 @@
 ./ * HISTORY:
 ./ * 18-Nov-2024 WDENTON  Initial version for VM370CE V1 R1.2
 ./ * 26-Jul-2025 WDENTON  Move AID table from DMKGRT
+./ * 12-Aug-2025 WDENTON  Don't use IOBCAW as storage ptr
+./ * 12-Aug-2025 WDENTON  Handle 12-bit cursor address
 ./ *
 ./ I 00029500 $ 00029600
 *        DMKGRFM2 - Static GRFXBLOK for vanilla 3270 Mdl 2     HRC250DK 00029600
@@ -30,10 +32,11 @@
 ./ I 00198000 $ 00198100
          USING GRFXBLOK,R9    RDEVBLOK extensions              HRC250DK 00198100
 ./ D 00208250
-./ R 00211600 00211850 $ 00211603 100
+./ R 00211600 00211850 $ 00211603 50 
          EXTRN HDKGRCCW       Generate channel programs        HRC250DK 00211603
-         EXTRN HDKGRCRL       Release dynamic CCW resourcews   HRC250DK 00211703
-         EXTRN DMKPGTVR       Release CP virtual storage       HRC250DK 00211803
+         EXTRN HDKGRCRL       Release dynamic CCW resourcews   HRC250DK 00211653
+         EXTRN DMKPGTVR       Release CP virtual storage       HRC250DK 00211703
+         EXTRN DMKCVT14       Convert 12-bit to 14-bit         HRC250DK 00211753
 ./ I 00212490 $ 00212500
          ENTRY DMKGRFM2                                        HRC250DK 00212500                                    
 ./ D 00215100
@@ -43,26 +46,42 @@
          L     R9,RDEVGRFX    Access GRFXBLOK                  HRC250DK 00227200
 ./ D 00258000
 ./ R 00303880 $ 00303882
-         B     BLDFMT         Go build the logo screen         HRC250DK 00303882   
+         B     BLDFMT         Go build the logo screen         HRC250DK 00303882  
+./ R 00311000 00312100 $ 00311005 50
+         PUSH  USING          Preserve other base regs         HRC250DK 00311005
+         USING COPYBUFF,R1    ...                              HRC250DK 00311055
+         L     R1,IOBMISC2    Access the COPYBUFF              HRC250DK 00311105
+         L     R4,COPYGRFB    Get address of dislay RDEVBLOK   HRC250DK 00311155
+         TM    IOBSPEC,IOBSENS Was this a sense call?          HRC250DK 00311205
+         BO    RELBUFF        Yes, release the COPYBUFF        HRC250DK 00311255
+./ R 00315000 $ 00315100 100
+RELBUFF  DS    0H                                              HRC250DK 00315100
+         LH    R0,COPYSIZD    p/u COPYBUFF size (dwords)       HRC250DK 00315200
+         POP   USING          Restore other bases regs         HRC250DK 00315300
+./ R 00317000 $ 00317100
+         NI    IOBSPEC,255-IOBSENS-IOBCOPY Clear use flags     HRC250DK 00317100
 ./ R 00368000 $ 00368005
          B     BLDNAC        Go write NOT ACCEPTED status      HRC250DK 00368005
 ./ D 00377555
-./ I 00383000 $ 00383100 50
-         ICM   R9,15,RDEVGRFX     GRFXBLOK exists?             HRC250DK 00383100
-         BZ    NOGRFX             no, nothing to do            HRC250DK 00383150
-         ICM   R1,15,GRFXRPQA     Allocated RPQ vpage?         HRC250DK 00383200
-         BZ    NORPQPG            no, no cleanup needed        HRC250DK 00383250
-         CALL  DMKPGTVR           release CP vpage             HRC250DK 00383300
-NORPQPG  DS    0H                                              HRC250DK 00383350
-         LA    R0,GRFXLEND        Release the GRFXBLOK         HRC250DK 00383400
-         LR    R1,R9              ...                          HRC250DK 00383450
-         CALL  DMKFRET            ...                          HRC250DK 00383500
-         XR    R9,R9              Clear addressing             HRC250DK 00383550
-         ST    R9,RDEVGRFX        and clear the RDEVBLOK       HRC250DK 00383600
-NOGRFX   DS    0H                                              HRC250DK 00383650         
+./ I 00385000 $ 00385100 50
+         ICM   R9,15,RDEVGRFX     GRFXBLOK exists?             HRC250DK 00385100
+         BZ    NOGRFX             no, nothing to do            HRC250DK 00385150
+         ICM   R1,15,GRFXRPQA     Allocated RPQ vpage?         HRC250DK 00385200
+         BZ    NORPQPG            no, no cleanup needed        HRC250DK 00385250
+         CALL  DMKPGTVR           release CP vpage             HRC250DK 00385300
+NORPQPG  DS    0H                                              HRC250DK 00385350
+         CALL  HDKGRCRL           Release CCW resources        HRC250DK 00385400
+         LA    R0,GRFXLEND        Release the GRFXBLOK         HRC250DK 00385450
+         LR    R1,R9              ...                          HRC250DK 00385500
+         CALL  DMKFRET            ...                          HRC250DK 00385550
+         XR    R9,R9              Clear addressing             HRC250DK 00385600
+         ST    R9,RDEVGRFX        and clear the RDEVBLOK       HRC250DK 00385650
+NOGRFX   DS    0H                                              HRC250DK 00385700         
 ./ D 00392100
 ./ R 00394100 $ 00394150
          USING DMKGRF,R12,R13 Establish addressability         HRC250DK 00394150                           
+./ I 00399100 $ 00399200
+         L     R9,RDEVGRFX    Access the GRFXBLOK              HRC250DK 00399200
 ./ D 00405100
 ./ R 00407100 $ 00407150
          USING DMKGRF,R12,R13 Establish addressability         HRC250DK 00407150                           
@@ -76,6 +95,7 @@ NOGRFX   DS    0H                                              HRC250DK 00383650
 ./ R 00418600 00418650 $ 00418630
          B     BLDWNG         Set WARNING status               HRC250DK 00418630
 ./ D 00418750 
+./ D 00426000 00428000						
 ./ R 00444000 00446000 $ 00444100
          B     BLDRMI         Read input area                  HRC250DK 00444100
 ./ R 00494000 00496000 $ 00494100
@@ -97,32 +117,105 @@ PFTAB    DS    0H             Process PF TAB key               HRC250DK 00624105
          S     R0,F4          ...                              HRC250DK 00624305
          LA    R1,4(,R4)      Point to the list of TAB sets    HRC250DK 00624405
          B     BLDTAB         Go build & execute CCWs          HRC250DK 00624505
-./ R 00739100 00739300 $ 00739110 10
-*        Calculate length of the buffer needed for the         HRC250DK 00739110
-*        read due to limitations on APL and TEXT. These        HRC250DK 00739120
-*        limitations are described in the CP Command           HRC250DK 00739130
-*        Reference manual under Diag. 58 as 2000 maximum.      HRC250DK 00739140
-*        Since APL uses double byte chars, this really         HRC250DK 00739150
-*        is 4000.  We will also add a few bytes for            HRC250DK 00739160
-*        header info                                           HRC250DK 00739170
-         LH    R2,GRFXROWS    Get row count                    HRC250DK 00739180
-         SLL   R2,1           * 2 for TEXT/APL                 HRC250DK 00739190
-         MH    R2,GRFXCOLS    * column count                   HRC250DK 00739200
-         CH    R2,=H'4000'    > max supported?                 HRC250DK 00739210
-         BNH   *+8            no, continue                     HRC250DK 00739220
-         LA    R2,4000        yes, set to max                  HRC250DK 00739230
-         LA    R2,3(,R2)      add in AID/cursor size           HRC250DK 00739240
-         LA    R0,28+7(,R2)   header ovhd + rounding           HRC250DK 00739250
-         SRL   R0,3           dword count                      HRC250DK 00739260
-./  I 00743000 $ 00743100
-         STH   R2,14(,R1)     Set read length                  HRC250DK 00743100
-./ R 00753000 $ 00753100
-         LH    R7,14(,R4)     Get read data length             HRC250DK 00753100
+./ R 00716000 00720100 $ 00716105 100
+         LA    R0,COPYMIND    Need a small COPYBUFF            HRC250DK 00716105
+         CALL  DMKFREE        ...                              HRC250DK 00716205
+         ST    R1,IOBMISC2    save for FRET                    HRC250DK 00716305
+         PUSH  USING          preserve base regs               HRC250DK 00716405
+         USING COPYBUFF,R1    set addressability               HRC250DK 00716505
+         STH   R0,COPYSIZD    Save buffer size for FRET        HRC250DK 00716605
+         MVC   COPYCCW1,SNSCCW  Get sense CCW                  HRC250DK 00716705
+         LA    R2,COPYCCW2    Sense data will be here          HRC250DK 00716805
+         STCM  R2,7,COPYCCW1+1 ...                             HRC250DK 00716905
+         ST    R14,COPYGRFB   Save display RDEVBLOK            HRC250DK 00717005
+         ST    R8,COPYPRTB    and save printer RDEVBLOK        HRC250DK 00717105
+./ R 00725000 $ 00725100 100
+         L     R1,IOBMISC2    Restore COPYBUFF addr            HRC250DK 00725100
+         LA    R1,COPYCCW1    Get CCW address                  HRC250DK 00725200
+         POP   USING                                           HRC250DK 00725300
+./ D 00731000
+./ R 00733000 $ 00733100 100
+         L     R2,IOBMISC2    Address COPYBUFF                 HRC250DK 00733100
+         PUSH  USING          preserve base regs               HRC250DK 00733200
+         USING COPYBUFF,R2    ...                              HRC250DK 00733300
+         L     R8,COPYGRFB    Get back display RDEVBLOK        HRC250DK 00733400
+./ R 00735000 $ 00735100
+         TM    COPYCCW2,INTREQ  Is the printer ready?          HRC250DK 00735100
+./ R 00739100 00739400 $ 00739110 10
+         POP   USING                                           HRC250DK 00739110
+         SPACE 1                                               HRC250DK 00739120
+*        Calculate length of the buffer needed for the read    HRC250DK 00739130
+*        due to limitations on APL and TEXT. These limits      HRC250DK 00739140
+*        are described in the CP Command Reference manual      HRC250DK 00739150
+*        under Diag. 58 as 2000 maximum. Since APL/TEXT uses   HRC250DK 00739160
+*        double byte chars, this limit really is 4000.         HRC250DK 00739170
+*        We will also add a few bytes for header info          HRC250DK 00739180
+         LH    R2,GRFXROWS    Get row count                    HRC250DK 00739190
+         SLL   R2,1           * 2 for TEXT/APL                 HRC250DK 00739200
+         MH    R2,GRFXCOLS    * column count                   HRC250DK 00739210
+         CH    R2,=H'4000'    > max supported?                 HRC250DK 00739220
+         BNH   *+8            no, continue                     HRC250DK 00739230
+         LA    R2,4000        yes, set to max                  HRC250DK 00739240
+         LA    R2,3(,R2)      add in AID/cursor size           HRC250DK 00739250
+         LA    R0,COPYPREL+7(,R2) header ovhd + rounding       HRC250DK 00739260
+         SRL   R0,3           dword count                      HRC250DK 00739270
+./ D 00741000
+./ R 00743000 00746000 $ 00743105 100
+         PUSH  USING          preserve base regs               HRC250DK 00741105
+         USING COPYBUFF,R1                                     HRC250DK 00741205
+         ST    R1,IOBMISC2    Save COPY workarea address       HRC250DK 00741305
+         STH   R0,COPYSIZD    Save dword count for FRET        HRC250DK 00741405
+         ST    R8,COPYGRFB    Save display's RDEVBLOK          HRC250DK 00741505
+         ST    R4,COPYPRTB    Save printer's RDEVBLOK          HRC250DK 00741605
+         MVC   COPYCCW1(16),RDCOPY CCWs to work area           HRC250DK 00741705
+         STH   R2,COPYCCW2+6  Set read length                  HRC250DK 00741805
+         LA    R2,COPYRDBF    Set read data address            HRC250DK 00741905
+         STCM  R2,7,COPYCCW2+1 ...                             HRC250DK 00742005
+*                                                              HRC250DK 00742105
+         LA    R1,COPYCCW1    Point at the channel program     HRC250DK 00742205
+         POP   USING                                           HRC250DK 00742305
+./ R 00751000 00753000 $ 00751105 100
+COPYRD   DS    0H                                              HRC250DK 00751105
+         L     R4,IOBMISC2    Get buffer address               HRC250DK 00751205
+         PUSH  USING          preserve base regs               HRC250DK 00751305
+         USING COPYBUFF,R4    ...                              HRC250DK 00751405
+         L     R3,COPYPRTB    Get printer's RDEVBLOK           HRC250DK 00751505
+         LH    R7,COPYCCW2+6  Get read data length             HRC250DK 00751605
+./ R 00755000 $ 00755100
+         STH   R7,COPYRDLN    Save length of read data         HRC250DK 00755100
+./ D 00759100
+./ R 00772100 00783000 $ 00772105 100
+         ST    R4,IOBMISC2    Save addr of COPYBUFF            HRC250DK 00772105
+         LA    R2,COPYWTBF    Get write data address           HRC250DK 00772205
+         STCM  R2,7,COPYCCW2+1  and set in CCW                 HRC250DK 00772305
+         LH    R3,COPYRDLN    Get length of read data          HRC250DK 00772405
+         SH    R3,=H'22'      subtract status area length      HRC250DK 00772505
+         STH   R3,COPYCCW2+6  set length in CCW                HRC250DK 00772605
+         MVC   COPYWTBF,CPY77D Move in CCC, etc                HRC250DK 00772705
+*                                                              HRC250DK 00772805
+         LA    R1,COPYCCW1    Point IOS at channel prog        HRC250DK 00772905
+         POP   USING                                           HRC250DK 00773005
+./ R 00788000 00790000 $ 00788100 100
+COPYEND  DS    0H                                              HRC250DK 00788100
+         L     R1,IOBMISC2    Get COPYBUFF address             HRC250DK 00788200
+         PUSH  USING          preserve base regs               HRC250DK 00788300
+         USING COPYBUFF,R1    ...                              HRC250DK 00788400
+         LH    R0,COPYSIZD    Get COPYBUFF size (dwords)       HRC250DK 00788500
+         POP   USING                                           HRC250DK 00788600
+./ I 00791000 $ 00791100 100
+         SR    R0,R0          Get zero                         HRC250DK 00791100
+         ST    R0,IOBMISC2    Clear COYBUFF pointer            HRC250DK 00791200
 ./ R 00855120 00855200 $ 00855125 20
          LH    R0,AIDTABCT    Load table entry count           HRC250DK 00855125
          LA    R1,AIDTAB      Address of AID decode table      HRC250DK 00855145
-./ R 00874100 00874200 $ 00874150
-         CLC   BUFCSR,GRFX@INP Cursor on input area attr?      HRC250DK 00874150
+./ R 00874100 00874200 $ 00874150 20
+         SR    R1,R1          Clear a register                 HRC250DK 00874150
+         ICM   R1,3,BUFCSR    Get the cursor address           HRC250DK 00874170 
+         TM    RDEVGRIC,RDEVAD14 Device does 14-bit?           HRC250DK 00874190
+         BNO   NOCSRCVT          no.. no conversion needed     HRC250DK 00874210
+         CALL  DMKCVT14          yes.. make sure it's 14-bit   HRC250DK 00874230
+NOCSRCVT DS    0H                                              HRC250DK 00874250
+         CLM   R1,3,GRFX@INP  Cursor on input area attr?       HRC250DK 00874270
 ./ R 00944000 00946000 $ 00944100 100
 GRFCRD   DS    0H                                              HRC250DK 00944100
          B     BLDCRD         Clear input area                 HRC250DK 00944200
@@ -130,15 +223,32 @@ GRFCRD   DS    0H                                              HRC250DK 00944100
          B     BLDHLD         Set status to HOLDING            HRC250DK 00959100
 ./ R 00967000 00969000 $ 00967100
          B     BLDMOR         Set status to MORE...            HRC250DK 00967100
+./ R 01017000 01023000 $ 01017100 500
+FRETCCW  DS    0H                                              HRC250DK 01017100
+         ICM   R1,15,IOBMISC2 Does the COPYBUFF still exist?   HRC250DK 01017600
+         BZR   R3             no, just return                  HRC250DK 01018100
+         PUSH  USING          preserve base regs               HRC250DK 01018600
+         USING COPYBUFF,R1                                     HRC250DK 01019100
+         LH    R0,COPYSIZD    Get size in dwords               HRC250DK 01019600
+         CALL  DMKFRET        Release the storage              HRC250DK 01020100
+         SR    R0,R0            and clear pointer              HRC250DK 01020600
+         ST    R0,IOBMISC2        ...                          HRC250DK 01021100
+         POP   USING                                           HRC250DK 01021600
 ./ R 01083000 01085000 $ 01083100
          B     BLDNAC         Set status to NOT ACCEPTED       HRC250DK 01083100
 ./ D 01169100 01169300
-./ R 01202130 01202140 $ 01202135
-*        Build new GRFXBLOK for all graphic devices            HRC250DK 01202135
-./ R 01202160 $ 01202165
-         L     R9,RDEVGRFX    Address new GRFXBLOK             HRC250DK 01202165
+./ D 01202130 01202160
+./ I 01202400 $ 01202402 100
+*        Build new GRFXBLOK for all graphic devices            HRC250DK 01202402
+         ICM   R9,15,RDEVGRFX GRFXBLOK exists?                 HRC250DK 01202502
+         BNZ   HAVEGRFX       yes, no need to do it again      HRC250DK 01202602
+         CALL  HDKD8CEN       no, build new GRFXBLOK           HRC250DK 01202702
+         L     R9,RDEVGRFX    Address new GRFXBLOK             HRC250DK 01202802
+HAVEGRFX DS    0H                                              HRC250DK 01202902
 ./ R 01221000 01223000 $ 01221100
          B     BLDFMT         Format screen, display logo      HRC250DK 01083100
+./ I 01236400 $ 01236450
+         CALL  HDKGRCRL       Release IOBLOK linked stuff      HRC250DK 01236450
 ./ R 01307000 01309000 $ 01307100 100
 GRFRUN   DS    0H                                              HRC250DK 01307100
          B     BLDRUN         Set status = RUNNING             HRC250DK 01307200
@@ -149,7 +259,7 @@ GRFRUN   DS    0H                                              HRC250DK 01307100
          BNL   DIAGSIO        yes, take special path           HRC250DK 01451405
          CLM   R3,1,GRFXINL2  or is it the last input line?    HRC250DK 01451505
 ./ D 01482400
-./ R 01486100 01489300 $ 01486500
+./ R 01486100 01489300 $ 01486500 100
          CH    R4,GRFXOUTL    Will the data fit the screen?    HRC250DK 01486500
 ./ R 01554000 01556000 $ 01554100
          B     BLDWRT         Write the data to the screen     HRC250DK 01554100
@@ -162,25 +272,25 @@ GRFRUN   DS    0H                                              HRC250DK 01307100
          B     BLDCPP         Set status = CP READ hidden      HRC250DK 01584100
 ./ D 01586000 01588000
 ./ I 01645500 $ 01645600
-         CALL  HDKGRCRL       Release CCW resources            HRC250DK 01645600
+         CALL  HDKGRCRL       Release IOBLOK linked stuff      HRC250DK 01645600
 ./ R 01654000 01745200 $ 01654005 100
 BLDWRT   DS    0H                                              HRC250DK 01645005
-         LA    R0,CPIXWRT      Write to output area            HRC250DK 01645105
+         LA    R0,CPIXWRT     Write to output area             HRC250DK 01645105
          B     BLDCHPRG                                        HRC250DK 01645205
          SPACE 1                                               HRC250DK 01645305
 BLDTAB   DS    0H                                              HRC250DK 01645405
-         LA    R0,CPIXTAB      Write to input area             HRC250DK 01645505
+         LA    R0,CPIXTAB     Insert tabshar & move cursor     HRC250DK 01645505
          B     BLDRDEX                                         HRC250DK 01645605
          SPACE 1                                               HRC250DK 01645305
 BLDIDS   DS    0H                                              HRC250DK 01645405
-         LA    R0,CPIXIDS      Write to input area             HRC250DK 01645505
-BLDRDEX  DS    0H                                              HRC250DK 01645015         
-         LA    R1,RDEXIT       Return processing here          HRC250DK 01645525
-         ST    R1,TRQBCRT        after doing the I/O           HRC250DK 01645535
+         LA    R0,CPIXIDS     Write to input area              HRC250DK 01645505
+BLDRDEX  DS    0H                                              HRC250DK 01645015
+         LA    R1,RDEXIT      Return processing here           HRC250DK 01645525
+         ST    R1,TRQBCRT       after doing the I/O            HRC250DK 01645535
          B     BLDCHPRG                                        HRC250DK 01645605
          SPACE 1                                               HRC250DK 01645705
 BLDRMI   DS    0H                                              HRC250DK 01645805
-         LA    R0,CPIXRMI      Read Manual Input               HRC250DK 01645905
+         LA    R0,CPIXRMI     Read Manual Input                HRC250DK 01645905
          B     BLDCHPRG                                        HRC250DK 01646005
          SPACE 1                                               HRC250DK 01646105
 BLDFMT   DS    0H                                              HRC250DK 01646205
@@ -191,57 +301,57 @@ BLDFMT   DS    0H                                              HRC250DK 01646205
          B     GRFCLRT        ..yes, just clear the screen     HRC250DK 01646705
          SPACE 1                                               HRC250DK 01646805
 BLDHLD   DS    0H                                              HRC250DK 01646905
-         LA    R0,CPIXHLD      Set status = HOLDING            HRC250DK 01647005
+         LA    R0,CPIXHLD     Set status = HOLDING             HRC250DK 01647005
          B     BLDCHPRG                                        HRC250DK 01647105
          SPACE 1                                               HRC250DK 01647205
 BLDMOR   DS    0H                                              HRC250DK 01647305
-         LA    R0,CPIXMOR      Set status = MORE...            HRC250DK 01647405
+         LA    R0,CPIXMOR     Set status = MORE...             HRC250DK 01647405
          B     BLDCHPRG                                        HRC250DK 01647505
          SPACE 1                                               HRC250DK 01647605
 BLDWNG   DS    0H                                              HRC250DK 01647705
-         LA    R0,CPIXWNG      Sound warning alarm             HRC250DK 01647805
+         LA    R0,CPIXWNG     Sound warning alarm              HRC250DK 01647805
          B     BLDCHPRG                                        HRC250DK 01647905
          SPACE 1                                               HRC250DK 01648005
 BLDNAC   DS    0H                                              HRC250DK 01648105
-         LA    R0,CPIXNAC      Set status = NOT ACCEPTED       HRC250DK 01648205
+         LA    R0,CPIXNAC     Set status = NOT ACCEPTED        HRC250DK 01648205
          B     BLDCHPRG                                        HRC250DK 01648305
          SPACE 1                                               HRC250DK 01648405
 BLDCRD   DS    0H                                              HRC250DK 01648505
-         LA    R0,CPIXCRD      Clear input area                HRC250DK 01648605
+         LA    R0,CPIXCRD     Clear input area                 HRC250DK 01648605
          TM    RDEVTFLG,RDEVMORE+RDEVHOLD in MORE or HOLD ??   HRC250DK 01648605
          BZ    BLDCHPRG       No, set status to RUNNING        HRC250DK 01648605
          LA    R0,CPIXMRD     Yes, Leave status alone          HRC250DK 01648605
          B     BLDCHPRG                                        HRC250DK 01648705
          SPACE 1                                               HRC250DK 01648805
 BLDRUN   DS    0H                                              HRC250DK 01648905
-         LA    R0,CPIXRUN      Set status = RUNNING            HRC250DK 01649005
+         LA    R0,CPIXRUN     Set status = RUNNING             HRC250DK 01649005
          B     BLDCHPRG                                        HRC250DK 01649105
          SPACE 1                                               HRC250DK 01649205
 BLDCLR   DS    0H                                              HRC250DK 01649305
          TM    TRQBFLAG,CRTUSEWA  Is E/w(A) needed?            HRC250DK 01649305
          BNZ   BLDCLS             yes, do that                 HRC250DK 01649305
          MVI   RDEVKEYC,0         Clear last interrupt key     HRC250DK 01649305
-         LA    R1,CPIXCLR         Generate the channel program HRC250DK 01649305
+         LA    R0,CPIXCLR         Generate the channel program HRC250DK 01649305
          B     BLDCHPRG                                        HRC250DK 01649505
 BLDCLS   DS    0H                                              HRC250DK 01649305
          NI    TRQBFLAG,X'FF'-CRTUSEWA  Reseet the E/W flag    HRC250DK 01649305
-         LA    R1,CPIXCLS                                      HRC250DK 01649305
+         LA    R0,CPIXCLS                                      HRC250DK 01649305
          B     BLDCHPRG                                        HRC250DK 01649505
          SPACE 1                                               HRC250DK 01649605
 BLDVMR   DS    0H                                              HRC250DK 01649705
-         LA    R0,CPIXVMR      Set status = VM READ            HRC250DK 01649805
+         LA    R0,CPIXVMR     Set status = VM READ             HRC250DK 01649805
          B     BLDCHPRG                                        HRC250DK 01649905
          SPACE 1                                               HRC250DK 01650005
 BLDCPR   DS    0H                                              HRC250DK 01650105
-         LA    R0,CPIXCPR      Set status = CP READ            HRC250DK 01650205
+         LA    R0,CPIXCPR     Set status = CP READ             HRC250DK 01650205
          B     BLDCHPRG                                        HRC250DK 01650305
          SPACE 1                                               HRC250DK 01650405
 BLDVMP   DS    0H                                              HRC250DK 01650505
-         LA    R0,CPIXVMP      Set status = VM READ inhibit    HRC250DK 01650605
+         LA    R0,CPIXVMP     Set status = VM READ inhibit     HRC250DK 01650605
          B     BLDCHPRG                                        HRC250DK 01650705
          SPACE 1                                               HRC250DK 01650805
 BLDCPP   DS    0H                                              HRC250DK 01650905
-         LA    R0,CPIXVMR      Set status = CP READ inhibit    HRC250DK 01651005
+         LA    R0,CPIXVMR     Set status = CP READ inhibit     HRC250DK 01651005
 BLDCHPRG DS    0H                                              HRC250DK 01651105
          CALL  HDKGRCCW       returns R1 -> CCWs               HRC250DK 01651205
          B     CALLIOS        and send it                      HRC250DK 01651305
@@ -311,10 +421,35 @@ INL2MOD2 DC    AL1(23)    last input area line                 HRC250DK 01928103
 OALZMOD2 DC    AL1(21)    last output area line                HRC250DK 01928203
 ATOAMOD2 DC    AL1(FLDPROT) Bottom-right attribute             HRC250DK 01928303
 ORGIMOD2 DC    AL2(22*80) 1st input area cell location         HRC250DK 01928403
-RSV1MOD2 DC    XL4'00'    (available)                          HRC250DK 01928503
-BUFFMOD2 DC    64XL1'00'  Buffer for orders & data             HRC250DK 01928603
+RSV1MOD2 DC    XL4'00'    (not used)                           HRC250DK 01928503
+BUFFMOD2 DC    64XL1'00'  Buffer for orders & data             HRC250DK 01928703
 ./ D 02051000 02054000
-./ R 02063010 02063150 $ 02063101 20
-         COPY GRFXBLOK                                         HRC250DK 02063101
-         COPY GRCWORK                                          HRC250DK 02063121
-         COPY HDK3270                                          HRC250DK 02063141
+./ D 02059300 02059400
+./ R 02063010 02063160 $ 02063011 10
+         COPY  GRFXBLOK                                        HRC250DK 02063011
+         COPY  GRCWORK                                         HRC250DK 02063021
+************************************************************** HRC250DK 02063031
+*                                                              HRC250DK 02063041
+*        Working storage for PFKEY COPY function               HRC250DK 02063051
+*                                                              HRC250DK 02063061
+************************************************************** HRC250DK 02063071
+         SPACE 1                                               HRC250DK 02063081
+COPYBUFF DSECT ,                                               HRC250DK 02063091
+COPYCCW1 DS    1D                      CCW #1 (Select)         HRC250DK 02063101
+COPYCCW2 DS    1D                      CCW #2 (RB or WRT)      HRC250DK 02063111
+COPYPRTB DS    1F                      Printer RDEVBLOK        HRC250DK 02063121
+COPYGRFB DS    1F                      Display RDEVBLOK        HRC250DK 02063131
+COPYSIZD DS    1H                      COPYBUFF size (dwords)  HRC250DK 02063141
+COPYRDLN DS    1H                      Actual read length      HRC250DK 02063151
+COPYRSV1 DS    3XL1                    padding                 HRC250DK 02063161
+*                                                              HRC250DK 02063171
+COPYWTBF DS    0XL4                    Write to printer begin  HRC250DK 02063181
+COPYCCC  DS    1XL1                    CCC                     HRC250DK 02063191
+*                                                              HRC250DK 02063201
+COPYRDBF EQU   *                       Read from display here  HRC250DK 02063211
+COPYPRE  DS    0XL3                    WCC+cursor or SBA+addr  HRC250DK 02063221
+*                                                              HRC250DK 02063231
+COPYPREL EQU   *-COPYBUFF              Length of prefix        HRC250DK 02063241
+COPYMIND EQU   (COPYPREL+7)/8          Base size in dwords     HRC250DK 02063251
+         EJECT ,                                               HRC250DK 02063261
+         COPY  HDK3270                                         HRC250DK 02063271
