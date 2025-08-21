@@ -1,0 +1,8 @@
+./ * HRC248DK - Expand input line size from 130 to 255
+./ *
+./ * Reassemble to pick up changes made to CONBUF. The      
+./ * value of BUFSIZE have been changed.
+./ *
+./ * HISTORY:
+./ * 18-Aug-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *

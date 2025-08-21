@@ -1,0 +1,20 @@
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * Change the VMBLOK/VTERM initialization to reset the
+./ * graphics terminal line length to the actual screen     
+./ * width when a user logs on or reconnects
+./ *
+./ * HISTORY:
+./ * 18-Aug-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00822000 $ 00822100 100
+         TM    RDEVTYPC,CLASGRAF Graphics console ?            HRC250DK 00822100
+         BNO   BTERM             no, use SYSLOCS values        HRC250DK 00822200
+         ICM   R1,15,RDEVGRFX    yes, use column count         HRC250DK 00822300
+         BZ    BTERM             .. if it is there             HRC250DK 00822400
+         LH    R1,GRFXCOLS-GRFXBLOK(,R1)                       HRC250DK 00822500
+         STC   R1,RDEVLLEN       default to GRF width          HRC250DK 00822600
+         B     PSUP              and join below                HRC250DK 00822700
+BTERM    DS    0H                                              HRC250DK 00822800
+./ I 00952000 $ 00952100
+         COPY  GRFXBLOK                                        HRC250dk 00952100

@@ -38,9 +38,15 @@ GRFX@LST DS    XL2       Bottom-right buffer address                    00450000
 GRFXRPQA DS    A         WSF RPQ data CP virtual address                00460000
 GRFXRPQL DS    H          ''  ''  ''  length                            00470000
 GRFXERAS DS    XL1   G*1 EW/EWA opcode                                  00480000
-GRFXE4FL DS    XL1   G*2 SenseId flags                                  00490000
-GRFXCUOK EQU   X'80'     Valid SenseId Ctlunit info                     00500000
-GRFXDVOK EQU   X'40'     Valid SenseId Device info                      00510000
+GRFXFLG1 DS    XL1   G*2 Flags                                          00490000
+GRFXCUOK EQU   X'80'     X--- ---- Valid SenseId Ctlunit info           00500000
+GRFXDVOK EQU   X'40'     -X-- ---- Valid SenseId Device info            00510000
+GRFXLGQR EQU   X'20'     --X- ---- RPQ whole page response
+*        EQU   X'10'     ---X ---- available
+*        EQU   X'08'     ---- X--- available
+*        EQU   X'04'     ---- -X-- available
+*        EQU   X'02'     ---- --X- available
+*        EQU   X'01'     ---- ---X available
 GRFXCUID DS    0XL3      SnsId Control Unit id:                         00520000
 GRFXCUTY DS    XL2            type                                      00530000
 GRFXCUMD DS    XL1   G*3      model                                     00540000

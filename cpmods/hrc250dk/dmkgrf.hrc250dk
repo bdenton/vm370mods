@@ -35,8 +35,7 @@
 ./ R 00211600 00211850 $ 00211603 50 
          EXTRN HDKGRCCW       Generate channel programs        HRC250DK 00211603
          EXTRN HDKGRCRL       Release dynamic CCW resourcews   HRC250DK 00211653
-         EXTRN DMKPGTVR       Release CP virtual storage       HRC250DK 00211703
-         EXTRN DMKCVT14       Convert 12-bit to 14-bit         HRC250DK 00211753
+         EXTRN DMKCVT14       Convert 12-bit to 14-bit         HRC250DK 00211703
 ./ I 00212490 $ 00212500
          ENTRY DMKGRFM2                                        HRC250DK 00212500                                    
 ./ D 00215100
@@ -63,20 +62,6 @@ RELBUFF  DS    0H                                              HRC250DK 00315100
 ./ R 00368000 $ 00368005
          B     BLDNAC        Go write NOT ACCEPTED status      HRC250DK 00368005
 ./ D 00377555
-./ I 00385000 $ 00385100 50
-         ICM   R9,15,RDEVGRFX     GRFXBLOK exists?             HRC250DK 00385100
-         BZ    NOGRFX             no, nothing to do            HRC250DK 00385150
-         ICM   R1,15,GRFXRPQA     Allocated RPQ vpage?         HRC250DK 00385200
-         BZ    NORPQPG            no, no cleanup needed        HRC250DK 00385250
-         CALL  DMKPGTVR           release CP vpage             HRC250DK 00385300
-NORPQPG  DS    0H                                              HRC250DK 00385350
-         CALL  HDKGRCRL           Release CCW resources        HRC250DK 00385400
-         LA    R0,GRFXLEND        Release the GRFXBLOK         HRC250DK 00385450
-         LR    R1,R9              ...                          HRC250DK 00385500
-         CALL  DMKFRET            ...                          HRC250DK 00385550
-         XR    R9,R9              Clear addressing             HRC250DK 00385600
-         ST    R9,RDEVGRFX        and clear the RDEVBLOK       HRC250DK 00385650
-NOGRFX   DS    0H                                              HRC250DK 00385700         
 ./ D 00392100
 ./ R 00394100 $ 00394150
          USING DMKGRF,R12,R13 Establish addressability         HRC250DK 00394150                           
@@ -240,11 +225,10 @@ FRETCCW  DS    0H                                              HRC250DK 01017100
 ./ D 01202130 01202160
 ./ I 01202400 $ 01202402 100
 *        Build new GRFXBLOK for all graphic devices            HRC250DK 01202402
-         ICM   R9,15,RDEVGRFX GRFXBLOK exists?                 HRC250DK 01202502
-         BNZ   HAVEGRFX       yes, no need to do it again      HRC250DK 01202602
-         CALL  HDKD8CEN       no, build new GRFXBLOK           HRC250DK 01202702
+         CALL  HDKD8CEN       no, build new GRFXBLOK           HRC250DK 01202502
+         C     R15,F4         Permanent error encountered?     HRC250DK 01202602
+         BH    FRETIOB        yes, (R15=8) leave device down   HRC250DK 01202702
          L     R9,RDEVGRFX    Address new GRFXBLOK             HRC250DK 01202802
-HAVEGRFX DS    0H                                              HRC250DK 01202902
 ./ R 01221000 01223000 $ 01221100
          B     BLDFMT         Format screen, display logo      HRC250DK 01083100
 ./ I 01236400 $ 01236450
@@ -258,9 +242,14 @@ GRFRUN   DS    0H                                              HRC250DK 01307100
          CLM   R3,1,GRFXINL1  Is it the 1st input area line?   HRC250DK 01451305
          BNL   DIAGSIO        yes, take special path           HRC250DK 01451405
          CLM   R3,1,GRFXINL2  or is it the last input line?    HRC250DK 01451505
-./ D 01482400
+./ R 01482000 01483200 $ 01482105 200
+         SLR   R4,R4          Get current output line          HRC250DK 01482105
+         IC    R4,RDEVCORD    Last written line number         HRC250DK 01482305
+         MH    R4,GRFXCOLS      * width = used byte count      HRC250DK 01482505
 ./ R 01486100 01489300 $ 01486500 100
          CH    R4,GRFXOUTL    Will the data fit the screen?    HRC250DK 01486500
+./ R 01492200 01492400 $ 01492305
+         LH    R15,GRFXCOLS   Get screen width                 HRC250DK 01492305
 ./ R 01554000 01556000 $ 01554100
          B     BLDWRT         Write the data to the screen     HRC250DK 01554100
 ./ D 01575000 01576000
@@ -351,7 +340,7 @@ BLDVMP   DS    0H                                              HRC250DK 01650505
          B     BLDCHPRG                                        HRC250DK 01650705
          SPACE 1                                               HRC250DK 01650805
 BLDCPP   DS    0H                                              HRC250DK 01650905
-         LA    R0,CPIXVMR     Set status = CP READ inhibit     HRC250DK 01651005
+         LA    R0,CPIXCPP     Set status = CP READ inhibit     HRC250DK 01651005
 BLDCHPRG DS    0H                                              HRC250DK 01651105
          CALL  HDKGRCCW       returns R1 -> CCWs               HRC250DK 01651205
          B     CALLIOS        and send it                      HRC250DK 01651305

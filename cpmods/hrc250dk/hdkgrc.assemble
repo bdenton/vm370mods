@@ -434,18 +434,21 @@ FMT77DSL EQU   *-FMT77DS                                                03740000
          SPACE 1                                                        04250000
          PUSH  USING                                                    04260000
 BLD77WRT DS    0H                                                       04270000
-         MVC   CONCCW1(WRT77CPL),WRT77CP  Move in model                 04280000
+         MVC   GRFCCW1(WRT77CPL),WRT77CP  Move in model                 04280000
+*! TODO  DMKGRF is expecting this value here but it
+*        should probably be put in its own place..
+*        maybe a new, separate field in CONTASK?         
          STC   R4,CONCCW1+5               Save number of lines          04290000
          MVC   GRFXBUFF(WRT77DSL),WRT77DS Data stream model             04300000
 *                                                                       04310000
          LA    R3,GRFXBUFF             Address the data stream          04320000
-         STCM  R3,7,CONCCW2+1          Set the preamble CCW data addr   04330000
+         STCM  R3,7,GRFCCW2+1          Set the preamble CCW data addr   04330000
          USING WRT77DS,R3                                               04340000
 *                                                                       04350000
          TM    RDEVSTA3,RDEVEWRT       Erase/write required?            04360000
          BZ    WRTNOEW                 No                               04370000
          NI    RDEVSTA3,255-RDEVEWRT   Turn off flag                    04380000
-         MVC   CONCCW2(1),GRFXERAS     Set erase CCW opcode             04390000
+         MVC   GRFCCW2(1),GRFXERAS     Set erase CCW opcode             04390000
 WRTNOEW  DS    0H                                                       04400000
 *                                                                       04410000
 *        Calculate starting buffer address                              04420000
@@ -485,7 +488,7 @@ WRTNOHI1 DS    0H                                                       04750000
          LA    R2,WRT77LN1             Set basic prefix data length     04760000
 *                                                                       04770000
 WRTADDR1 DS    0H                                                       04780000
-         STH   R2,CONCCW2+6            Set preamble data stream length  04790000
+         STH   R2,GRFCCW2+6            Set preamble data stream length  04790000
 *                                                                       04800000
          BAL   R14,CVT12               Make a proper buffer address     04810000
          STCM  R1,3,WRT77AD1           Set addr in data stream          04820000
@@ -493,16 +496,14 @@ WRTADDR1 DS    0H                                                       04780000
 *        Fill in user's data adr & length                               04840000
 *                                                                       04850000
          LA    R1,CONDATA              User's data address              04860000
-         STCM  R1,7,CONCCW3+1          ...                              04870000
+         STCM  R1,7,GRFCCW3+1          ...                              04870000
          LH    R1,CONCNT               and its length                   04880000
-         STH   R1,CONCCW3+6            ...                              04890000
+         STH   R1,GRFCCW3+6            ...                              04890000
 *                                                                       04900000
-*        Build footer based on HILITE and row 0                         04910000
+*        Build footer based on HILITE and ending row                    04910000
 *                                                                       04920000
          TM    CONPARM2,HILIGHT/256    Is the HILIGHT option on?        04930000
          BZ    WRTNOHI2                no, take the simple path         04940000
-         CLI   SAVEWRK1,0              Started on line 0?               04950000
-         BE    WRTNOHI2                yes, also simple                 04960000
          CLM   R4,1,GRFXINL1           Ended on last output line        04970000
          BE    WRTNOHI2                yes, the InArea attr is enough   04980000
 *                                                                       04990000
@@ -518,7 +519,6 @@ WRTADDR1 DS    0H                                                       04780000
          B     WRTDOSFX                and join below                   05090000
 *                                                                       05100000
 *        Simple suffix if not HILITE                                    05110000
-*        or HILITE started on line 0                                    05120000
 *        or HILITE ended on last output area line                       05130000
 *                                                                       05140000
 WRTNOHI2 DS    0H                                                       05150000
@@ -528,20 +528,19 @@ WRTNOHI2 DS    0H                                                       05150000
 *        Build the common part of suffix                                05190000
 *                                                                       05200000
 WRTDOSFX DS    0H                                                       05210000
-         STCM  R1,7,CONCCW4+1          Set suffix address               05220000
-         STH   R2,CONCCW4+6              and length in the CCW          05230000
+         STCM  R1,7,GRFCCW4+1          Set suffix address               05220000
+         STH   R2,GRFCCW4+6              and length in the CCW          05230000
 *                                                                       05240000
          MVC   WRT77AD3,GRFX@INP       Set @inpt buffer address         05250000
          MVC   WRT77AD4,GRFX@STA       Set @stat buffer address         05260000
          MVC   WRT77SID,GRFXSID        Move in systemId                 05270000
          MVC   WRT77ATT,GRFXATOA       Set lower right attr             05280000
 *                                                                       05290000
-         LA    R1,CONCCW1              Use CCWs in CONTASK              05300000
          TM    CONPARM,ALARM           Alarm with message??             05310000
-         BZ    EXITR1                  no, just exit                    05320000
+         BZ    GOODEXIT                no, just exit                    05320000
          OI    TRQBFLAG,CRTALRM        Flag screen alarm                05330000
          OI    WRT77WCC,WCCALARM       Add alaarm bit to WCC            05340000
-         B     EXITR1                    and return to caller           05350000
+         B     GOODEXIT                  and return to caller           05350000
 *                                                                       05360000
          POP   USING                                                    05370000
          SPACE 3                                                        05380000
