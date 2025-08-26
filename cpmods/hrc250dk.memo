@@ -1,0 +1,486 @@
+LOCAL MODIFICATION: HRC250DK
+
+Dynamic 327x screen size support
+
+Affected Files:
+===============
+
+GRCWORK  COPY     (new file)
+GRFXBLOK COPY     (new file)
+IOBLOKS  COPY
+RBLOKS   COPY
+RDEVICE  MACRO
+
+DMKBLD   ASSEMBLE
+DMKBOX   ASSEMBLE
+DMKCFP   ASSEMBLE
+DMKCPI   ASSEMBLE
+DMKGRF   ASSEMBLE
+DMKGRT   ASSEMBLE (removed)
+DMKGRU   ASSEMBLE (removed)
+DMKGRV   ASSEMBLE (removed)
+DMKGRW   ASSEMBLE (removed)
+DMKOPR   ASSEMBLE
+DMKQCN   ASSEMBLE
+DMKRIO   ASSEMBLE
+DMKSYM   ASSEMBLE
+DMKVCN   ASSEMBLE
+DMKVDR   ASSEMBLE
+HDKD58   ASSEMBLE
+HDKD7C   ASSEMBLE
+HDKD8C   ASSEMBLE
+HDKG66   ASSEMBLE (new file)
+HDKGRC   ASSEMBLE (new file)
+
+DMKHRC   EXEC
+CPLOAD   EXEC
+VRLOAD   EXEC
+
+Prerequisites:
+==============
+
+HRC029DK - UPDATE TO SUPPORT 24 PFS AND LARGER LOGO 
+HRC061DK - DIAG58 improve WSF RPQ attention handling
+HRC072DK - Support for DIAG8C return device characteristics
+HRC073DK - Support for 3278 model 5 devices
+HRC101DK - TERMINAL ENHANCEMENTS LIKE Z/VM
+HRC108DK - Implement SYSID (System identification)
+HRC241DK - Improved PFKey RETRIEVE Function
+HRC245DK - Add DMKOPRWR for emergency operator input
+HRC248DK - Expand input line size from 130 to 255 
+HRC249DK - Add 3270 buffer address helper methods  & support files
+HRC310DK - Allow highlight characters in 3270 output
+HRC370DK - Display "S/370 Online" or "S/380 Online" as appropriate.
+HRC375DK - New CPLEVEL for VM Community Edition V1 R1.2
+
+Description:
+============
+
+This update enhances the CP local display terminal support to support
+local 327x or emulated 327x devices with any screen dimensions from
+a minimum of four rows by 40 columns to a maximum geometry of 255 rows
+by 255 columns.
+
+Each device is interrogated when connected and enabled to determine  
+its screen geometry and optional feastures. This information is stored
+in the new GRFXBLOK extension to the RDEVBLOK. All important screen
+coordinates like the input area and status area addresses are also
+calculated when the device is enabled and stored in the GRFXBLOK.
+
+All of the static display terminal channel programs created by the
+GRTBLOK macro (DMKGRT, DMKGRU, etc.) are replaced by the new HDKGRC
+module which builds the channel programs using values calculated
+and stored in the GRFXBLOK. All other logic that used other static
+tables contained in DMKGRT is modified by this update to use the
+equivalent calculated values stored in the GRFXBLOK.
+
+Logical Device support (Diagnose X'7C') is not functionally affected 
+by this update since, unfortunately, the specifications for Diagnose
+X'7C' do not provide any means for specifying display device geometry
+other than specifyng the legacy 3278/9 model number. (Documentation 
+as recent as z/VM 3.1 still only allow for 3278/9 Models 2-5 to be 
+specified.) 
+
+This update also makes a few changes to how local display terminals
+are configured in DMKRIO. If the device is declared to be a "3277",
+then the code assumes that the device will not understand the Write
+Structured Field operation and that step in the device initialization
+will be bypassed and the screen geometry will be configured based on
+the size of its buffer. In any case, any model number ot feature codes
+configured for the device in DMKRIO are ignored and screen formating
+and support in CP determined just using the screen dimensions either
+from the Read Partition Query operation or based on buffer size. 
+
+In addition, this update makes the following related changes:
+
+-- The logic to implement the TERMINAL HILIGHT functionality is moved
+   from the CONTASK creation logic in DMKQCN into the display device
+   channel program and data stream specific logic since it is only 
+   valid for graphic devices.
+
+-- The write buffer size in the VCONCTL is increased from one byte 
+   to a halfword figuring that with potentially larger screens, users
+   might want to write more than 2K in one operation.
+
+
+Details:
+========
+
+GRCWORK  COPY
+-------------
+This is a new file that contains definitions for the parameters passed            
+between DMKGRF and the new module HDKGRC that specify which display
+terminal channel programs should be constructed. It also contains the
+definition of the GRFCCWS workarea used by HDKGRC and linked to the
+IOBLOK being processed.
+
+----------------------------------------------------------------------------
+
+GRFXBLOK COPY
+-------------
+
+This new control block is an extension to the RDEVBLOK for CLASGRAF devices.
+It is built be device initialization code added the HDKD8C and is pointed
+to by the new RDEVGRFX field in the RDEVBLOK.
+
+This new control block contains precalculated values for all screen size
+related values like buffer addresses and screen area sizes that are used
+in CP code to format and process display terminal screens.
+
+----------------------------------------------------------------------------
+
+IOBLOKS  COPY
+-------------
+
+This update makes changes to three control blocks defined by this file:
+
+-- IOBLOK is updated to replace IOBRSV3 with a new field IOBCCWRK which
+   will point to the new GRFCCWS workarea that is used by the new HDKGRC.
+
+-- CONTASK replaces the reserved byte after CONFSS (added by HRC101DK) with
+   a new field CONPARM3 which will hold byte 2 of the R2 parameters passed
+   to DMKQCKWT. This is so the HILIGHT flag can be passed downstream from
+   DMKQCN to DMKGRF & friends.
+
+-- VCONCTL is updated to redeefine the VCONWBSZ field from a byte to a 
+   halfword to accommodate console writes of more than 2K.
+
+----------------------------------------------------------------------------
+
+RBLOKS   COPY
+-------------
+
+This update makes three changes to the RDEVBLOK control block:
+
+-- Replaces the field RDEVGRTB with the new field RDEVGRFX. The GRTBLOK and
+   its derived modules containing the static 327x challen programs is no
+   longer being used and the new field will be the pointer to the GRFXBLOK.
+
+-- A new flag RDEVXSEL is added to RDEVRGIC to indicate the graphic device
+   supports the "extended" Select CCWs.
+
+-- Replaces the field RDEVGRTX (index based on model number) ic tables with
+   a new field RDEVAVL1 making the space available. This is because the whole
+   purpose of HRC250DK is to eliminate all model-specific processing.
+
+----------------------------------------------------------------------------
+
+RDEVICE  MACRO
+--------------
+
+In addition to quietly ignoring the MODEL=DYNAMIC option added by HRC072DK,
+this update causes the RDEVBLOKS generated by DMKRIO to reflect the changes
+this update makes to RBLOKS COPY.
+
+
+DMKBLD   ASSEMBLE
+-----------------
+
+This update changes the way DMKBLDVM sets the TERMINAL LINESIZE during the
+login process. The existing logic would set RDEVLLEN to either 80 or 132
+based on the 327x model number. The new logic sets the line length to the
+detected screen width.
+
+----------------------------------------------------------------------------
+
+DMKBOX   ASSEMBLE
+-----------------
+
+Replaces the model-dependent set of screen logos with a single logo used on
+all screens. The use of the LOGO is replaced with a simple control that
+specifies the length of each logo line and the number of lines in the logo.
+A second logo with the same dimensions is added for use when VM/380 is used.
+
+----------------------------------------------------------------------------
+
+DMKCFP   ASSEMBLE
+-----------------
+
+Makes a small change to this module because of the larger size of VCONWBSZ
+
+----------------------------------------------------------------------------
+
+DMKCPI   ASSEMBLE
+-----------------
+
+Eliminates the call to DMKGRTID that propagated the System Id to the static
+CCW data streams contained in the obsolete GRTBLOK generated modules.
+
+----------------------------------------------------------------------------
+
+DMKGRF   ASSEMBLE
+-----------------
+
+The main goal of this update is to relocate local display terminal channel
+program and data stream construction to the new HDKGRC module. THis is done
+so that the static CCWs and data streams generated by the GRTBLOK macro can
+be replaced with dynamically generated operations that are able to adapt to
+the screen geomeetry of each device. Along with this change, most coding that
+distinguished between 327x an 3066 displays is also moved to the new modules.
+
+One of the benifits of moving this logic to new modules is that the size of
+DMKGRF has been reduced and it lo longer needs three base registers. This ends
+up freeing R9 for use as the common register to access the new GRFXBLOK.
+
+This update also makes some changes in how DMKGRF handles working storage.
+The original code was using IOBCAW as an anchor to dynamically allocated
+storage rather thanas just the pointer to the channel program being worked
+on. IOBMISC2 was also used as a dynamic storage pointer used in the PFKey
+COPY function. Relocating the read channel program construction logic got
+rid of one of the uses of the storage pointed to by IOBCAW. Reqoeking the
+PFKEY COPY functionality eliminated the other use of this area.
+
+Logic dealing with limit checking, screen dimensions, and other model 
+dependent values is changed to use the calculated values in the GRFXBLOK 
+instead of tables in DMKGRT indedxed by RDEVGRTY. The remaining dependency 
+on DMKGRT is eliminated by moving the 327x AID mapping table into DMKGRF.
+
+----------------------------------------------------------------------------
+
+DMKGRT   ASSEMBLE (removed)
+DMKGRU   ASSEMBLE (removed)
+DMKGRV   ASSEMBLE (removed)
+DMKGRW   ASSEMBLE (removed)
+DMKGRX   ASSEMBLE (removed)
+-----------------
+
+These modules are all obsolete since the use of static channel programs and 
+data streams generated by the GRTBLOK macro has been eliminated by HRC250DK.
+The use of the remaining static model-dependent tables in DMKGRT has been
+replaced by calculated values in the GRFXBLOK. The logic in DMKGRTAB that
+calculates and builds the data stream for the PFKEY TAB function has been
+moved to the new HDKGRC module along with the rest of the channel program
+logic for graphical terminals.
+
+----------------------------------------------------------------------------
+
+DMKOPR   ASSEMBLE
+-----------------
+
+The logic is changed to eliminate the reference to RDEVGRTY and just directly
+use RDEVMDL to detect the difference between a 3270 Model 2 and Model 2A
+console. (Note that DMKOPR would never be accessing any other 3278 model
+since those are the only models that could be the primary operator console)
+
+----------------------------------------------------------------------------
+
+DMKQCN   ASSEMBLE
+-----------------
+
+Remove the TERMINAL HILIGHT processing from this module and move it to the
+CLASGRAF specific data stream processing in DMKGRF/HDKGRC.
+
+Changes the size limit checks to use values in the GRFXBLOK instead of static
+tables that were included in DMKGRT.
+
+----------------------------------------------------------------------------
+
+DMKRIO   ASSEMBLE
+-----------------
+
+DMKRIO (and its equivalents for 1nd-level CP systems) must be reassembled
+to lick up the changes to the RDEVICE macro.
+
+----------------------------------------------------------------------------
+
+DMKSYM   ASSEMBLE
+-----------------
+
+Add new symbol table entries for the newly added CP modules and delete the
+entries for DMKGRT/U/V/W/X
+
+----------------------------------------------------------------------------
+
+DMKVCN   ASSEMBLE
+-----------------
+
+Change this module because of the larger size of VCONWBSZ. Also update the
+length and limit checks to use calculated values in the GRFXBLOK instead of
+the static tables that were in DMKGRT
+
+----------------------------------------------------------------------------
+
+DMKVDR   ASSEMBLE
+-----------------
+
+Makes a small change to this module because of the larger size of VCONWBSZ
+
+----------------------------------------------------------------------------
+
+HDKD58   ASSEMBLE
+-----------------
+
+Modify Diagnose 58 full-screen logic to remove the reference to the GRTBLOK 
+and call HDKGRC to build the clear-screen channel program & data stream. 
+
+----------------------------------------------------------------------------
+
+HDKD7C   ASSEMBLE
+-----------------
+
+Modify Diagnose 7C Logical Device logic to remove references to the 
+obsolete RDEVBLOK fields: RDEVGRTB & RDEVGRTY
+
+----------------------------------------------------------------------------
+
+HDKD8C   ASSEMBLE
+-----------------
+
+Updates the Diagnose 8C processing to return the full Write Structured Field /
+Read Partition Query data if the user's buffer is big enough.
+
+Enhances the initialization logic in HDKD8CEN to build the GRFXBLOK for all 
+display devices. (Note that a static GRFXBLOK is used for 3066 support.)
+The GRFXBLOK is an extension to the RDEVBLOK containing all the discovered 
+and calculated values needed to manage display screens of any size. 
+
+This update does this initialization in three steps:
+
+-- First a SenseId is issued to determine the basic device and control unit
+   type. If this fails or based on the result, the next step might be skipped.
+
+-- If it appears possible, a Write-Structured-Field / Read-Partition-Query
+   is issued to discover the screen geometry and features of the attached
+   device. Note that it is possible that this step could discover that the
+   nature of the device (display vs printer) has changed (one device 
+   disconnected and a different device reconnected). The RDEVTYPE is changed
+   in this case and further processing altered accordingly.
+   
+-- If the WSF/RPQ is not possible or encounters errors, then the screen size
+   will be determined based on buffer size. This is done by issuing a Read
+   Buffer operation after an Erase Write (Alternate) operation. The Read
+   Buffer CCW is issued with the Skip bit since the CSW residual length is
+   all that is needed.
+   
+Once the screen geometry is known, line numbers and buffer addresses of the 
+various visual screen elements are calculated and stored in the GRFXBLOK.
+
+----------------------------------------------------------------------------
+
+HDKG66   ASSEMBLE (new file)
+-----------------
+
+All of the 3066-specific channel program and data stream processing is moved
+from DMKGRF into this new module. It is called from HDKGRC when the 3066 is
+detected. Note that this logic has not been tested to the lack of a real 3066
+or an emulator.
+
+----------------------------------------------------------------------------
+
+HDKGRC   ASSEMBLE (new file)
+-----------------
+
+This new resident module contains the local display terminal channel program 
+and data stream generation relocated from DMKGRF. THis covers all CP display 
+screen operations except the PFKey COPY function that remains in DMKGRF. 
+
+DMKGRF makes a call to the new HDKGRCCW entry point with an index  value in 
+R1 indicating which channel program is needed. HDKGRCCW then builds the CCWs
+and data stream in temporary storage and returns the channel program address
+to DMKGRF in R1. DMKGRF will then proceed to make the call to DMKIOS to send
+the operation to the display device.
+
+The following channel programs and data streams are included:
+
+RMI: Read data from the Input Area
+
+FMT: Format the screen and display the logo.
+     Note: this is a little different that what standard 
+     CP produces:
+     -- The Input Area is protected (cannot enter anything)
+     -- Status area is set to "ENABLED" because there isn't
+        any virtual maching created yet.
+
+WRT: Write data to the Output Area.
+     The logic from DMKQCN to support TERMINAL HILIGHT has
+     been incorporated into this method.
+
+CLR: Clear the Output Area leaving the Input Area intact.
+     Also sets the status to RUNNING. Resets the cursor
+     back to the start of the Input Area
+
+CLS: Clear the entire screen using an Erase Write [Alternate]
+     Sets the status to RUNNING. Sets the cursor to the start 
+     of the Input Area
+     
+CRD: Clear the Input Area and set status to RUNNING
+
+MRD: Clear the Input Area and preserve existing status.
+     (Used following data input when the status is MORE or
+     HOLDING)
+
+IDS: Write data in the Input Area.
+     Used to display delayed PFKey commands or prior commands
+     via the PFKey RETRIEVE function.
+
+TAB: Insert a logical tab into the input line and move the
+     cursor to the next tabset. This is the processing for
+     the PFKey TAB function. THis also incorporates the logic
+     relocated from DMKGRTAB.
+
+HLD: Set status = HOLDING
+     Note that this will be displayed in high-intensity.
+
+MOR: Set status = MORE...
+     Note that this will be displayed in high-intensity.
+
+NAC: Set status = NOT ACCEPTED
+     Note that this will be displayed in high-intensity.
+
+RUN: Set status = RUNNING
+     Note that this will be displayed in high-intensity.
+
+VMR: Set status = VM READ (the normal case)
+     Note that this will be displayed in high-intensity.
+
+CPR: Set status = CP READ (the normal case)
+     Note that this will be displayed in high-intensity.
+
+VMP: Set status = VM READ (inhibiting display of the data entered)
+     Note that this will be displayed in high-intensity.
+
+CPP: Set status = CP READ (inhibiting display of the data entered)
+     Note that this will be displayed in high-intensity.
+
+WNG: Sound warning alarm
+     Note that this will be displayed in high-intensity.
+
+
+This module also contains a new entry point HDKGRCRL that is called before
+releasing graphic device IOBLOKs so that any CCW workareas associated with
+the IOBLOK can also be released.
+
+----------------------------------------------------------------------------
+
+DMKHRC   EXEC
+-------------
+
+This EXEC must be manually updated to add lines for the new files that need
+to be added to DMKHRC MACLIB:
+
+    &1 &2 GRCWORK
+    &1 &2 GRFXBLOK 
+
+----------------------------------------------------------------------------
+
+CPLOAD   EXEC
+VRLOAD   EXEC
+-------------
+
+These EXECs (and others you may have) must be manually updated to make
+changes to the CP nucleus load list needed by HRC250DK:
+
+-- after DMKGRF:
+
+   * Next 2 added by HRC250DK     
+   &1 &2 &3 HDKGRC                
+   &1 &2 &3 HDKG66                
+   * Next 5 removed by HRC250DK   
+   *&1 &2 &3 DMKGRT               
+   *&1 &2 &3 DMKGRU               
+   *&1 &2 &3 DMKGRV               
+   *&1 &2 &3 DMKGRW               
+   *&1 &2 &3 DMKGRX               
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
