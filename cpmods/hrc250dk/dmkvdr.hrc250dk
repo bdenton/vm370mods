@@ -9,4 +9,4 @@
 ./ * 10-Jun-2025 WDENTON  Initial version for VM370CE V1 R1.2
 ./ *
 ./ R 00329000 $ 00329100
-         LH    R0,VCONWBSZ    Get buffer size                  HRC248DK 00329100
+         LH    R0,VCONWBSZ    Get buffer size                  HRC250DK 00329100

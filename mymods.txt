@@ -1,13 +1,13 @@
 CP Mods
 =========
-HRC240DK - Better alternate nucleus
+HRC240DK - Alternate CP nucleus enhancements
 HRC241DK - Improved PFkey RETRIEVE functionality
 HRC242DK - IOSQR bypass error processing
 HRC243DK - Add DMKIOSYN entry for synchronous I/O
 HRC244DK - Hercules UR Output Handshake
 HRC245DK - Add DMKOPRRD as standalone CFMRD function
-HRC246DK - Alternate nucleus - prompt for SYSRES
-HRC247DK - Support lowercase a-f in hex conversion
+HRC246DK - Prompt for nucleus save target device
+HRC247DK - Support lowercase a-f in hex2bin conversion
 HRC248DK - Expand input line size from 136 to 255
 HRC249DK - 3270 utility methods & support files
 HRC250DK - Support any screen size
