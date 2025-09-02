@@ -1,0 +1,22 @@
+./ * HRC251DK - Fix DMKCPS026E sometimes causing FRE001 abend
+./ *
+./ * A couple of bugs in DMKCPS would sometimes cause VARY  
+./ * command with address range to fail with FRE001 abend.
+./ *
+./ * The first problem is that R9 (->BUFFER) gets changed
+./ * before the last call to DMKSCNFD. This could cause
+./ * an incorrect CC-0 return which should result in
+./ * DMKCPS026E error message.
+./ *
+./ * The second problem is that processing of the CPS026
+./ * error fails to correctly set R3 for DMKERMSG call.
+./ *
+./ * HISTORY:
+./ *  2-SEP-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00542000 $ 00542100
+         L     R9,SAVER9      Restore BUFFER pointer           HRC251DK 00542100
+./ I 00544000 $ 00544100
+         L     R9,SAVEWRK7    R9 again addresses MSG area      HRC251DK 00544100
+./ R 01311000 01312000 $ 01311100
+         B     NORTN          Operand missing or invalid       HRC251DK 01311100

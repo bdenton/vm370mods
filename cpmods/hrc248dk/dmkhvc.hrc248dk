@@ -1,0 +1,16 @@
+./ * HRC248DK - Expand input line size from 130 to 255
+./ *
+./ * Adjust the code in Diagnode 8 for the larger BUFFER 
+./ * size. Also expands the command length limit to match
+./ *
+./ * HISTORY:
+./ * 29-Aug-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00535000 $ 00535100
+         CL    R2,=A(L'BUFDATA) Exceeds max?                   HRC248DK 00535100
+./ R 00550000 $ 00550100
+         LA    R0,BUFSIZE     Size of BUFFER (dwords)          HRC248DK 00550100
+./ R 00554000 $ 00554100
+         MVC   8(BUFINLTH-8,R7),0(R7) ...                      HRC248DK 00554100
+./ I 01146000 $ 01146100
+         COPY  CONBUF                                          HRC248DK 01146100

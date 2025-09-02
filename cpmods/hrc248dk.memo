@@ -21,6 +21,7 @@ DMKCSV   ASSEMBLE
 DMKEPS   ASSEMBLE
 DMKERM   ASSEMBLE
 DMKGRF   ASSEMBLE
+DMKHVC   ASSEMBLE
 DMKMSG   ASSEMBLE
 DMKPED   ASSEMBLE
 DMKRSP   ASSEMBLE
@@ -85,6 +86,16 @@ and the new BUFFER fields added to descrribe the Read-Modified preamble
 
 This update also corrects a bug introduced by HRC450DK that can result
 in an infinite loop if the APL ot TEXT options are active.
+
+----------------------------------------------------------------------------
+
+DMKHVC ASSEMBLE
+---------------
+
+The code for Diagnose 8 allocated and cleared a BUFFER without any
+reference to the definitions in CONBUF. This update replaces the
+literal constants (e.g. LA R0,12) with refrences to lengths and names
+that define BUFFER in CONBUF.
 
 ----------------------------------------------------------------------------
 

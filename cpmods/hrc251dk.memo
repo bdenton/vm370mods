@@ -1,0 +1,55 @@
+LOCAL MODIFICATION: HRC251DK
+
+Fix DMKCPS026E sometimes causing FRE001 abend
+
+Affected Files:
+===============
+
+DMKCPS   ASSEMBLE
+
+Prerequisites:
+==============
+
+None
+
+Description:
+============
+
+A couple of bugs in DMKCPS would sometimes cause VARY  
+command with address range to fail with FRE001 abend.
+
+The first problem is that R9 (->BUFFER) gets changed
+before the last call to DMKSCNFD. This could cause
+an incorrect CC-0 return which should result in
+DMKCPS026E error message.
+
+The second problem is that processing of the CPS026
+error fails to correctly set R3 for DMKERMSG call.
+
+Details:
+========
+
+DMKCPS ASSEMBLE
+---------------
+
+The following fix is applied to the VARY command: 
+
+1) Code is added around the final call to DMKSCNFD that is 
+   made after collecting the second part of the address range.
+   (This call is being made to insure there aren't any extra 
+   parameters after the address range.) The problem is that 
+   the BUFFER pointer (R9) gets reused earlier in clearing
+   the MSG work ara.
+   The code change is to restore the BUFFER address to R9
+   before the SCNFD call and put back the MSG address after
+   the call.
+   
+2) The code at label CPS026A is supposed to add the FRET flag
+   to the call to DMKERMSG but fails to set a proper value for
+   R3. This can result in a FRE001 abend (and probably other 
+   abends in DMKFRE depending on what residual data is in R3.)
+   The code change here is to change the branch to CALLERM to
+   go to NORTN instead.
+
+============================================================================
+
