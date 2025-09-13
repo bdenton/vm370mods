@@ -275,11 +275,23 @@ BLD77FMT DS    0H                                                       02610000
          L     R5,=A(DMKBOXDS)         Access logo descriptor           02650000
          LH    R2,0(,R5)               Get row size                     02660000
          LH    R3,2(,R5)               Get row count                    02670000
+*
+*        Make sure the logo fits on the screen
+*
+         SR    R5,R5                   Clear size
+         MVI   SAVEWRK2,0              Assume no logo
+         CH    R2,GRFXCOLS             Is screen wide enough?
+         BH    FMTNLG1                 no, don't build it then
+         LA    R1,4(,R3)               Will logo height+4 fit on screen?
+         CH    R1,GRFXROWS             ...
+         BH    FMTNLG1                 no, skip it
+         MVI   SAVEWRK2,1              yes, set flag
 *                                                                       02680000
 *        Calculate the space needed                                     02690000
 *                                                                       02700000
          LA    R5,3(,R2)               (row.size + 3)                   02710000
-         MR    R4,R3                   * row.ct                         02720000
+         MR    R4,R3                   * row.ct     	                  02720000
+FMTNLG1  DS    0H         
          LA    R5,FMT77DSL(,R5)        + preamble                       02730000
          STH   R5,GRFCCW1+6            = write length                   02740000
 *                                                                       02750000
@@ -313,6 +325,8 @@ FMT77OK1 DS    0H                                                       02900000
 *        the "VM/370 Online" message to say "VM/380 Online"             03040000
 *                                                                       03050000
          MVC   FMT77VMO+4(1),INSTWRD1  zap with 7 or 8 from PSA         03060000
+         CLI   SAVEWRK2,1              Are we including the logo?
+         BNE   FMTNLG2                 nope... skip it
 *                                                                       03070000
 *        Calculate starting buffer address                              03080000
 *                                                                       03090000
@@ -345,6 +359,7 @@ FMT77LP  DS    0H                                                       03250000
 *                                                                       03360000
          BCT   R3,FMT77LP              and build the whole logo         03370000
 *                                                                       03380000
+FMTNLG2  DS    0H
          MVI   GRFXATOA,FLDPROT        Attribute in lower right         03390000
 *                                                                       03400000
          B     GOODEXIT                                                 03410000
@@ -662,7 +677,7 @@ CLR77DS  EQU   *                                                        06520000
          DC    AL1(SBA)                                                 06540000
 CLR77AD1 DC    AL2(*-*)                0,0                              06550000
          DC    AL1(RA)                                                  06560000
-CLR77AD2 DC    AL2(*-*)                input area buffer address        06570000
+CLR77AD2 DC    AL2(*-*),AL1(0)         input area buffer address        06570000
          DC    AL1(SF,FLDCHNG)                                          06580000
          DC    AL1(IC)                                                  06590000
          DC    AL1(SBA)                                                 06600000
