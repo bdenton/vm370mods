@@ -1,0 +1,13 @@
+./ * HRC252DK - Extend Diag58 CCW19 to 128 lines 
+./ *
+./ * This update adds a new flag to CONFSS and VCONFSS that
+./ * will replace the use of the x'40' bit in CONDWC and  
+./ * VDONDWC (CCW19+5) that is used to indicate that the  
+./ * I/O operation came from Diagnose 58. This will allow
+./ * the line number on the CCW to expand to 128
+./ *
+./ * HISTORY:
+./ * 11-Sep-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00108920 $ 00108930
+CONDIAG  EQU   X'20'          Diagnose 58 originated operation HRC252DK 00108930

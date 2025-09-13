@@ -1,0 +1,41 @@
+./ * HRC252DK - Extend Diag58 CCW19 to 128 lines 
+./ *
+./ * This update moves the "diagnose console write" flag from
+./ * CONDWC (CCW19+5) to a new flag in CONFSS. (This flag is
+./ * set to tell DMKQCN, GRF, etc. that the I/O operation is
+./ * from Diagnose 58 (CCW opcode x'19').)  Moving the flag
+./ * allows the line number in CCW-19 to expand to seven bits
+./ * to address a maximum of 128 lines instead of 64 lines.
+./ * 
+./ * This update makes a small change to he interface between
+./ * DMKVCN and DMKQCNWT. In addition to the previously 
+./ * undocumented passing of VCONDWC in R2 Byte 0, this
+./ * update also passes VCONFSS in R2 byte 1 so it can be
+./ * placed in the CONTASK passed off to DMKGRF.
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 12-Sep-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00264000 $ 00264100 20
+*           Byte 0 - Can have the value for CONDWC passed      HRC252DK 00264120
+*                    in from DMKVCN                            HRC252DK 00264140
+*                                                              HRC252DK 00264160
+*           Byte 1 - Can have the value for CONFSS also        HRC252DK 00264180
+*                    passed in from DMKVCN                     HRC252DK 00264200
+*                                                              HRC252DK 00264220
+*           Bytes 2-3 - parameter flags (defined in EQU)       HRC252DK 00264240
+*                                                              HRC252DK 00264260
+./ R 00443000 00444100 $ 00443010 50
+         ICM   R0,3,SAVER2    CONDWC/CONFSS values from VCN    HRC252DK 00443010
+         STCM  R0,2,CONDWC    Pass CONDWC on to DMKGRF         HRC252DK 00443060
+         STC   R0,CONFSS      also pass CONFSS to DMKGRF       HRC252DK 00443110
+./ R 00494100 $ 00494105
+         TM    CONFSS,CONDIAG Diagnose write to graphics ??    HRC252DK 00494105
+./ R 00529100 $ 00529105
+         TM    CONFSS,CONDIAG Diagnose write to graphics ??    HRC252DK 00529105
+./ I 00627100 $ 00627020 20
+         IC    R1,CONFSS-CONTASK(,R8) Copy the FSS flags       HRC252DK 00627020
+         STC   R1,CONFSS              ... for DMKGRF           HRC252DK 00627040

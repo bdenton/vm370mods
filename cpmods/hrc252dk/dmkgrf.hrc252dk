@@ -1,0 +1,19 @@
+./ * HRC252DK - Extend Diag58 CCW19 to 128 lines 
+./ *
+./ * This update moves the "diagnose console write" flag from
+./ * CONDWC (CCW19+5) to a new flag in CONFSS. (This flag is
+./ * set to tell DMKQCN, GRF, etc. that the I/O operation is
+./ * from Diagnose 58 (CCW opcode x'19').)  Moving the flag
+./ * allows the line number in CCW-19 to expand to seven bits
+./ * to address a maximum of 128 lines instead of 64 lines.
+./ * 
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 12-Sep-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 01443100 $ 01443105
+         TM    CONFSS,CONDIAG Diagnose console write ??        HRC252DK 01443105
+./ R 01449100 $ 01449105 
+DIAGRUN  DS    0H                                              HRC252DK 01449105

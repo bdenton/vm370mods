@@ -1,0 +1,32 @@
+./ * HRC252DK - Extend Diag58 CCW19 to 128 lines 
+./ *
+./ * This update moves the "diagnose console write" flag from
+./ * VCONDWC (CCW19+5) to a new flag in VCONFSS. (This flag is
+./ * set to tell DMKQCN, GRF, etc. that the I/O operation is
+./ * from Diagnose 58 (CCW opcode x'19').)  Moving the flag
+./ * allows the line number in CCW-19 to expand to seven bits
+./ * to address a maximum of 128 lines instead of 64 lines.
+./ *
+./ * PREREQUISITES:
+./ * HRC101DK V02 TERMINAL ENHANCEMENTS LIKE Z/VM
+./ * HRC250DK - Dynamic 327x screen size support
+./ *
+./ * HISTORY:
+./ * 11-Sep-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00596100 $ 00596105
+         ICM   R2,4,VCONFSS   Also pass the DWC flag           HRC252DK 00596105
+./ R 00597100 $ 00597200
+         TM    VCONFSS,CONDIAG     Diagnose graphics write?    HRC252DK 00597200
+./ R 00711100 00714000 $ 00711200 100
+         CLI   VCONCCW,X'19'          Diag Write CCW ??        HRC252DK 00711200
+         BNE   NOTX19                 N, clear flags           HRC252DK 00711300
+         OI    VCONFSS,CONDIAG        Y, set flag for QCN etc. HRC252DK 00711400
+         B     SETRETN                and return               HRC252DK 00711500
+NOTX19   DS    0H                                              HRC252DK 00711600
+./ R 00795100 $ 00795101
+         TM    VCONFSS,CONDIAG     Is this diag 58 ?           HRC252DK 00795101
+./ R 00805100 $ 00805200
+         TM    VCONFSS,CONDIAG     Diagnose graphics write?    HRC252DK 00805200
+./ R 00819320 $ 00819325
+         N     R15,=XL4'0000007F' and clear out erase bit      HRC252DK 00819325
