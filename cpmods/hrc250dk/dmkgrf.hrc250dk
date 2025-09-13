@@ -237,11 +237,9 @@ FRETCCW  DS    0H                                              HRC250DK 01017100
 GRFRUN   DS    0H                                              HRC250DK 01307100
          B     BLDRUN         Set status = RUNNING             HRC250DK 01307200
 ./ R 01451100 01453200 $ 01451105 100
-         SR    R3,R3          Get Diag58 target row            HRC250DK 01451105
-         IC    R3,CONDWC      ...                              HRC250DK 01451205
-         CLM   R3,1,GRFXINL1  Is it the 1st input area line?   HRC250DK 01451305
-         BNL   DIAGSIO        yes, take special path           HRC250DK 01451405
-         CLM   R3,1,GRFXINL2  or is it the last input line?    HRC250DK 01451505
+         CLM   R0,1,GRFXINL1  Is it the 1st input area line?   HRC250DK 01451105
+         BNL   DIAGSIO        yes, take special path           HRC250DK 01451205
+         CLM   R0,1,GRFXINL2  or is it the last input line?    HRC250DK 01451305
 ./ R 01482000 01483200 $ 01482105 200
          SLR   R4,R4          Get current output line          HRC250DK 01482105
          IC    R4,RDEVCORD    Last written line number         HRC250DK 01482305
