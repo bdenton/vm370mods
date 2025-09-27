@@ -282,7 +282,7 @@ BLD77FMT DS    0H                                                       02610000
          MVI   SAVEWRK2,0              Assume no logo
          CH    R2,GRFXCOLS             Is screen wide enough?
          BH    FMTNLG1                 no, don't build it then
-         LA    R1,4(,R3)               Will logo height+4 fit on screen?
+         LA    R1,4(,R3)               Will logo height+4 fit on scrn?
          CH    R1,GRFXROWS             ...
          BH    FMTNLG1                 no, skip it
          MVI   SAVEWRK2,1              yes, set flag

@@ -10,7 +10,7 @@
 ./ I 01181050 $ 01181060
          EXTRN HDKGRCCW                Build channel programs  HDK250DK 01181060
 ./ R 03183000 03185000 $ 03183100 100
-         LA    R1,CPIXCLS              Build clear screen CCWs HDK250DK 03183100
+         LA    R0,CPIXCLS              Build clear screen CCWs HDK250DK 03183100
          CALL  HDKGRCCW                  and data stream       HDK250DK 03183200
 ./ R 03340000 03341000 $ 03340100
          COPY  GRCWORK                                         HDK250DK 03340100

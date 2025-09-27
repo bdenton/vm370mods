@@ -36,9 +36,8 @@ CKCMD1   DS    0H                                              HRC250DK 00496400
          STH   R0,VCONWBSZ    Save buffer size                 HRC250DK 00651100
 ./ R 00819200 00819300 $ 00819230 30
          IC    R0,RDEVLLEN    Get line length                  HRC250DK 00819230
-         SLR   R15,R15        Clear a 2nd work reg             HRC250DK 00819260
-         IC    R15,VCONDWC    Get line coordinate number       HRC250DK 00819290
-         N     R15,=XL4'0000003F' and clear out erase bit      HRC250DK 00819320
+         IC    R15,VCONDWC    Get line coordinate number       HRC250DK 00819260
+         N     R15,=XL4'0000003F' and clear out erase bit      HRC250DK 00819290
 ./ R 00820000 $ 00820100
          L     R1,=A(DMKGRFM2) All remotes are Mod 2s          HRC250DK 00820100
 ./ R 00822300 $ 00822310
