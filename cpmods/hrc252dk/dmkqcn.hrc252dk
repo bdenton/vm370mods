@@ -28,6 +28,8 @@
 *                                                              HRC252DK 00264220
 *           Bytes 2-3 - parameter flags (defined in EQU)       HRC252DK 00264240
 *                                                              HRC252DK 00264260
+./ R 00357000 $ 00357100
+         TM    SAVER2+1,CONDIAG Diagnose write to graphic dev? HRC252DK 00357100
 ./ R 00443000 00444100 $ 00443010 50
          ICM   R0,3,SAVER2    CONDWC/CONFSS values from VCN    HRC252DK 00443010
          STCM  R0,2,CONDWC    Pass CONDWC on to DMKGRF         HRC252DK 00443060
