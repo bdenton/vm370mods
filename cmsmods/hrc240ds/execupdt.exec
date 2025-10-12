@@ -1,0 +1,305 @@
+******
+*
+*  Format is:  EXECUPDT fn <ft   <fm   >> <(options...<)>>
+*                           EXEC  *
+*  Where:
+*
+*  fn ft fm
+*        is the file identifier of the source input file.  The
+*        file must consist of card image records with length
+*        less than or equal to 255.  Record format must be
+*        Fixed.
+*        The last 8 columns of each card image must contain
+*        a sequence number.
+*        If the filetype or filemode are omitted,
+*        EXEC and * are assumed, respectively.
+*
+* Options:
+*
+*    CTL cfn  specifies that "cfn CNTRL" is an update control
+*             file that controls the application of multiple
+*             update files to the source input file.
+*
+*    NOUPdate specifies that no update files are to be
+*             applied to the source.  The HISTORY option
+*             will be ignored if this is specified.
+*
+*    HISTory  specifies that the file 'cfn UPDATES' which is
+*             created by the UPDATE command is to be appended
+*             to the updated source as a comment.
+*
+*    NOHISTory specifies that no history log is to be appended
+*             to the updated source.  This is the default.
+*
+*    SID      specifies that the last 17 columns contain
+*             information to be removed from the source file.
+*             This must be in the format
+*
+*                  n-16            n ( <= 255 )
+*                  |               |
+*                  V               V
+*                  SID_CODE SEQ_NUMB
+*
+*    NOSID    specifies that only sequence numbers are to be
+*             removed from the updated source (the last 8
+*             columns).  This is the default.
+*
+*     Other options as with the UPDATE command.
+*
+******
+&CONTROL OFF
+
+&IX = 1
+&PAR = -1
+&LOOP -PARSCN &IX GT &INDEX
+   &IF &&IX NE ( &SKIP 2
+      &PAR = &IX
+      &GOTO -PAREND
+   &IX = &IX + 1
+-PARSCN
+-PAREND   
+
+&IF &PAR LE 1 &GOTO -ARGMISS
+&FN = &1
+&IF &PAR LE 2 &SKIP 2
+   &FT = &2
+   &SKIP 1
+   &FT = EXEC 
+&IF &PAR LE 3 &SKIP 2
+   &FM = &SUBSTR &3 1 1
+   &SKIP 1
+   &FT = *
+
+&IF &PAR EQ 4 &SKIP 1
+   &TYPE Warning: Extra tokens starting with ' &4 ' ignored
+   
+&IX = &PAR + 1
+&CFN    =
+&HIST  = 0
+&NOUPD = 0
+&SID   = 0      
+&UPOPCNT = 0
+   
+&LOOP -OPTLP &IX GT &INDEX   
+   &OPT = &&IX
+   &LEN = &LENGTH &OPT
+   &IF &OPT NE CTL &SKIP 3
+      &IX = &IX + 1
+      &CFN = &&IX
+      &NOUPD = 0
+      &GOTO -OPTNX
+   &IF &OPT NE SID &SKIP 2
+      &SID = 1
+      &GOTO -OPTNX
+   &IF &OPT NE SID &SKIP 2
+      &SID = 1
+      &GOTO -OPTNX
+   &IF &OPT NE NOSID &SKIP 2
+      &SID = 0
+      &GOTO -OPTNX
+   &IF &LEN LT 4 &SKIP 3
+   &IF &OPT NE &SUBSTR NOUPDATE 1 &LEN &SKIP 2 
+      &NOUPD = 1
+      &GOTO -OPTNX
+   &IF &LEN LT 4 &SKIP 3
+   &IF &OPT NE &SUBSTR HISTORY 1 &LEN &SKIP 2 
+      &HIST = 1
+      &GOTO -OPTNX
+   &IF &LEN LT 6 &SKIP 3
+   &IF &OPT NE &SUBSTR NOHISTORY 1 &LEN &SKIP 2 
+      &HIST = 0
+      &GOTO -OPTNX
+   &UPOPCNT = &UPOPCNT + 1
+   &U&UPOPCNTS = &OPT   
+-OPTNX
+   &IX = &IX + 1
+-OPTLP
+
+&IF &NOUPD EQ 0 &GOTO -NUPDSKP
+   &IF /&CTLFN EQ / &SKIP 2
+      &CTLFN = 
+      &TYPE Warning: NOUPDATE option cancels CTL option. 
+      &TYPE No update will be applied.
+   &IF &HIST EQ 0 &SKIP 2
+      &HIST = 0         
+      &TYPE Warning: NOUPDATE option cancels HISTORY option.
+-NUPDSKP
+
+&SFT = $&FT
+MAKEBUF
+LISTFILE &FN &SFT &FM ( ALL FIFO
+&IF &RETCODE EQ 0 &GOTO -SETFM
+   &REALRC = &RETCODE
+   DROPBUF
+   &IF &REALRC NE 28 &SKIP 1
+      &TYPE Error: Cannot find source for ' &FN &FT &FM '
+* Otherwise, LISTFILE issues error
+   &EXIT &REALRC
+
+-SETFM
+&READ VARS &X &X &FM &X &LRECL &X
+DROPBUF
+
+* Last choice target
+&WORKFM = A
+
+MAKEBUF
+QUERY DISK &SUBSTR &FM 1 1 ( LIFO
+&IF &RETCODE EQ 0 &SKIP 3
+   &REALRC = &RETCODE
+   DROPBUF
+   &EXIT &REALRC
+
+&READ VARS &X &X &MODE &STAT &X
+&IF &STAT NE R/W &SKIP 2
+   &WORKFM = &SUBSTR &MODE 1 1
+   &GOTO -WFMSET
+&PARENT = &SUBSTR &MODE 3 1   
+QUERY DISK &PARENT ( LIFO
+&IF &RETCODE EQ 0 &SKIP 3
+   &REALRC = &RETCODE
+   DROPBUF
+   &EXIT &REALRC
+&READ VARS &X &X &X &STAT &X
+&IF &STAT NE R/W &SKIP 1
+   &WORKFM = &PARENT
+-WFMSET
+DESBUF
+   
+&UPDRC = 0
+&IF &NOUPD EQ 0 -DOUPD
+   &SFN = &FN
+   &SFM = &SUBSTR &FM 1 1
+   &GOTO -ENUPD
+-DOUPD
+   &SFN = $&FN   
+   &SFM = &WORKFM
+   
+   &ARGS &U1 &U2 &U3 &U4 &U5 &U6 &U7 &U8 &U9 &U10 
+   
+   &IF /&CFN EQ / &SKIP 2
+UPDATE &FN &SFT &FM &CFN CNTRL * ( CTL &1 &2 &3 &4 &5 &6 &7 &8 &9 &10
+   &SKIP 1
+      UPDATE &FN &SFT &FM ( &1 &2 &3 &4 &5 &6 &7 &8 &9 &10
+   &UPDRC = &RETCODE
+   &IF &RETCODE EQ 0 &GOTO -COPY
+      &IF &RETCODE NE 40 &SKIP 3
+         &SFN = &FN
+         &SFM = &SUBSTR &FM 1 1
+         &GOTO -COPY
+      &IF &RETCODE NE 12 &EXIT &RETCODE 
+-COPY   
+   
+&TRUNC = 8
+&IF &SID EQ 1 &TRUNC = 17
+&LEN = &LRECL - &TRUNC
+COPYFILE &SFN &SFT &SFM &FN &FT &WORKFM ( REP RECFM V LRECL &LEN TRUNC
+
+&IF &UPDRC EQ 40 &EXIT
+&IF &NOUPD EQ 1 &EXIT
+&IF &HIST EQ 0 &EXIT
+
+&RXFLG = 0
+MAKEBUF
+EXECIO 1 DISKR &FN &FT &WORKFM ( LIFO
+&READ VARS &X
+&IF /&X EQ //* &RXFLG = 1
+DESBUF
+
+MAKEBUF
+LISTFILE &fn &FT &WORKFM ( LABEL LIFO
+&READ VARS &x &X &X &X &X &X &X &DT &TM &X
+DROPBUF 
+
+MAKEBUF
+&X = *
+&IF &RXFLG EQ 1 &X = /*
+&STACK FIFO TOP
+&STACK FIFO INPUT &X
+&BEGSTACK FIFO
+INPUT ******** ******** ******** ******** ******** ********
+INPUT * UPDATES applied on &DT at &TM
+INPUT ******** ******** ******** ******** ******** ********
+INPUT *
+CHANGE //* /*
+RECFM V
+FILE
+&END
+EDIT &FN UPDATES &WORKFM
+DESBUF
+COPYFILE &FN UPDATES &WORKFM &FN &FT &WORKFM ( APPEND
+
+
+
+
+
+
+  If sourcefn = '$'fn Then       /* Updates applied?         */
+     'ERASE $'fn '$'ft workfm    /* Scrap the work file      */
+     realrc = rc
+     If rc ¬= 0 Then             /* If error, issue message  */
+       If rc ¬= 28 Then do       /* File not found is ok.    */
+        'DROPBUF'
+        call ERRORS '40 653 ''ERASE'' realrc',
+         msgopt1 'FORMAT 1'
+        end
+
+  'DROPBUF'
+  Exit updtrc                    /* all done, exit           */
+
+/* Routine to separate options in EXECUPDT options and       */
+/* options to be passed on to UPDATE.  EXECUPDT options are  */
+/* also processed here. If OUTMODE is specified, we need     */
+/* the output file mode for both.                            */
+
+OPTIONS:
+  Do until opts = ''
+     parse var opts option opts  /* pull off first word      */
+     select
+        When otmode Then do         /* OUTMODE specified?    */
+         otfm = option              /* get fm for EXECUPDT   */
+         updtopts = updtopts option /* pass it on to UPDATE  */
+         otmode = 0                 /* reset OUTMODE flag    */
+         end
+        When option='CTL' Then do
+           /* Ok, CTL is specified, now check to see if a    */
+           /* proper CNTRL file name has been given as well. */
+
+          parse var opts cfn opts
+          If cfn = '' Then       /* Anything there?          */
+             call ERRORS '24 637 8129',
+              msgopt1 'FORMAT 03'
+          noupdate = 0
+          end
+        When option='SID' Then trunc = 17
+        When option='NOSID' Then trunc = 8
+        When abbrev('COMPRESS',option,4) Then compress = 1
+        When abbrev('NOCOMPRESS',option,6) Then compress = 0
+        When abbrev('COMMENTS',option,4) Then comments = 1
+        When abbrev('NOCOMMENTS',option,6) Then comments = 0
+        When abbrev('HISTORY',option,4) Then history = 1
+        When abbrev('NOHISTORY',option,6) Then history = 0
+        When abbrev('NOUPDATE',option,4) Then noupdate = 1
+        When abbrev('ETMODE',option,6) Then etmode = 1
+        When abbrev('OUTMODE',option,7) Then do
+         otmode = 1                  /* set OUTMODE flag     */
+         updtopts = updtopts option  /* pass it on to UPDATE */
+         end
+        /* Ok, it's none of the EXECUPDT options, so we build*/
+        /* a list of options to pass on to the UPDATE command*/
+        Otherwise updtopts = updtopts option
+        end   /* Select */
+     end   /* Do until */
+
+  /* Fall through when options are all exhausted and return  */
+  return       /* Nothing left, then return to caller.       */
+
+NOVALUE: /* Report undefined variable and exit */
+Parse source . . fn ft fm .
+Say "Undefined variable referenced on line" sigl "of" fn ft fm
+Exit 99
+
+ERRORS:
+    Arg rcode number msgopt
+      'XMITMSG' number msgopt
+    Exit rcode

@@ -1,0 +1,257 @@
+LOCAL MODIFICATION: HRC240DK
+
+Provides enhanced alternate CP nucleus support
+
+Affected Files:
+===============
+
+ALTNUC   MACRO     (new)
+PSA      MACRO
+SYSLOCS  MACRO
+SYSRES   MACRO
+DMKCFC   ASSEMBLE
+DMKCKP   ASSEMBLE
+CMKCPI   ASSEMBLE
+DMKDDR   ASSEMBLE
+DMKDMP   ASSEMBLE
+DMKSAV   ASSEMBLE
+DMKSYS   ASSEMBLE
+HDKCQA   ASSEMBLE
+HDKCQN   ASSEMBLE  (new)
+
+Prerequisites:
+==============
+
+HRC030DK
+HRC075DK
+HRC102DK
+
+Description:
+============
+
+This update extends the "ALternate Nucleus" support added by HRC075DK
+by allowing the alternate nucleus to be defined on any system-owned
+volume, of any device type, and at any cylinder location.  The intent
+of this update is to completely separate the definition of any alternate
+nucleui from the definition contained on the SYSRES macro.
+
+This update further extends HRC075DK by inlcuding alternate nucleus 
+support for the DDR COPY NUCLEUS command. DDR can now copy the nucleus
+from between alternate nucleus locations. The only requirement is that 
+the target volume must have had a nucleus written to it as some point.
+This is because the nucleus location on a volume is recorded in the
+first page of DMKCKP which is record 0/0/2 on the volume.
+
+For completeness, this update also adds the QUERY NUCLEUS command which
+lists details of each alternate nucleus defined for the current system.
+
+Details:
+========
+
+ALTNUC MACRO (new)
+------------
+This is a new macro that is used to define the alternate nucleui details
+in DMKSYS. (The first nucleus is still defined by the SYSRES macro.)
+One ALTNUC macro statement must be included for each alternate nucleus.
+The format of these statements is:
+
+         ALTNUC VOLSER=volser[,DEVTYPE=type],&CYLS=beg | (beg,cnt)
+         
+where:
+   
+   VOLSER   The volume serial number of the disk volume containing the
+            alternate nucleus. This must be a volume listed in the SYSOWN
+            macro statement. It cannot match the SYSRES SYSVOL= parameter
+            nor the VOLSER on any other ALTNUC macro statement.
+             
+   DEVTYPE  (optional) specifies the device type of the volume containing
+            the alternate nucleus. Defaults to the SYSRES device type,
+            Values: 2305 | 2314 | 2319
+                    3330 | 3333 | 3340
+                    3350 | 3375 | 3380
+                    
+   CYLS     specifies the locaation of the alternate nucleus on the volume
+            This parameter can take two forms:
+            
+            CYLS=beg       specfies the starting cylinder location. The
+                           default space of two (2) cylinders will be
+                           allocated for the alternate nucleus. This is
+                           usually sufficient for a CP nucleus without
+                           any V=R area.
+                           
+            CYLS=(beg,cnt) specifies the starting cylinder location and
+                           the number of cylinders of the alternate nucleus
+                           on the volume. (The current CP nucleus with an
+                           8MB V=R area taakes about 19 3350 cylinders.)
+
+----------------------------------------------------------------------------
+
+PSA MACRO
+---------
+
+Fields in the PSA are modified as follows:
+
+* SYSIPLDV - comments are modified to indicate that this field is the
+             default device for checkpoint, warm start, and error
+             recording.
+
+* INSTWRD2 - this is replaced with the following two fields:
+
+             PSAIPLDV - the actual IPL device holding the alternate
+                         nucleus
+             PSANUCAD - the starting cylinder location of the
+                        alternate nucleus
+
+----------------------------------------------------------------------------
+
+SYSLOCS MACRO
+-------------
+
+Adds logic to generate a new table DMKSYSNT (Nucleus Table) that
+contains the volser, device type,  and cylinder location of all
+IPLable nucleus images defined by the SYSRES and ALTNUC macros.
+
+----------------------------------------------------------------------------
+
+SYSRES MACRO
+------------
+
+Save nucleus volser and cylinder location in GBLx variables for all nucleus
+definitions from the SYSRES and ALTNUC macro statements so that they can be 
+included in the nucleus location table that will be built in SYSLOCS.
+
+Also enhance SYSRES macro to allow specification of the number of cylinders 
+allocated to the nucleus (extension to HRC102DK).
+
+Removes the now obsolete DMKSYSNU entry point.
+
+----------------------------------------------------------------------------
+
+DMKCFC ASSEMBLE
+---------------
+
+This updates adds the new HDKCQN query module and adds the   
+QUERY NUCLEUS command to report on nucleus configs
+
+----------------------------------------------------------------------------
+
+DMKCKP ASSEMBLE
+---------------
+
+1) Changes the logic that reads the second page of DMKCKP to read from the 
+   IPL volume rather than the configured SYSRES
+   
+2) Changes the logic that reads in DMKSAV to read from the IPL volume 
+   instead of SYSRES
+   
+3) Adds a new entry point (DMKCKPCD) that contains the date/time the 
+   nucleus was written to the volume
+
+----------------------------------------------------------------------------
+
+CMKCPI ASSEMBLE
+---------------
+
+!!!! NOTE !!!!
+     Entry conditions from DMKSAVRS have changed to include the 
+     starting sylinder location of the IPLed nucleus in the 
+     high-order 2 bytes of R10
+
+Most of the changes relate to the fact that the IPL device might 
+not be the SYSRES device.
+
+1) Save IPL device address in PSA as well as the SYSRES device. 
+   Neither of them is based on a configured device address.
+   The actual device address is determined by scanning the 
+   RDEVBLOKs for the matching VOLSER
+   
+2) Change SWPTABLE build so nucleus pages are taken from the IPL 
+   device and cylinder rance rather than using the values from 
+   the SYSRES macro.
+
+Note: All SYSRES values except nucleus location will still be used 
+      and processed against the SYSRES volume or other location as 
+      per HRC075DK.
+
+----------------------------------------------------------------------------
+
+DMKDDR ASSEMBLE
+---------------
+
+This makes the following changes to NUCLEUS operations performed 
+with DASD as an output target.
+
+1) No longer validate that the input and output VOLSERs match.
+
+2) If the output volume already has a nucleus on it, then write 
+   the new nucleus to that location if it will fit.
+
+In order to have DDR write a nucleus to location other than the 
+location of the input nucleus, the output volume must have 
+previously had a nucleus weitten to it by DMKSAV.
+
+----------------------------------------------------------------------------
+
+DMKDMP ASSEMBLE
+---------------
+
+Differentiate between the SYSRES and IPL volumes
+   -- SYSRES is used by checkpointing logic
+   -- IPL volume is used by warm start logic
+
+----------------------------------------------------------------------------
+
+DMKSAV ASSEMBLE
+---------------
+
+!!!! NOTE !!!!
+     Entry conditions from DMKSAVRS to DMKCPINT have changed 
+     to include the starting sylinder of the IPLed nucleus 
+     in the high-order 2 bytes of R10  
+     
+Writes the nucleus to the DMKSYSRS device address. The device 
+type and cylinder range are determined by looking up the 
+device's volid in the DMKSYSNT table.
+
+Reads the nucleus from the IPL device. The device type and 
+cylinder range are fouind by looking up the IPL volid in 
+the DMKSYSNT table.
+
+----------------------------------------------------------------------------
+
+DMKSYS ASSEMBLE
+---------------
+
+The default VM/370 Community Edition Version 1 Release 1.3 is modified
+to include an ALTNUC macro statement to define the existing alternate
+nucleus on VM50-2
+
+----------------------------------------------------------------------------
+
+HDKCQA ASSEMBLE
+---------------
+
+Remove reference to obsolete SYSRES member DMKSYSNU   
+
+----------------------------------------------------------------------------
+
+HDKCQN ASSEMBLE  (new)
+---------------
+
+Adds a new query extensions module to contain the new QUERY NUCLEUS command.                   
+This started out being added to HDKCQA but got too large.
+
+Command:
+     
+     Query NUCleus
+     
+Output:     
+
+     CP NUCLEUS LOCATIONS
+     VOLSER UNIT TYPE   RANGE   CREATE DATE/TIME
+     VM50-1 6A1* 3350 0530-0548 mm/dd/yy hh:mm:ss
+     VM50-2 6A2  3350 0530-0548 mm/dd/yy hh:mm:ss
+     * = Currently IPLed nucleus
+
+----------------------------------------------------------------------------
+
