@@ -1,0 +1,17 @@
+./ * HRC250DS - Dynamic 327x screen size support
+./ *
+./ * Update the CMS EDIT command to support most of the dynamic
+./ * display terminal screen sizes that CP supports after update
+./ * HRC250DK has been applied. The only restriction is that the
+./ * maximum supported screen height is 128 rows. This is due
+./ * to restrictions in Diagnose 58 which is what EDIT uses to
+./ * display data on the screen. 
+./ * 
+./ * HISTORY:
+./ * 24-Sep-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 04230500 04232000 $ 04230603 100
+         LH    R5,SCROLLN     Get # lines to scroll            HRC250DS 04230603
+         LH    R3,SCRCOLS     Do we need more than one         HRC250DS 04230703
+./ D 04257000 04257800
+./ D 04265200 04265300

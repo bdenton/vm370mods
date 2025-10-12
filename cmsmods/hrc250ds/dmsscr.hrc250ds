@@ -1,0 +1,111 @@
+./ * HRC250DS - Dynamic 327x screen size support
+./ *
+./ * Update the CMS EDIT command to support most of the dynamic
+./ * display terminal screen sizes that CP supports after update
+./ * HRC250DK has been applied. 
+./ * 
+./ * HISTORY:
+./ * 25-Sep-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *  8-Oct-2025 WDENTON  Handle large output in chunks
+./ *
+./ R 00149000 00150100 $ 00149103 1000
+         LA    R4,BUF0        Clear 1st screen line            HRC250DS 00149103
+         BAL   R15,CLR2X40      to spaces                      HRC250DS 00150103
+./ R 00169100 00169700 $ 00169103 100
+CLRMSG   DS    0H                                              HRC250DS 00169103          
+         L     R4,SCRBUF2     Address screen line 2            HRC250DS 00169203
+         BAL   R15,CLR2X40    and clear to spaces              HRC250DS 00169303
+./ R 00174100 00175000 $ 00174103 100
+         LA    R7,MSGTXT-BUF1 Offset to message text           HRC250DS 00174103
+         AR    R4,R7          Point to line addr               HRC250DS 00174203
+         LH    R5,SCRCOLS     Remaining space for msg          HRC250DS 00174303
+         SR    R5,R7          ...                              HRC250DS 00174403
+./ R 00180000 00180300 $ 00180103 100
+NOSPEC   DS    0H                                              HRC250DS 00180103
+         LH    R1,SCRCOLS     ! R1 is the line width constant  HRC250DS 00180203
+./ R 00182000 00205000 $ 00182103
+         SPACE 1                                               HRC250DS 00182103
+./ I 00215000 $ 00215103 100
+*****************************                                  HRC250DS 00215103
+*                                                              HRC250DS 00215203
+*        Write current line to input area                      HRC250DS 00215303
+*                                                              HRC250DS 00215403
+*****************************                                  HRC250DS 00215503
+         SPACE 1                                               HRC250DS 00215603
+./ I 00237000 $ 00237103 100
+         EJECT ,                                               HRC250DS 00237103
+*****************************                                  HRC250DS 00237203
+*                                                              HRC250DS 00237303
+*        Write last command to input area                      HRC250DS 00237403
+*                                                              HRC250DS 00237503
+*****************************                                  HRC250DS 00237603
+./ R 00241000 $ 00241103
+         LH    R3,INPUTLEN    Max input area length            HRC250DS 00241103
+./ R 00245000 $ 00245103
+         LH    R5,INPUTLEN    Length of whole input area       HRC250DS 00245103
+./ I 00253000 $ 00253103 100
+         EJECT ,                                               HRC250DS 00253103
+*****************************                                  HRC250DS 00253203
+*                                                              HRC250DS 00253303
+*        Operator cancel call                                  HRC250DS 00253403
+*                                                              HRC250DS 00253503
+*****************************                                  HRC250DS 00253603
+./ R 00281000 00281500 $ 00281103
+         AH    R4,SCRCOLS     Incr buffer ptr to next line     HRC250DS 00281103
+./ R 00298100 00298400 $ 00298103 100
+CHECKUP  DS    0H                                              HRC250DS 00298103
+         L     R3,SCRBUF3     Buffer starts on line 3          HRC250DS 00298203
+./ I 00501000 $ 00501103 20
+         CH    R3,DIAGMAXB    Data within max allowed?         HRC250DS 00499103
+         BNH   WRITEM2        yes, do it the simple way        HRC250DS 00499123
+*                                                              HRC250DS 00499143
+         LH    R2,LINELOC     R2 will be line#                 HRC250DS 00499163
+         LH    R3,DIAGMAXB    R3 will be size                  HRC250DS 00499183
+         LH    R4,NUMLOC      R4 will be total size            HRC250DS 00499203
+         L     R5,BUFFLOC     R5 will be buffer addr           HRC250DS 00499223
+*                                                              HRC250DS 00499243
+WRITLOOP DS    0H                                              HRC250DS 00499263
+         STH   R2,LINELOC     Starting line for chunk          HRC250DS 00499283
+         STH   R3,NUMLOC      Size of this chunk               HRC250DS 00499303
+         ST    R5,BUFFLOC     Buffer addr of the chunk         HRC250DS 00499323
+         STM   R2,R5,INOUTSA  Preserve regs around GIO call    HRC250DS 00499343
+         LA    R1,GIOPLIST    Point to DMSGIO parameters       HRC250DS 00499363
+         L     R15,=V(DMSGIO) Go build & issue the             HRC250DS 00499383
+         BALR  R14,R15          diagnose to write chunk        HRC250DS 00499403
+         LM    R2,R5,INOUTSA  Get our regs back                HRC250DS 00499423
+         LTR   R15,R15        any errors?                      HRC250DS 00499443
+         BNZ   ERR117         yes, issue error & die           HRC250DS 00499463
+*                                                              HRC250DS 00499483
+         MVI   FLAGLOC,0      Clear flags for othere chunks    HRC250DS 00499503
+         AH    R2,DIAGMAXL    Bump line# for next chunk        HRC250DS 00499523
+         AH    R5,DIAGMAXB    Bump chunk buffer addr           HRC250DS 00499543
+         SR    R4,R3          Reduce length remaining          HRC250DS 00499563
+         BNP   SCROUT         finished                         HRC250DS 00499583
+         CR    R4,R3          last one smaller?                HRC250DS 00499603
+         BNL   WRITLOOP       no, use max in R3                HRC250DS 00499623
+         LR    R3,R4          yes, use smaller size            HRC250DS 00499643
+         B     WRITLOOP       and write last chunk             HRC250DS 00499663
+*                                                              HRC250DS 00499683
+WRITEM2  DS    0H                                              HRC250DS 00499703
+./ I 00507000 $ 00507013
+ERR117   DS    0H                                              HRC250DS 00507013
+./ I 00513000 $ 00513053 50
+         SPACE 3                                               HRC250DS 00513053
+***************************************************************HRC250DS 00513103
+*        Routine to clear one screen buffer line to blanks     HRC250DS 00513153
+***************************************************************HRC250DS 00513203
+         SPACE 1                                               HRC250DS 00513253
+CLR2X40  DS    0H                                              HRC250DS 00513303
+         ST    R1,INOUTSA     Save work register               HRC250DS 00513353
+         LH    R1,SCRCOLS     Length of one screen line        HRC250DS 00513403
+         BCTR  R1,0           (reduce for EX)                  HRC250DS 00513453
+         BCTR  R1,0           ...                              HRC250DS 00513503
+         MVI   0(R4),C' '     Initialize the line              HRC250DS 00513553
+         EX    R1,CLRMOVE     and clear the rest               HRC250DS 00513603
+         L     R1,INOUTSA     Restore work reg                 HRC250DS 00513653
+         BR    R15            return to caller                 HRC250DS 00513703
+*                                                              HRC250DS 00513753
+CLRMOVE  MVC   1(*-*,R4),0(R4) *** Executed ***                HRC250DS 00513803
+./ D 00517000 00520000
+./ D 00533000 00543000
+./ D 00563000 00570000

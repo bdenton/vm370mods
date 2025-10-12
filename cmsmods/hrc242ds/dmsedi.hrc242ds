@@ -1,0 +1,18 @@
+./ * HRC242DS - Fix screen handling bugs in HRC340DS
+./ *
+./ * So, once the associated update was applied to DMSSCR, very
+./ * strange things happened -- the whole output area of the 
+./ * screen was blanked!! (Tracing showed that the "real"
+./ * screen DID get displayed but then got erased.)
+./ * 
+./ * This was caused by HRC340DS which added the 2nd call to
+./ * DMSSCR to just redisplay the current line hilighted.
+./ * The bug is that the wrong option flag for DMSSCR was set.
+./ * 
+./ * HISTORY:
+./ *  5-Oct-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 01452100 $ 01452110
+         MVI   SCRFLGS,WRCLB  Re-write Current Line            HRC242DS 01452110
+./ I 01452300 $ 01452310
+         MVI   SCRFLGS,0      Clear writing flags              HRC242DS 01452310

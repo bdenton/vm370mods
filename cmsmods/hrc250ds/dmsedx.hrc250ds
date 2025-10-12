@@ -1,0 +1,158 @@
+./ * HRC250DS - Dynamic 327x screen size support
+./ *
+./ * Update the CMS EDIT command to support most of the dynamic
+./ * display terminal screen sizes that CP supports after update
+./ * HRC250DK has been applied. The only restriction is that the
+./ * maximum supported screen height is 128 rows. This is due
+./ * to restrictions in Diagnose 58 which is what EDIT uses to
+./ * display data on the screen. 
+./ * 
+./ * HISTORY:
+./ * 10-Sep-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00300000 00301000 $ 00300100
+         MVC   CHNGMSG(MSGINITL),MSGINIT Init lines changd msg HRC250DS 00300100
+./ R 00311000 00312000 $ 00311100
+         MVC   TIN(LPLIST),INITLIST    Init EDCB Plists        HRC250DS 00311100
+./ D 00325000 00345000                            
+./ D 00440000 00441000
+./ R 00455000 00457000 $ 00455001 20
+         EJECT ,                                               HRC250DS 00455001
+**************                                                 HRC250DS 00455021
+*                                                              HRC250DS 00455041
+*        Configure the Editor based on the configuration       HRC250DS 00455061
+*        of the virtual console device.                        HRC250DS 00455081
+*                                                              HRC250DS 00455101
+**************                                                 HRC250DS 00455121
+         SPACE 1                                               HRC250DS 00455141
+TYPDATA  DS    0H                                              HRC250DS 00455161
+         TM    FLAG2,NODISP   Was NODISP option entered?       HRC250DS 00455181
+         BO    BYPGRAF        ..yes, bypass display setup      HRC250DS 00455201
+*                                                              HRC250DS 00455221
+         LH    R8,CONSOLE     Get virt cons addr from DEVTAB   HRC250DS 00455241
+         DROP  R10            (finished with DEVTAB)           HRC250DS 00455261
+         DIAG  R8,R9,X'24'    Get basic device class/type      HRC250DS 00455281
+         BC    2,NODISPX      Treat as line device is discon   HRC250DS 00455301
+*                                                              HRC250DS 00455321
+         CLM   R10,B'1000',CLASTERM Maybe remote 3270?         HRC250DS 00455341
+         BNE   SETUBE         ..no, check for local 3270       HRC250DS 00455361
+         CLM   R10,B'0100',TYP3275 Remote 3275?                HRC250DS 00455381
+         BE    SETREMOT       ..yes, set for remote 3275       HRC250DS 00455401
+         CLM   R10,B'0100',TYP3277 Remote 3277?                HRC250DS 00455421
+         BE    SETREMOT       ..yes, set for remote 3277       HRC250DS 00455441
+*                                                              HRC250DS 00455461
+NODISPX  DS    0H                                              HRC250DS 00455481
+         OI    FLAG2,NODISP   Inhibit display mode             HRC250DS 00455501
+         B     BYPGRAF                                         HRC250DS 00455521
+*                                                              HRC250DS 00455541
+SETREMOT DS    0H                                              HRC250DS 00455561
+         OI    FLAG2,REMOTE   Force 2741 mode                  HRC250DS 00455581
+         B     CONSGRAF       Go get display characteristics   HRC250DS 00455601
+*                                                              HRC250DS 00455621
+SETUBE   DS    0H                                              HRC250DS 00455641
+         OI    FLAG2,TUBE     Set indicator for DMSEDI         HRC250DS 00455661
+*                                                              HRC250DS 00455681
+CONSGRAF DS    0H                                              HRC250DS 00455701
+         LA    R14,D8CBUFFA   Put diag 8C data here            HRC250DS 00455721
+         LA    R15,X'FFF'     Console addr here                HRC250DS 00455741
+         NR    R15,R8           (returned by diag24)           HRC250DS 00455761
+         LA    R10,D8CBUFFL   and Ry = buffer length           HRC250DS 00455781
+         DIAG  R14,R8,X'8C'   get console geometry             HRC250DS 00455801
+         LTR   R15,R15        any errors?                      HRC250DS 00455821
+         BNZ   NODISPX        ..yes, revert to NODISP          HRC250DS 00455841
+*                                                              HRC250DS 00455861
+         LH    R15,D8CROWS    Make sure rows can be addressed  HRC250DS 00455881
+         CH    R15,=H'128'      by Diag58 CCW19 7-bit row#     HRC250DS 00455901
+         BH    NODISPX        Force NODISP if not              HRC250DS 00455921
+         STH   R15,SCRROWS    Capture screen dimensions        HRC250DS 00455941
+         MVC   SCRCOLS,D8CCOLS  ...                            HRC250DS 00455961
+*                                                              HRC250DS 00455981
+         LR    R14,R15        (save row count)                 HRC250DS 00456001
+         MH    R15,SCRCOLS    rows x cols                      HRC250DS 00456021
+         STH   R15,SCRSIZE    = total size                     HRC250DS 00456041
+*                                                              HRC250DS 00456061
+         LR    R15,R14        (get back rows)                  HRC250DS 00456081
+         BCTR  R15,0          - 2 for input area start         HRC250DS 00456101
+         BCTR  R15,0          ...                              HRC250DS 00456121
+         LR    R14,R15        (save rows-2)                    HRC250DS 00456141
+         STH   R15,INPUTNUM   = input area row number          HRC250DS 00456161
+*                                                              HRC250DS 00456181
+         MH    R15,SCRCOLS    x cols                           HRC250DS 00456201
+         STH   R15,INOFFSET   = offset to input area           HRC250DS 00456221
+*                                                              HRC250DS 00456241
+         BCTR  R14,0          row count - 3                    HRC250DS 00456261
+         STH   R14,LLNUMBER   = Last line row#                 HRC250DS 00456281
+*                                                              HRC250DS 00456301
+         BCTR  R14,0          row count - 4                    HRC250DS 00456321
+         STH   R14,SCROLLN    = scroll line count              HRC250DS 00456331
+         SRL   R14,1          / 2                              HRC250DS 00456341
+         STH   R14,CLNUMBER   = current line row#              HRC250DS 00456361
+*                                                              HRC250DS 00456381
+         LA    R15,1(,R14)    + 1                              HRC250DS 00456401
+         STH   R15,CLNXTNUM   = row# after current line        HRC250DS 00456421
+*                                                              HRC250DS 00456441
+         MH    R14,SCRCOLS    x cols                           HRC250DS 00456461
+         STH   R14,CLOFFSET   = offset to current line         HRC250DS 00456481
+         SPACE 1                                               HRC250DS 00456501
+*                                                              HRC250DS 00456501
+*        Diag58 CCW19 has data limits.. fit those to the file  HRC250DS 00456501
+*                                                              HRC250DS 00456501
+         LH    R0,SCRCOLS     Get width                        HRC250DS 00456501
+         XR    R14,R14        Clear top half                   HRC250DS 00456501
+         LA    R15,4064       Max length (per DMKVCN)          HRC250DS 00456501
+         DR    R14,R0         / width                          HRC250DS 00456501
+         STH   R15,DIAGMAXL   = max line count                 HRC250DS 00456501
+         MH    R15,SCRCOLS    * width                          HRC250DS 00456501
+         STH   R15,DIAGMAXB   = max byte count                 HRC250DS 00456501
+*                                                              HRC250DS 00456521
+*        Calc line length limit                                HRC250DS 00456541
+*                                                              HRC250DS 00456561
+BYPGRAF  DS    0H                                              HRC250DS 00456581
+         LA    R0,160         Default limit = 160              HRC250DS 00456601
+         TM    FLAG2,NODISP   use that in NODISP mode?         HRC250DS 00456621
+         BO    CKLIM          yes, go do that                  HRC250DS 00456641
+         LH    R0,SCRCOLS     otherwise 2 x width              HRC250DS 00456661
+         SLL   R0,1           ...                              HRC250DS 00456681
+*                                                              HRC250DS 00456701
+         LR    R14,R0         Less status area len             HRC250DS 00456721
+         SH    R14,=H'20'     = input area length              HRC250DS 00456741
+*                                                              HRC250DS 00456761
+         CH    R0,=H'255'     but <= 255                       HRC250DS 00456781
+         BNH   CKLIM                                           HRC250DS 00456801
+         LA    R0,255                                          HRC250DS 00456821
+CKLIM    DS    0H                                              HRC250DS 00456841
+         STH   R0,ITEMLIM     Save ITEM limit for other checks HRC250DS 00456861
+*                                                              HRC250DS 00456881
+         CH    R14,=H'255'    Input area > limit?              HRC250DS 00456901          
+         BNH   SETIALEN       no, save for DMSSCR use          HRC250DS 00456921
+         LA    R14,255        yes, cap at limit                HRC250DS 00456941
+SETIALEN DS    0H                                              HRC250DS 00456961
+         STH   R14,INPUTLEN   Save  input area size            HRC250DS 00456981 
+*                                                              HRC250DS 00457001
+         CLI   ITEM+3,0       Was LRECL specified?             HRC250DS 00457021
+         BE    DOSTATE        no, no check needed              HRC250DS 00457041
+         C     R0,ITEM        yes, was value within limits?    HRC250DS 00457061
+         BL    ERR44E         yes, issue error                 HRC250DS 00457081
+         EJECT ,                                               HRC250DS 00457101
+./ R 00464000 $ 00464100
+DOSTATE  DS    0H                                              HRC250DS 00464100
+./ R 00519000 $ 00519100
+         CH    R15,ITEMLIM    Too big ?                        HRC250DS 00519100
+./ R 00775100 00776100 $ 00775101 100
+         LH    R14,SCRCOLS    Row 2 buffer addr                HRC250DS 00775101
+         LA    R13,0(R14,R8)  ...                              HRC250DS 00775201
+         ST    R13,SCRBUF2    ...                              HRC250DS 00775301
+         AR    R13,R14        Row 3 buffer addr                HRC250DS 00775401
+         ST    R13,SCRBUF3    ...                              HRC250DS 00775501
+*                                                              HRC250DS 00775601
+         LH    R13,SCRSIZE    Allocate screen buffer           HRC250DS 00775701
+./ D 00992100 00992800
+./ D 01004490
+./ I 01020000 $ 01020100 100
+         SPACE 1                                               HRC250DS 01020100
+D8CBUFFA DS    0D             Dword alignment required         HRC250DS 01020200
+D8CFLAGS DS    XL1            Feature flags                    HRC250DS 01020300
+D8CPTNCT DS    XL1            Partition count                  HRC250DS 01020400
+D8CCOLS  DS    H              Screen width                     HRC250DS 01020500
+D8CROWS  DS    H              Screen height                    HRC250DS 01020600
+D8CBUFFL EQU   *-D8CBUFFA     Diag 8C result length            HRC250DS 01020700

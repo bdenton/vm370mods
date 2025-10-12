@@ -1,0 +1,40 @@
+./ * HRC250DS - Dynamic 327x screen size support
+./ *
+./ * Update the CMS EDIT command to support most of the dynamic
+./ * display terminal screen sizes that CP supports after update
+./ * HRC250DK has been applied. 
+./ * 
+./ * HISTORY:
+./ * 25-Sep-2024 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00026100 $ 00026203 100
+SCRBUF2  DS    F              Buffer addr of srcn line#2       HRC250DS 00026203
+SCRBUF3  DS    F              Buffer addr of srcn line#3       HRC250DS 00026303
+./ R 00193100 $ 00193123 20
+         DS    X              (not used was TYPSCR)            HRC250DS 00193123
+SCRROWS  DS    H              Screen height                    HRC250DS 00193143
+SCRCOLS  DS    H              Screen width                     HRC250DS 00193163
+SCRSIZE  DS    H              Screen cell count                HRC250DS 00193183
+ITEMLIM  DS    F              Max ITEM value                   HRC250DS 00193203
+CLNUMBER DS    H              Line# of Current line            HRC250DS 00193223
+CLNXTNUM DS    H              Line# of line after curline      HRC250DS 00193243
+LLNUMBER DS    H              Line# of last line               HRC250DS 00193263
+INPUTNUM DS    H              Line# of input area              HRC250DS 00193283
+CLOFFSET DS    H              SCRBUF offset to curline         HRC250DS 00193303
+INOFFSET DS    H              SCRBUF offset to input area      HRC250DS 00193323
+INPUTLEN DS    H              Max size of input area           HRC250DS 00193343
+SCROLLN  DS    H              Number of lines to scroll        HRC250DS 00193363
+DIAGMAXL DS    H              Maximum lines per Diag58 CCW19   HRC250DS 00193383
+DIAGMAXB DS    H              Maximum bytes per Diag58 CCW19   HRC250DS 00193403
+./ R 00196000 $ 00196103
+         DS    CL255          (same length as EDLIN)           HRC250DS 00196103
+./ R 00199000 $ 00199103
+         DS    CL255          (same length as EDLIN)           HRC250DS 00199103
+./ R 00208000 $ 00208103
+EDLIN    DS    CL255          Terminal input buffer            HRC250DS 00208103
+./ R 00212000 $ 00212103
+LINE     DS    CL255          Current line is held here        HRC250DS 00208103
+./ R 00214000 $ 00213903
+TABLIN   DS    CL255          Output from SPREAD               HRC250DS 00213903
+./ R 00214020 $ 00214023
+INOUTSA  DS    4F             Savearea for xlate & DMSGIO      HRC250DS 00214023

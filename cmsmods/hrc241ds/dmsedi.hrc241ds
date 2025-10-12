@@ -1,0 +1,12 @@
+./ * HRC241DS - Restore REPEAT subcommand removed by HRC342DS
+./ *
+./ * HRC342DS removed the REPEAT subcommand by mistake. The
+./ * subcommand was just removed from the PRQUEST table but
+./ * the associated code was left intact. This update restores
+./ * the REPEAT subcommand to the PRQUEST table.
+./ * 
+./ * HISTORY:
+./ *  6-Feb-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 01514120 $ 01514125
+         REQ   REPEAT,6,REPEAT,,CSECT=MISSECT                  HRC241DS 01514125
