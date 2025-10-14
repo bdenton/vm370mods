@@ -13,6 +13,7 @@
 ./ * 27-May-2025 WDENTON  Add limit checks and 3066 support
 ./ * 29-Jul-2025 WDENTON  Add support for Logical Devices
 ./ * 20-Aug-2025 WDENTON  Move small RPQ response to free storage
+./ * 13-Oct-2025 WDENTON  Fix hang enabling not connected device
 ./ *
 ./ R 00022000 00024000 $ 00022010 200 
 *        HDKD8CEN - Build and initialize the display device    HRC250DK 00022010
@@ -175,9 +176,11 @@ MOVFIN   DS    0H                                              HRC250DK 00232100
 *        GPR 8  = Address of RDEVBLOK for display device       HRC250DK 00277100
 ./ I 00284000 $ 00284100 100
 *                                                              HRC250DK 00284100
-*        R15 == 0: Successfully initialized device             HRC250DK 00284200       
-*        R15 == 4: Unsupported device geometry                 HRC250DK 00284300
-*        R15 == 8: I/O error blocked initialization            HRC250DK 00284400
+*        R15 == 0:  Successfully initialized device            HRC250DK 00284200       
+*                   RDEVGRFX is initialized                    HRC250DK 00284300
+*        R15 == 4:  Unsupported device geometry                HRC250DK 00284400
+*        R15 == 8:  Device is not responding                   HRC250DK 00284500
+*        R15 == 12: I/O error blocked initialization           HRC250DK 00284600
 ./ R 00294000 00297500 $ 00294100
 *        None                                                  HRC250DK 00294100
 ./ I 00348000 $ 00348005 10
@@ -253,7 +256,7 @@ NOT3066  DS    0H                                              HRC250DK 00348570
          BNO   NOTLDEV1                no, proceed w/senseId   HRC250DK 00360095
          BAL   R14,FINDLDEV            Set geometry from mdl#  HRC250DK 00360105
          LTR   R15,R15                 Results OK?             HRC250DK 00360115
-         BNZ   IOERROR                 ..I/O error, pass back  HRC250DK 00360125
+         BNZ   FIN                     ..I/O error, pass back  HRC250DK 00360125
          B     GEOMETRY                Calc buffer addrs, etc. HRC250DK 00360135
 NOTLDEV1 DS    0H                                              HRC250DK 00360145
          SPACE 3                                               HRC250DK 00360155
@@ -263,9 +266,9 @@ NOTLDEV1 DS    0H                                              HRC250DK 00360145
 * +------------------------------------------------------------HRC250DK 00360195
          SPACE 1                                               HRC250DK 00360205
          BAL   R14,SENSEID             Issue Sense-Id CCW      HRC250DK 00360215
-         LTR   R15,R15                 Results OK?             HRC250DK 00360225
-         BM    IOERROR                 ..I/O error, pass back  HRC250DK 00360235
-         BNZ   LEGACY                  ..old style device      HRC250DK 00360245
+         C     R15,F4                  Results OK?             HRC250DK 00360225
+         BH    FIN                     ..I/O error, pass back  HRC250DK 00360235
+         BE    LEGACY                  ..old style device      HRC250DK 00360245
          SPACE 3                                               HRC250DK 00360255
 * +------------------------------------------------------------HRC250DK 00360265
 * +      For newer devices, issue Write-Structured-Field       HRC250DK 00360275
@@ -274,9 +277,9 @@ NOTLDEV1 DS    0H                                              HRC250DK 00360145
 * +------------------------------------------------------------HRC250DK 00360305
          SPACE 1                                               HRC250DK 00360315
          BAL   R14,WSFRPQ              Issue WSF/RPQ           HRC250DK 00360325
-         LTR   R15,R15                 Results OK?             HRC250DK 00360335
-         BM    IOERROR                 ..I/O error, pass back  HRC250DK 00360345
-         BZ    GEOMETRY                ..ok, go calc addresses HRC250DK 00360355
+         C     R15,F4                  Results OK?             HRC250DK 00360335
+         BH    FIN                     ..I/O error, pass back  HRC250DK 00360345
+         BL    GEOMETRY                ..ok, go calc addresses HRC250DK 00360355
          SPACE 3                                               HRC250DK 00360365
 * +------------------------------------------------------------HRC250DK 00360375
 * +      For older devices (or WSF/RPQ not valid), we          HRC250DK 00360385
@@ -287,7 +290,7 @@ NOTLDEV1 DS    0H                                              HRC250DK 00360145
 LEGACY   DS    0H                                              HRC250DK 00360435
          BAL   R14,READSIZE            Use buffer sz for model HRC250DK 00360445
          LTR   R15,R15                 Results OK?             HRC250DK 00360455
-         BM    IOERROR                 ..I/O error, pass back  HRC250DK 00360465
+         BNZ   FIN                     ..I/O error, pass back  HRC250DK 00360465
          SPACE 3                                               HRC250DK 00360475
 * +------------------------------------------------------------HRC250DK 00360485
 * +      Finally, once we know screen size, calculate the      HRC250DK 00360495
@@ -309,14 +312,6 @@ RETURN0  DS    0H                                              HRC250DK 00360635
 FIN      DS    0H                                              HRC250DK 00360655
          BAL   R14,CLEANUP             Clean up things         HRC250DK 00360665
          EXIT  ,                       and exit                HRC250DK 00360675
-         SPACE 3                                               HRC250DK 00360685
-* +------------------------------------------------------------HRC250DK 00360695
-* +      I/O error exit: R15 = 8                               HRC250DK 00360705
-* +------------------------------------------------------------HRC250DK 00360715
-         SPACE 1                                               HRC250DK 00360725
-IOERROR  DS    0H                                              HRC250DK 00360735
-         LA    R15,8                   Set RC=8                HRC250DK 00360745
-         B     FIN                     then clean up & exit    HRC250DK 00360755
          EJECT ,                                               HRC250DK 00360765
 ***************************************************************HRC250DK 00360775
 *                                                              HRC250DK 00360785
@@ -359,6 +354,17 @@ NOVPAGE  DS    0H                                              HRC250DK 00361115
          LA    R0,HDKWKSZ              IOBLOK+work size in dwdsHRC250DK 00361155 
          LR    R1,R10                  IOBLOK ptr to R1        HRC250DK 00361165
          CALL  DMKFRET                 Release the storage     HRC250DK 00361175
+*                                                              HRC250DK 00361145
+*        Delete GRFXBLOK on bad errors                         HRC250DK 00361175
+*                                                              HRC250DK 00361145
+         ICM   R0,15,SAVEWRK5          Return code ==0?        HRC250DK 00361175
+         BZ    NOGRFXRL                ..yes, leave it alone   HRC250DK 00361175
+         L     R1,RDEVGRFX             ..no, delete GRFXBLOK   HRC250DK 00361175
+         LA    R0,GRFXLEND             ...                     HRC250DK 00361175
+         CALL  DMKFRET                 ...                     HRC250DK 00361175
+         XR    R0,R0                   Clear GRFXBLOK ptr      HRC250DK 00361175
+         ST    R0,RDEVGRFX             ...                     HRC250DK 00361175
+NOGRFXRL DS    0H                                              HRC250DK 00361175
 *                                                              HRC250DK 00361185
 *        Switch back to caller's VMBLOK if needed              HRC250DK 00361195
 *                                                              HRC250DK 00361205
@@ -422,6 +428,8 @@ SENSEID  DS    0H                                              HRC250DK 00361515
          BZ    SENSEOK                 no, data is valid       HRC250DK 00361785
          TM    IOBFSNS1,CMDREJ         Command-Reject?         HRC250DK 00361795
          BO    SIDRET4                 yes, can't do WSF/RPQ   HRC250DK 00361805
+         TM    IOBFSNS1,INTREQ         Intervention Required?  HRC250DK 00361805
+         BO    SIDRET8                 yes, no device there    HRC250DK 00361805
          B     SIDIOERR                no, set error code      HRC250DK 00361815
          SPACE 1                                               HRC250DK 00361825
 SENSEOK  DS    0H                                              HRC250DK 00361835
@@ -463,15 +471,18 @@ EXTSEL   DS    0H                                              HRC250DK 00362175
          SPACE 3                                               HRC250DK 00362195
 SIDRET0  DS    0H                                              HRC250DK 00362205
          SR    R15,R15                 RC = 0                  HRC250DK 00362215
-         B     SIDFIN                                          HRC250DK 00362225
-SIDRET4  DS    0H                                              HRC250DK 00362235
-         LA    R15,4                   RC = 4 : Legacy device  HRC250DK 00362245
-         B     SIDFIN                                          HRC250DK 00362255
-SIDIOERR DS    0H                                              HRC250DK 00362265
-         LH    R15,=H'-4'              RC = -1 : I/O error     HRC250DK 00362275
 SIDFIN   DS    0H                                              HRC250DK 00362285
          L     R14,SAVEWRK4            Return to caller        HRC250DK 00362295
          BR    R14                     ...                     HRC250DK 00362305
+SIDRET4  DS    0H                                              HRC250DK 00362235
+         LA    R15,4                   RC = 4 : Legacy device  HRC250DK 00362245
+         B     SIDFIN                                          HRC250DK 00362255
+SIDRET8  DS    0H                                              HRC250DK 00362235
+         LA    R15,8                   RC = 8 : No device      HRC250DK 00362245
+         B     SIDFIN                                          HRC250DK 00362255
+SIDIOERR DS    0H                                              HRC250DK 00362265
+         LA    R15,12                  RC = 12 : I/O error     HRC250DK 00362275
+         B     SIDFIN                                          HRC250DK 00362225
          EJECT ,                                               HRC250DK 00362315
 ***************************************************************HRC250DK 00362325
 *                                                              HRC250DK 00362335
@@ -558,6 +569,8 @@ TRYWSFQ  DS    0H                                              HRC250DK 00362955
          BZ    WAITATTN                no, Write was good      HRC250DK 00367605
          TM    IOBFSNS1,CMDREJ         Command-Reject?         HRC250DK 00367705
          BO    WSFRET4                 yes, can't do WSF/RPQ   HRC250DK 00367805
+         TM    IOBFSNS1,INTREQ         Intervention Required?  HRC250DK 00361805
+         BO    WSFRET8                 yes, no device there    HRC250DK 00361805
          B     WSFIOERR                no, return I/O error    HRC250DK 00367905
          SPACE 1                                               HRC250DK 00368005
 *--------------------------------------------------------------HRC250DK 00368105
@@ -693,8 +706,11 @@ WSFFIN   DS    0H                                              HRC250DK 00425505
 WSFRET4  DS    0H                                              HRC250DK 00425805
          LA    R15,4                   RC = 4 : Legacy device  HRC250DK 00425905
          B     WSFFIN                                          HRC250DK 00426005
+WSFRET8  DS    0H                                              HRC250DK 00425805
+         LA    R15,8                   RC = 8 : No device      HRC250DK 00425905
+         B     WSFFIN                                          HRC250DK 00426005
 WSFIOERR DS    0H                                              HRC250DK 00426105
-         LH    R15,=H'-4'              RC = -4 : I/O error     HRC250DK 00426205
+         LA    R15,12                  RC = 12 : I/O error     HRC250DK 00426205
          B     WSFFIN                                          HRC250DK 00426305
          SPACE 1                                               HRC250DK 00426305
 MOVERPQ  MVC   0(*-*,R1),0(R2)         *** Executed ***        HRC250DK 00426305
@@ -891,6 +907,10 @@ READSIZE DS    0H                                              HRC250DK 00470600
          SPACE 1                                               HRC250DK 00472600
          TM    IOBSPEC3,IOBHADER       was there an I/O error? HRC250DK 00472700
          BNO   DOREAD                  ..no, just do the RB    HRC250DK 00472800
+         TM    IOBFSNS1,INTREQ         Intervention Required?  HRC250DK 00361805
+         BO    SIZRET8                 yes, no device there    HRC250DK 00361805
+         TM    IOBFSNS1,CMDREJ         Command-Reject?         HRC250DK 00367705
+         BNO   SIZIOERR                no, bad error           HRC250DK 00367805
          SPACE 1                                               HRC250DK 00472900
          MVC   IOWCCW1(EWCCWL),EWCCW   Try just Erase-Wwrite   HRC250DK 00473000
          LA    R1,ERSDATA              w/real addr of WCC      HRC250DK 00473100
@@ -901,7 +921,10 @@ READSIZE DS    0H                                              HRC250DK 00470600
          BAL   R5,CPIO                 and let 'er rip         HRC250DK 00473600
          SPACE 1                                               HRC250DK 00473700
          TM    IOBSPEC3,IOBHADER       was there an I/O error? HRC250DK 00473800
-         BNZ   SIZIOERR                ..yes, return the error HRC250DK 00473900
+         BZ    DOREAD                  ..no, do read buffer    HRC250DK 00473900
+         TM    IOBFSNS1,INTREQ         Intervention Required?  HRC250DK 00361805
+         BO    SIZRET8                 yes, no device there    HRC250DK 00361805
+         B     SIZIOERR                others are bad          HRC250DK
          SPACE 1                                               HRC250DK 00474000
 *        Issue a Read-Buffer with a large data length          HRC250DK 00474100
 *        but with SKIP flag on. Then use the residual          HRC250DK 00474200
@@ -948,8 +971,11 @@ SIZFIN   DS    0H                                              HRC250DK 00478000
 SIZRET4  DS    0H                                              HRC250DK 00478300
          LA    R15,4                   RC = 4 : Legacy device  HRC250DK 00478400
          B     SIZFIN                                          HRC250DK 00478500
+SIZRET8  DS    0H                                              HRC250DK 00478300
+         LA    R15,8                   RC = 8 : No device      HRC250DK 00478400
+         B     SIZFIN                                          HRC250DK 00478500
 SIZIOERR DS    0H                                              HRC250DK 00478600
-         LH    R15,=H'-4'              RC = -1 : I/O error     HRC250DK 00478700
+         LA    R15,12                  RC = 12 : I/O error     HRC250DK 00478700
          B     SIZFIN                                          HRC250DK 00478800
          EJECT ,                                               HRC250DK 00478900
 ***************************************************************HRC250DK 00479000
@@ -1156,10 +1182,16 @@ CVT1412  DS    0H                                              HRC250DK 00491600
          EJECT ,                                               HRC250DK 00492600
 ./ R 00523000 $ 00523010
          ST    R5,IOWIORET             Save caller return addr HRC250DK 00523010
+./ I 00528000 $ 00528100
+         NI    IOBSPEC3,255-IOBHADER   Clear error flag        HRC250DK 00528100
 ./ R 00540000 00541000 $ 00540010 500
          L     R5,IOWIORET             Load caller return addr HRC250DK 00540010
          L     R8,IOWRDEV              Restore RDEVBLOK ptr    HRC250DK 00541510
-         L     R9,RDEVGRFX             Restore GRFXBLOK ptr    HRC250dk 00542010
+         L     R9,RDEVGRFX             Restore GRFXBLOK ptr    HRC250DK 00542010
+./ I 00543000 $ 00543100 100
+         OI    IOBSPEC3,IOBHADER       Set error flag          HRC250DK 00543100
+         IC    R15,IOERDATA-IOERBLOK(,R1) and save sense data  HRC250DK 00543200
+         STC   R15,IOBFSNS1               ...                  HRC250DK 00543300
 ./ R 00548000 00572000 $ 00548100 100
          EJECT ,                                               HRC250DK 00548100
 ***************************************************************HRC250DK 00548200

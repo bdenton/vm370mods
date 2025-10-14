@@ -226,8 +226,8 @@ FRETCCW  DS    0H                                              HRC250DK 01017100
 ./ I 01202400 $ 01202402 100
 *        Build new GRFXBLOK for all graphic devices            HRC250DK 01202402
          CALL  HDKD8CEN       no, build new GRFXBLOK           HRC250DK 01202502
-         C     R15,F4         Permanent error encountered?     HRC250DK 01202602
-         BH    FRETIOB        yes, (R15=8) leave device down   HRC250DK 01202702
+         LTR   R15,R15        Permanent error encountered?     HRC250DK 01202602
+         BNZ   FRETIOB        yes, leave device down           HRC250DK 01202702
          L     R9,RDEVGRFX    Address new GRFXBLOK             HRC250DK 01202802
 ./ R 01221000 01223000 $ 01221100
          B     BLDFMT         Format screen, display logo      HRC250DK 01083100
