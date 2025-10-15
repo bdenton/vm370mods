@@ -11,8 +11,8 @@
 ./ * 
 ./ * HISTORY:
 ./ *  5-Oct-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ * 14-Oct-2025 WDENTON  Move hilite of current line to DMSSCR 
 ./ *
-./ R 01452100 $ 01452110
-         MVI   SCRFLGS,WRCLB  Re-write Current Line            HRC242DS 01452110
-./ I 01452300 $ 01452310
-         MVI   SCRFLGS,0      Clear writing flags              HRC242DS 01452310
+./ D 01452100 1452300
+./ I 01453000 $ 01453100
+         MVI   SCRFLGS,0      Clear screen writing flags       HRC242DS 01453100

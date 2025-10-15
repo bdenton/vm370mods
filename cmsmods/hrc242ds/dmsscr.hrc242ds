@@ -11,12 +11,47 @@
 ./ * the value (x'02') that had been (correctly) set in the
 ./ * DMSGIO flags at label CACOP which implements the cancel
 ./ * function.
-./ *
-./ * This update modifies the codepath from CANCOP to pass
-./ * control around the code added by HRC340DS   
 ./ * 
 ./ * HISTORY:
 ./ *  5-Oct-2025 WDENTON  Initial version for VM370CE V1 R1.2
+./ * 14-Oct-2025 WDENTON  Move hilite of current line to DMSSCR 
 ./ *
-./ R 00259000 $ 00259103
-         B     NOTCUR         Finish building PLIST            HRC242DS 00259103
+./ I 00145000 $ 00145100 100
+         NI    UTILFLAG,255-CL2LINES ditto                     HRC242DS 00145100
+         MVI   FLAGLOC,0      Clear GIO option flags           HRC242DS 00145200
+./ I 00272000 $ 00272100 100
+         TM    UTILFLAG,TWOLINES   CL takes 2 lines?           HRC242DS 00272100
+         BNO   *+8                 no, keep going              HRC242DS 00272200
+         OI    UTILFLAG,CL2LINES   yes, keep track of that     HRC242DS 00272300
+./ D 00491100 00491500
+./ I 00493000 $ 00493100
+         ST    R1,INOUTSA     Save width for CL hilite         HRC242DS 00493100
+./ I 00504000 $ 00504103 20
+         LTR   R15,R15        How did we do?                   HRC242DS 00504103
+         BNZ   ERR117         Badly.. throw error              HRC242DS 00504103
+*                                                              HRC242DS 00504123
+HILITECL DS    0H                                              HRC242DS 00504143
+         TM    HOLDFLAG,WRCLB+WRCLDNB+WRCLUPB Current line in  HRC242DS 00504163
+         BZ    SCROUT         no, nothing to do                HRC242DS 00504183
+*                                                              HRC242DS 00504203
+*        Rewrite current line with hilight                     HRC242DS 00504223
+*                                                              HRC242DS 00504243
+         MVI   FLAGLOC,X'04'  Set GIO option                   HRC242DS 00504263
+         L     R3,INOUTSA        Assume single line            HRC242DS 00504283
+         TM    UTILFLAG,CL2LINES Curline wider than screen?    HRC242DS 00504303
+         BNO   *+8               no, just a single line        HRC242DS 00504323
+         SLL   R3,1              yes, write 2 lines            HRC242DS 00504343
+         BCTR  R3,0              -1 for attr                   HRC242DS 00504363
+         STH   R3,NUMLOC      Set GIO parm                     HRC242DS 00504383
+         LH    R4,CLNUMBER    Curline line#                    HRC242DS 00504403
+         STH   R4,LINELOC     Set GIO parm                     HRC242DS 00504423
+         LH    R4,CLOFFSET    -> CL in buffer                  HRC242DS 00504443
+         LA    R4,BUF0(R4)    ...                              HRC242DS 00504463
+         ST    R4,BUFFLOC     and set GIO parm                 HRC242DS 00504483
+         LA    R1,GIOPLIST    Point to the GIO parms           HRC242DS 00504503
+         L     R15,=V(DMSGIO) Get addr of i/o routine          HRC242DS 00504523
+         BALR  R14,R15        and write the current line       HRC242DS 00504543
+./ I 00507000 $ 00507013
+ERR117   DS    0H                                              HRC242DS 00507013
+./ I 00638000 $ 00638100
+CL2LINES EQU   X'10'          Curline takes 2 screen lines     HRC242DS 00638100
