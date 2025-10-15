@@ -4,10 +4,6 @@
 ./ * strange things happened -- the whole output area of the 
 ./ * screeen was blanked!! (Tracing showed that the "real"
 ./ * screen DID get displayed but then got erased.)
-
-./ *  exiting to either CMS Subset
-./ * or Ready message... the VM/CE version always resulted in
-./ * a MORE... status!!  
 ./ *  
 ./ * This was caused by HRC340DS which changed the logic at
 ./ * label SETRANGE which forced the flags passed to DNSGIO
