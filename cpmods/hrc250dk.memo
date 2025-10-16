@@ -62,7 +62,7 @@ a minimum of four rows by 40 columns to a maximum geometry of 255 rows
 by 255 columns.
 
 Each device is interrogated when connected and enabled to determine  
-its screen geometry and optional feastures. This information is stored
+its screen geometry and optional features. This information is stored
 in the new GRFXBLOK extension to the RDEVBLOK. All important screen
 coordinates like the input area and status area addresses are also
 calculated when the device is enabled and stored in the GRFXBLOK.

@@ -1,0 +1,78 @@
+LOCAL MODIFICATION: HRC252DK
+
+Extend Diag58 CCW19 to 128 lines
+
+Affected Files:
+===============
+
+IOBLOKS  COPY
+DMKGRF   ASSEMBLE
+DMKQCN   ASSEMBLE
+DMKVCN   ASSEMBLE
+
+Prerequisites:
+==============
+
+HRC101DK V02 TERMINAL ENHANCEMENTS LIKE Z/VM
+HRC250DK - Dynamic 327x screen size support
+
+Description:
+============
+
+This update moves the "diagnose console write" flag from
+CONDWC (CCW19+5) to a new flag in CONFSS. (This flag is
+set to tell DMKQCN, GRF, etc. that the I/O operation is
+from Diagnose 58 (CCW opcode x'19').)  Moving the flag
+allows the line number in CCW-19 to expand to seven bits
+to address a maximum of 128 lines instead of 64 lines.
+
+
+Details:
+========
+
+IOBLOKS  COPY
+-------------
+
+This update updates the CONTASK control block by adding a new flag
+(CONDIAG) to the CONFSS flags. This is used instead of the CONDWC
+flag that was part of the Diagnose 58 CCW (x'19') stored in the
+CONTASK. This flag is also used in the VCONFSS field of the VCONCTL
+
+----------------------------------------------------------------------------
+
+DMKGRF   ASSEMBLE
+-----------------
+
+The code was updated to use the new CONDIAG flag in CONFSS instead of
+CONDWC to detect the use of Diagnose 58 CCW opcode x'19'.
+
+----------------------------------------------------------------------------
+
+DMKQCN   ASSEMBLE
+-----------------
+
+This update makes a small change to he interface between
+DMKVCN and DMKQCNWT. In addition to the previously 
+undocumented passing of VCONDWC in R2 Byte 0, this
+update also passes VCONFSS in R2 byte 1 so it can be
+placed in the CONTASK passed off to DMKGRF. This update
+also changes the "diagnose console write" test to use
+the new CONDIAG flag instead of the CCW byte 5.
+
+----------------------------------------------------------------------------
+
+DMKVCN   ASSEMBLE
+-----------------
+
+Three changes are made to this module by this update:
+
+-- The "diagnose console write" condition is now indicated by the new
+   flag CONDIAG in the VCONFSS field.
+   
+-- The line number in the Diagnose 58 CCW opcode x'19' is extended
+   to be seven bits.
+   
+-- The VCONFSS field is passed into DMKQCNWT in byte 1 of R2.
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
