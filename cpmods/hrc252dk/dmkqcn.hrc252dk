@@ -38,6 +38,6 @@
          TM    CONFSS,CONDIAG Diagnose write to graphics ??    HRC252DK 00494105
 ./ R 00529100 $ 00529105
          TM    CONFSS,CONDIAG Diagnose write to graphics ??    HRC252DK 00529105
-./ I 00627100 $ 00627020 20
+./ I 00627100 $ 00627120 20
          IC    R1,CONFSS-CONTASK(,R8) Copy the FSS flags       HRC252DK 00627020
          STC   R1,CONFSS              ... for DMKGRF           HRC252DK 00627040
