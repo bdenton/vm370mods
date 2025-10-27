@@ -12,7 +12,7 @@
 ./ * 
 ./ * This update also makes a slight change to the update log file
 ./ * format when the input files are wider than 80 bytes. In this case,
-./ * the log file will have a record size of 114 bytes.
+./ * the log file will have a record size of 121 bytes.
 ./ *
 ./ * PREREQUISITES:
 ./ * none
@@ -20,13 +20,19 @@
 ./ * HISTORY:
 ./ * 21-Aug-2024 WDENTON  Initial version for VM/370-CE 1.1.3
 ./ * 29-DEc-2024 WDENTON  Add 4th base register
+./ * 25-Oct-2025 WDENTON  Fix the logging of long lines
 ./ *
 ./ R 00039000 $ 00039001
 &NAME    LOG   &TEXT,&KEY,&CUTE,&SEQ                           HRC240DS 00039001
-./ I 00060000 $ 00060051 50
-         AIF   ('&SEQ' EQ '').DOIT                             HRC240DS 00060051
-         L     R1,&SEQ                                         HRC240DS 00060101
-         BAL   R15,LOGITSEQ                                    HRC240DS 00060151
+./ R 00060000 00061000 $ 00060100 100
+.COL8    ANOP  ,                                               HRC240DS 00060100
+         IC    R1,LOGSEGLN             Log line length         HRC240DS 00060200
+         BCT   R1,*+10                 -1 for EX               HRC240DS 00060300
+         MVC   LOGSTMTS(*-*),&TEXT     (Executed)              HRC240DS 00060400     
+         EX    R1,*-6                  Move line to buffer     HRC240DS 00060500
+         AIF   ('&SEQ' EQ '').DOIT                             HRC240DS 00060600
+         L     R1,&SEQ                                         HRC240DS 00060700
+         BAL   R15,LOGITSEQ                                    HRC240DS 00060800
 ./ R 00650000 $ 00650001
          USING DMSUPD,R12,R11,R9,R6    Four!! base registers   HRC240DS 00650001
 ./ R 00659000 $ 00658101 300
@@ -58,10 +64,25 @@
          ST    R14,CORITEM               input lrecl + 8       HRC240DS 00855381
          SR    R14,R0                  Seq# at lrecl - 8       HRC240DS 00855401
          SR    R14,R0                  ...                     HRC240DS 00855421
-         LA    R0,INPLINE(R14)         in input buffer         HRC240DS 00855441
-         ST    R0,INPSEQ               ...                     HRC240DS 00855461
-         LA    R0,UPDLINE(R14)         in update buffer        HRC240DS 00855481
-         ST    R0,UPDSEQ               ...                     HRC240DS 00855501
+         LA    R1,INPLINE(R14)         in input buffer         HRC240DS 00855441
+         ST    R1,INPSEQ               ...                     HRC240DS 00855461
+         LA    R1,UPDLINE(R14)         in update buffer        HRC240DS 00855481
+         ST    R1,UPDSEQ               ...                     HRC240DS 00855501
+*        Calculate how much of the input file and update       HRC240DS 00855521
+*        file lines can fit in one line of the update log      HRC240DS 00855541
+         AR    R14,R0                  Get back the line lengthHRC240DS 00855561
+         LA    R0,L'LOGSTMTS           (max log length)        HRC240DS 00855581
+         CR    R14,R0                  Will the whole line fit?HRC240DS 00855601
+         BNH   SETLGLN                 yes, log whole line     HRC240DS 00855621
+         OI    UPDFLAG2,TRUNCLOG       Tell logger to chop lineHRC240DS 00855641
+         SH    R14,=H'17'              Length less SID & Seq   HRC240DS 00855661
+         LA    R0,L'LOGSTMTL           (max truncated length)  HRC240DS 00855681
+         CR    R14,R0                  Will truncated line fit HRC240DS 00855701
+         BNH   SETLGLN                 yes, log w/o SID+Seq    HRC240DS 00855721
+         LR    R14,R0                  no, just truncate       HRC240DS 00855741
+SETLGLN  DS    0H                                              HRC240DS 00855761
+         STC   R14,LOGSEGLN            Save for log line build HRC240DS 00855781
+./ D 00869000
 ./ I 00915000 $ 00915021 20
          L     R14,CTLFILE+SIZE        Checking record size    HRC240DS 00915021
          CH    R14,=H'80'              CNTRL files always F 80 HRC240DS 00915041
@@ -119,6 +140,8 @@
          L     R4,INPRECLN    Item length = record size        HRC240DS 01158001
 ./ R 01170000 $ 01170001
          L     R0,TMPBUFSZ    Size of temp buffer              HRC240DS 01170001
+./ R 01261000 $ 01261001
+         NI    UPDFLAG2,255-FINISH     Reset FINISH flag       HRC240DS 01261001
 ./ R 01354000 01355000 $ 01354001 1000
          LA    R1,8(,R1)      Address of line data             HRC240DS 01354001
          ST    R1,UT1FILE+28  Store line addr into FSCB        HRC240DS 01355001
@@ -170,7 +193,7 @@ DELTEND  DS    0H                                              HRC240DS 01814001
          L     R4,INPSEQ          Point to sequence number     HRC240DS 01855001
          CLC   0(8,R4),BLANKS     We skip blankcards           HRC240DS 01855021
 ./ R 01857000 $ 01857001
-         LA     R4,7(,R4)         Last byte of seq num         HRC240DS 01857001
+         LA    R4,7(,R4)          Last byte of seq num         HRC240DS 01857001
 ./ R 01885000 $ 01885001 20
          L     R14,INPSEQ         Point to sequence number     HRC240DS 01885001
          MVC   0(8,R14),SEQNEXT   Re-sequence                  HRC240DS 01855021
@@ -230,44 +253,36 @@ RDMVC    MVC   INPLINE(255),8(R1)      Move data to INPLINE    HRC240DS 02172001
 * Input: R1 -> sequence# on record                             HRC240DS 02426031
 LOGITSEQ DS    0H                                              HRC240DS 02426041
          STM   R14,R5,LOGSAVE          Save important regs     HRC240DS 02426051
-         MVI   LOGBUFFL,97             Assume default length   HRC240DS 02426061
-         LA    R0,80                   80-column records?      HRC240DS 02426071
-         C     R0,INPRECLN             ???                     HRC240DS 02426081
-         BE    LOGIT2                  yes, nothng else        HRC240DS 02426091
+         MVI   LOGBUFFL,121            Assume default length   HRC240DS 02426061
+         TM    UPDFLAG2,TRUNCLOG       Whole record fits?      HRC240DS 02426071
+         BZ    LOGIT2                  yes, nothng else        HRC240DS 02426091
          CLI   7(R1),C' '              Any sequence number?    HRC240DS 02426101
-         BE    LOGIT2                  no, just wwrite the lineHRC240DS 02426111
-         SPACE 1                                               HRC240DS 02426121
-         MVC   LOGBUFF+97(3),=C'...'   add dots                HRC240DS 02426131
-         LA    R3,97+4                 length + dots           HRC240DS 02426141
-         LR    R2,R1                   R2 -> seq#              HRC240DS 02426151
-         BCTR  R1,0                    Back up 2 cols to what  HRC240DS 02426161
-         BCTR  R1,0                      should be end of SID  HRC240DS 02426171
-         CLI   0(R1),C' '              Anything there?         HRC240DS 02426181
-         BE    LOGMVSEQ                no, just add seq#       HRC240DS 02426191
-         SH    R1,=H'7'                Back up to SID start    HRC240DS 02426201
-         LA    R4,LOGBUFF(R3)          Add SID to log line     HRC240DS 02426211
-         MVC   1(8,R4),0(R1)           ... with a space before HRC240DS 02426221
-         LA    R3,9(,R3)               Bump length             HRC240DS 02426231
-LOGMVSEQ DS    0H                                              HRC240DS 02426241
-         MVC   10(8,R4),0(R1)          Move in the seq#        HRC240DS 02426251
-         LA    R3,9(,R3)               Bump length             HRC240DS 02426261
-         STC   R3,LOGBUFFL             Set length for I/O      HRC240DS 02426271
+         BE    LOGIT2                  no, just write the line HRC240DS 02426111
+         MVC   LOGSEP,=C'...'          add dots                HRC240DS 02426131
+         SH    R1,=H'9'                Back up to Sid          HRC240DS 02426151
+         MVC   LOGSID(17),0(R1)        Move in the sid+seq#    HRC240DS 02426251
          B     LOGIT2                  and get on with it      HRC240DS 02426281
          SPACE 1                                               HRC240DS 02426291
 ./ I 02429000 $ 02429021 20
-         MVI   LOGBUFFL,97             Assume default length   HRC240DS 02429021
+         MVI   LOGBUFFL,121            Assume default length   HRC240DS 02429021
 LOGIT2   DS    0H                                              HRC240DS 02429041
 ./ R 02431000 $ 02431001
          LA    R3,LOGBUFFL             Point to log buffer     HRC240DS 02431001
 ./ R 02506000 $ 02506001
          LA    R3,TITLBUFF             Point to title buffer   HRC240DS 02506001
+./ I 02514000 $ 02514100
+LOGSEGLN DS    XL1                     Move len into LOGSTMTx  HRC240DS 02514100
 ./ I 02515000 $ 02515021
 LOGBUFFL DC    AL1(LOGBUFLN)           Total record length     HRC240DS 02515021
-./ I 02517000 $ 02517021 20
-         DS    CL4                     SP + ...                HRC240DS 02517021
-         DS    CL1,CL8                 SP + SID                HRC240DS 02517041
-         DS    CL1,CL8                 SP + seq#               HRC240DS 02517061
-LOGBUFLN EQU   *-LOGBCTL                                       HRC240DS 02517081
+./ R 02517000 $ 02517051 50
+LOGBUFF  DS    0CL120                  UPDLOG report line      HRC240DS 02517051
+LOGCUE   DS    CL16                    Action cue              HRC240DS 02517101
+LOGSTMTS DS    0CL(L'LOGBUFF-L'LOGCUE) Long update file line   HRC240DS 02517151
+LOGSTMTL DS    CL(L'LOGSTMTS-5-17),CL1 Truncated file line+SP  HRC240DS 02517201
+LOGSEP   DS    CL3,CL1                 ... + SP                HRC240DS 02517251
+LOGSID   DS    CL8,CL1                 Sid + SP                HRC240DS 02517301
+LOGSEQ   DS    CL8                     Sequence                HRC240DS 02517351
+LOGBUFLN EQU   *-LOGBCTL                                       HRC240DS 02517401
 ./ R 02519000 $ 02519001
 BLANKS   DC    CL(LOGBUFLN)' '                                 HRC240DS 02519001
 ./ I 02526000 $ 02526021 20
@@ -294,6 +309,8 @@ UPDLINE  DC    CL255' '                Update buffer           HRC240DS 02622201
 INPLINE  DC    CL255' '                Source input buffer     HRC240DS 02622301
 CTLBUFF  DC    CL80' '                 CNTRL file buffer       HRC240DS 02622401
 ./ D 02631000 02632000
+./ I 02658000 $ 02658050
+TRUNCLOG EQU   X'80'          Truncate file line in log        HRC240DS 02658050
 ./ R 02671000 $ 02671001
 INPFILE  FSCB  'FNAME ASSEMBLE',BUFFER=INPLINE,BSIZE=255       HRC240DS 02671001
 ./ R 02675000 $ 02675001
@@ -302,7 +319,7 @@ UPDFILE  FSCB  '$FNAME UPDATE',BUFFER=UPDLINE,BSIZE=255        HRC240DS 02675001
 UT1FILE  FSCB  'UPDATE CMSUT1',BUFFER=INPLINE,BSIZE=255        HRC240DS 02679001
 UT1PTRS  DS    2A                      Pointers to ADT & FST   HRC240DS 02679006
 ./ R 02682000 $ 02682001
-LOGFILE  FSCB  'FNAME UPDLOG',BUFFER=LOGBUFF,BSIZE=114,RECFM=V HRC240DS 02682001
+LOGFILE  FSCB  'FNAME UPDLOG',BUFFER=LOGBUFF,BSIZE=121,RECFM=V HRC240DS 02682001
 ./ I 02763000 $ 02763101
          LR    R2,R1                   Offending file          HRC240DS 02763101
 ./ R 02769000 $ 02769001 20
