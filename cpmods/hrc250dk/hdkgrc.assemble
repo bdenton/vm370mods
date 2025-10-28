@@ -1440,8 +1440,6 @@ RDR77DSL EQU   *-RDR77DS                                                14350000
 * |                                                        |            14400000
 * |      0B (Select)                                       |            14410000
 * |      01 (Write) WCC                                    |            14420000
-* |                 SBA @inpt                              |            14430000
-* |      06 (RM)    buffer                                 |            14440000
 * |                                                        |            14450000
 * +--------------------------------------------------------+            14460000
          SPACE 1                                                        14470000
@@ -1465,7 +1463,7 @@ BLD77WNG DS    0H                                                       14490000
 WNG77CP  DS    0D                                                       14650000
          CCW   CCWSEL,0,SILI+CC,1      Select                           14660000
          CCW   CCWWRT,*-*,SILI,*-*     Write: WCC, etc                  14670000
-WNG77CPL EQU   *-RDR77CP                                                14680000
+WNG77CPL EQU   *-WNG77CP                                                14680000
          SPACE 1                                                        14690000
 *-------------------------------------------------------------          14700000
 *        Warning Data Stream template                                   14710000
