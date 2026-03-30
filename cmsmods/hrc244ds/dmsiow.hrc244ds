@@ -34,8 +34,8 @@ FOUND    DS    0H                                              HRC244DS 00144010
          NI    DEVFLAG,255-DEVINTR-DEVINTP clr interrupt state HRC244DS 00167010
 *                                                              HRC244DS 00167110
          DROP  R9                                              HRC244DS 00167210
-./ I 00173000 $ 00173100
-         USING DEVSECT,R5                                      HRC244DS 00173100
+./ I 00173000 $ 00173050
+         USING DEVSECT,R5                                      HRC244DS 00173050
 ./ R 00174000 $ 00174010 10
 OFFSTATU DS    0H                                              HRC244DS 00174010
          NI    DEVFLAG,255-DEVPSDOW    Clr all pseudo waits    HRC244DS 00174020
@@ -46,5 +46,5 @@ OFFSTATU DS    0H                                              HRC244DS 00174010
 OFFSTATR DS    0H                                              HRC244DS 00177010
          NI    DEVFLAG,255-DEVPSDOW    Clr all pseudo waits    HRC244DS 00177020
 ./ D 00183000 00194000
-./ I 00207000 $ 00207100 
-         DEVSECT ,                                             HRC244DS 00207100                                    
+./ I 00207000 $ 00207050 
+         DEVSECT ,                                             HRC244DS 00207050                                    

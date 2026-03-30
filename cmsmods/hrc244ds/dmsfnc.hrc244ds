@@ -1,0 +1,14 @@
+./ * HRC244DS - Add support for most of HNDIO from VM/ESA
+./ *
+./ * Make HNDINT and the new DMSHDITP nucleus resident  
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 30-Mar-2026 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00159100 $ 00159050
+         JFUN  DMSHDITP       HNDIO macro implementation       HRC244DS 00159050                          
+./ I 00169000 $ 00169100
+         JFUN  HNDINT         Moved from transient area        HRC244DS 00169100

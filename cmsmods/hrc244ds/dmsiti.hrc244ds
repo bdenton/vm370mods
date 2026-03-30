@@ -32,7 +32,7 @@ SRCHU    DS    0H                                              HRC244DS 00138100
 *                                                              HRC244DS 00140200
          USING DEVSECT,R5     Switch to DEVTAB                 HRC244DS 00140300
 ./ R 00142000 $ 00142100 100
-SRCHU    DS    0H                                              HRC244DS 00142100
+SRCH2    DS    0H                                              HRC244DS 00142100
          CH    R4,DEVADDR     Is this the interrupting device? HRC244DS 00142200
 ./ I 00146000 $ 00146100
          DROP  R5             Done wiith DEVTAB for now        HRC244DS 00146100
