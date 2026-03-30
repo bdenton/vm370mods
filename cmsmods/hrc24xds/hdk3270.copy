@@ -1,0 +1,279 @@
+*COPY HDK3270                                                           00010000
+         PUSH PRINT                                                     00020000
+         AIF   ('&SYSPARM' NE 'SUP').H32A                               00030000
+         PRINT OFF,NOGEN                                                00040000
+.H32A    ANOP  ,                                                        00050000
+*                                                                       00060000
+***      HDK3270  = 3270-DS  Controls and Structures                    00070000
+***                 3278-B/D Controls                                   00080000
+***      see also:                                                      00090000
+***      HDKSFLDS = 3270-DS Structured Fields                           00100000
+*                                                                       00110000
+         SPACE 1                                                        00120000
+* +---------------------------------------------------+                 00130000
+* |                                                   |                 00140000
+* |          Basic 3270-DS Protocol Elements          |                 00150000
+* |                                                   |                 00160000
+* +---------------------------------------------------+                 00170000
+         SPACE 1                                                        00180000
+*                                                                       00190000
+*        3270DS Write Control Character (WCC) BIts                      00200000
+*                                                                       00210000
+WCCRESET EQU   X'40'     Reset Bit                                      00220000
+WCCFMTNL EQU   X'00'     Printout Format - use NL/CR/EM                 00230000
+WCCFMT40 EQU   X'10'                     - 40 char line                 00240000
+WCCFMT64 EQU   X'20'                     - 64 char line                 00250000
+WCCFMT80 EQU   X'30'                     - 80 char line                 00260000
+WCCSTPRT EQU   X'08'     Start Print                                    00270000
+WCCALARM EQU   X'04'     Sound Alarm                                    00280000
+WCCKBRST EQU   X'02'     Keyboard Restore                               00290000
+WCCRSMDT EQU   X'01'     Reset MDT Bits                                 00300000
+*                                                                       00310000
+*        Shortcuts for frequently used WCCs                             00320000
+*                                                                       00330000
+WCCDFLT  EQU   X'C0'     Default: nothing special                       00340000
+WCCUNLK  EQU   X'C2'     Unlock keyboard                                00350000
+WCCRSET  EQU   X'C3'     Unlock keyboard + reset MDTs                   00360000
+*                                                                       00370000
+*        3270DS Buffer Orders                                           00380000
+*                                                                       00390000
+SBA      EQU   X'11'     Set Buffer Address                             00400000
+SF       EQU   X'1D'     Start Field                                    00410000
+IC       EQU   X'13'     Insert Cursor                                  00420000
+PT       EQU   X'05'     Program Tab                                    00430000
+RA       EQU   X'3C'     Repeat to Address                              00440000
+EUA      EQU   X'12'     Erase All Unprotected                          00450000
+SFE      EQU   X'29'     Start Field Extended                           00460000
+MF       EQU   X'2C'     Modify Field                                   00470000
+SA       EQU   X'28'     Set Attribute                                  00480000
+GE       EQU   X'08'     Graphic Escape                                 00490000
+*                                                                       00500000
+*        3270DS Buffer Address Masks                                    00510000
+*                                                                       00520000
+*        TM    addr,ADMASK   Example                                    00530000
+*        BZ    is14bit         coding                                   00540000
+*        BO    is12bit           determining                            00550000
+*        TM    addr,AD12BITA       buffer                               00560000
+*        BO    is12bit               address                            00570000
+*        error: bad address            structure                        00580000
+*                                                                       00590000
+ADMASK   EQU   X'C0'     Address size mask                              00600000
+AS16BIT  EQU   X'00'     00 - 16-bit address                            00610000
+AD12BITA EQU   X'40'     01 - 12-bit address                            00620000
+ADINV    EQU   X'80'     10 - invalid                                   00630000
+AD12BITB EQU   X'C0'     11 - 12-bit address                            00640000
+*                                                                       00650000
+*        3270DS Format Control Orders                                   00660000
+*                                                                       00670000
+CH_NUL   EQU   X'00'     Null: A blank, suppressed on Read Modified     00680000
+CH_SUB   EQU   X'3F'     Substitute: A solid circle                     00690000
+CH_DUP   EQU   X'1C'     Duplicate: An overscore asterisk               00700000
+CH_FM    EQU   X'1E'     Field Mark: An overscore semicolon             00710000
+CH_FF    EQU   X'0C'     Form Feed: A blank                             00720000
+CH_CR    EQU   X'0D'     Carriage Return: A blank                       00730000
+CH_NL    EQU   X'15'     New Line: A blank                              00740000
+CH_EM    EQU   X'19'     End of Media: A blank                          00750000
+CH_EO    EQU   X'FF'     Eight Ones: A blank                            00760000
+*                                                                       00770000
+*        3270DS Attribute Types (with SFE, MF & SA orders)              00780000
+*                                                                       00790000
+ATYPALL  EQU   X'00'     All Character Attrbutes                        00800000
+ATYPFA   EQU   X'C0'     3270 Field Attribute                           00810000
+ATYPFV   EQU   X'C1'     Field Validation                               00820000
+ATYPFO   EQU   X'C2'     Field Outlining                                00830000
+ATYPXHI  EQU   X'41'     Extended Highlighting                          00840000
+ATYPCOL  EQU   X'42'     Foreground color                               00850000
+ATYPPSS  EQU   X'43'     Character set (PSS)                            00860000
+ATYPBCOL EQU   X'45'     Background color                               00870000
+ATYPTRN  EQU   X'46'     Transparency                                   00880000
+*                                                                       00890000
+*        Field Attributes                                               00900000
+*                                                                       00910000
+FAPROT   EQU   X'20'     Field is protected                             00920000
+FAMNLK   EQU   X'10'     Numeric lock                                   00930000
+FASKIP   EQU   X'20'     AutoSkip                                       00940000
+FADSPD   EQU   X'0C'     Mask for Display/Pen Detectable                00950000
+FADSPD   EQU   X'04'     .. Display/Selector pen detectable             00960000
+FAHIGH   EQU   X'08'     .. Intisifies/Selector pen detectable          00970000
+FAHIDE   EQU   X'0C'     .. Nondisplay/Not detectable                   00980000
+FAMDT    EQU   X'01'     Modified Data Tag                              00990000
+*                                                                       01000000
+*        Shortcuts to frequest Field Attributes                         01010000
+*                                                                       01020000
+FLDPROT  EQU   X'60'     Protected Field                                01030000
+FLDNPROT EQU   X'40'     Not Protected Field                            01040000
+FLDCHNG  EQU   X'C1'     Not Protected + MDT                            01050000
+FLDHIPRO EQU   X'E8'     Protected + High Intensity                     01060000
+FLDHINPR EQU   X'C8'     Not Protected + HIgh Intensity                 01070000
+*                                                                       01080000
+*        Extended Highlighting Attributes                               01090000
+*                                                                       01100000
+XHIDEF   EQU   X'00'     Default                                        01110000
+XHINORM  EQU   X'F0'     Normal                                         01120000
+XHIBLINK EQU   X'F1'     Blink                                          01130000
+XHIREV   EQU   X'F2'     Reverse Video                                  01140000
+XHIUSCOR EQU   X'F3'     Underscore                                     01150000
+*                                                                       01160000
+*        Color Attributes                                               01170000
+*                                                                       01180000
+CLRDEF   EQU   X'00'     Default                                        01190000
+CLRBLUE  EQU   X'F1'     Blue                                           01200000
+CLRRED   EQU   X'F2'     Red                                            01210000
+CLRPINK  EQU   X'F3'     Pink                                           01220000
+CLRGREN  EQU   X'F4'     Green                                          01230000
+CLRTURQ  EQU   X'F5'     Turquoise                                      01240000
+CLRYELOW EQU   X'F6'     Yellow                                         01250000
+CLRNUTRL EQU   X'F7'     Neutral                                        01260000
+CLRBLACK EQU   X'F8'     Black                                          01270000
+CLRDPBLU EQU   X'F9'     Deep Blue                                      01280000
+CLRORNG  EQU   X'FA'     Orange                                         01290000
+CLRPURPL EQU   X'FB'     Purple                                         01300000
+CLRPLGRN EQU   X'FC'     Pale Green                                     01310000
+CLRPLTUR EQU   X'FD'     Pale Turquoise                                 01320000
+CLRGREY  EQU   X'FE'     Grey                                           01330000
+CLRWHITE EQU   X'FF'     White                                          01340000
+*                                                                       01350000
+*        Outlining Attributes                                           01360000
+*                                                                       01370000
+OLNONE   EQU   X'00'     No outlining                                   01380000
+OLBOT    EQU   X'01'     Underline                                      01390000
+OLRIGHT  EQU   X'02'     Right vertical line                            01400000
+OLTOP    EQU   X'04'     Overline                                       01410000
+OLLEFT   EQU   X'08'     Left vertical line                             01420000
+OLBOX    EQU   X'0F'     Rectangle                                      01430000
+*                                                                       01440000
+*        Transparency Attributes                                        01450000
+*                                                                       01460000
+TRNDEF   EQU   X'00'     Default                                        01470000
+TRNBGOR  EQU   X'F0'     Transparent background (OR)                    01480000
+TRNBGXOR EQU   X'F1'     Transparent background (XOR)                   01490000
+TRNOPAQ  EQU   X'FF'     Background is opaque                           01500000
+*                                                                       01510000
+*        Validation Attributes                                          01520000
+*                                                                       01530000
+VALFILL  EQU   X'04'     Manditory fill                                 01540000
+VALENTRY EQU   X'02'     Manditory entry                                01550000
+VALTRIGR EQU   X'01'     Trigger                                        01560000
+*                                                                       01570000
+*        Attention ID Codes                                             01580000
+*                                                                       01590000
+AIDNOAID EQU   X'60'     No AID generated                               01600000
+AIDCLEAR EQU   X'6D'     Clear                                          01610000
+AIDPA1   EQU   X'6C'     PA1/Dup                                        01620000
+AIDPA2   EQU   X'6E'     PA2/Cancel                                     01630000
+AIDPA3   EQU   X'6B'     PA3                                            01640000
+AIDTSTRQ EQU   X'F0'     Test-Req                                       01650000
+AIDPF1   EQU   X'F1'     PF1                                            01660000
+AIDPF2   EQU   X'F2'     PF2                                            01670000
+AIDPF3   EQU   X'F3'     PF3                                            01680000
+AIDPF4   EQU   X'F4'     PF4                                            01690000
+AIDPF5   EQU   X'F5'     PF5                                            01700000
+AIDPF6   EQU   X'F6'     PF6                                            01710000
+AIDPF7   EQU   X'F7'     PF7                                            01720000
+AIDPF8   EQU   X'F8'     PF8                                            01730000
+AIDPF9   EQU   X'F9'     PF9                                            01740000
+AIDPF10  EQU   X'7A'     PF10                                           01750000
+AIDPF11  EQU   X'7B'     PF11                                           01760000
+AIDPF12  EQU   X'7C'     PF12                                           01770000
+AIDPF13  EQU   X'C1'     PF13                                           01780000
+AIDPF14  EQU   X'C2'     PF14                                           01790000
+AIDPF15  EQU   X'C3'     PF15                                           01800000
+AIDPF16  EQU   X'C4'     PF16                                           01810000
+AIDPF17  EQU   X'C5'     PF17                                           01820000
+AIDPF18  EQU   X'C6'     PF18                                           01830000
+AIDPF19  EQU   X'C7'     PF19                                           01840000
+AIDPF20  EQU   X'C8'     PF20                                           01850000
+AIDPF21  EQU   X'C9'     PF21                                           01860000
+AIDPF22  EQU   X'4A'     PF22                                           01870000
+AIDPF23  EQU   X'4B'     PF23                                           01880000
+AIDPF24  EQU   X'4C'     PF24                                           01890000
+AIDENTER EQU   X'7D'     Enter                                          01900000
+AIDLTPEN EQU   X'7E'     Light Pen                                      01910000
+AIDSTFLD EQU   X'88'     Structured Field                               01920000
+AIDRDPTN EQU   X'61'     Read partition (never 1st byte)                01930000
+AIDTRIGR EQU   X'7F'     Trigger action                                 01940000
+AIDCLPTN EQU   X'6A'     Clear Partition Key                            01950000
+AIDOPRID EQU   X'E6'     Operator ID reader                             01960000
+AIDMAGRD EQU   X'E7'     Mag Reader Number                              01970000
+         SPACE 3                                                        01980000
+* +-----------------------------------------------------+               01990000
+* |                                                     |               02000000
+* |          3178/3278 Channel-Attached Values          |               02010000
+* |                                                     |               02020000
+* +-----------------------------------------------------+               02030000
+         SPACE 1                                                        02040000
+*                                                                       02050000
+*        3274 CCW Op Codes                                              02060000
+*                                                                       02070000
+CCWEAU   EQU   X'0F'     Erase All Unprotected                          02080000
+CCWEW    EQU   X'05'     Erase/Write                                    02090000
+CCWEWA   EQU   X'0D'     Erase/Write Alternate                          02100000
+CCWRB    EQU   X'02'     Read Buffer                                    02110000
+CCWRM    EQU   X'06'     Read Modified                                  02120000
+CCWWRT   EQU   X'01'     Write                                          02130000
+CCWNOP   EQU   X'03'     Nop                                            02140000
+CCWSEL   EQU   X'0B'     Select                                         02150000
+CCWSRM   EQU   X'0B'     Select RM                                      02160000
+CCWSRB   EQU   X'1B'     Select RB                                      02170000
+CCWSRMP  EQU   X'2B'     Select RMP (RM from Position)                  02180000
+CCWSRBP  EQU   X'3B'     Select RBP (RB from Position)                  02190000
+CCWSWRT  EQU   X'4B'     Select WRT                                     02200000
+CCWSNS   EQU   X'04'     Sense                                          02210000
+CCWSNSID EQU   X'E4'     Sense ID                                       02220000
+CCWWSF   EQU   X'11'     Write Structured Field                         02230000
+*                                                                       02240000
+*        3274 Sense Data                                                02250000
+*                                                                       02260000
+SNSCR    EQU   X'80'     Command Reject                                 02270000
+SNSIR    EQU   X'40'     Intervention Required                          02280000
+SNSBOC   EQU   X'20'     Bus-Out Check                                  02290000
+SNSEC    EQU   X'10'     Equipment Check                                02300000
+SNSDC    EQU   X'08'     Data Check                                     02310000
+SNSUS    EQU   X'04'     Unit Specify                                   02320000
+SNSCC    EQU   X'02'     Control Check                                  02330000
+SNSOC    EQU   X'01'     Operation Check                                02340000
+         SPACE 3                                                        02350000
+* +------------------------------------------------------+              02360000
+* |                                                      |              02370000
+* |          Diagnose 58 Full-Sccreen Operation          |              02380000
+* |                                                      |              02390000
+* +------------------------------------------------------+              02400000
+         SPACE 1                                                        02410000
+D58WRITE EQU   X'19'     Display 3270 data                              02420000
+D58WNEXT EQU   X'49'     Write to next line (not in SP3)                02430000
+*                        Flags in CCW+5:                                02440000
+D58FMORE EQU   X'80'     -- Enable MORE before displaying data          02450000
+D58FLNO  EQU   X'3F'     -- Starting line number mask                   02460000
+D58FERAS EQU   X'FF'     -- Just clear screen. No new data              02470000
+D58FGOCP EQU   X'FE'     -- Present a cleared CP screen                 02480000
+         SPACE 1                                                        02490000
+D58FSWT  EQU   X'29'     Full-Screen Write                              02500000
+D58FSRD  EQU   X'2A'     Full-Screen Read                               02510000
+         SPACE 1                                                        02520000
+*                        Flags in CCW+5:                                02530000
+D58FEW   EQU   X'80'     -- Erase/Write                                 02540000
+D58FEWA  EQU   X'C0'     -- Erase/Write Alternate                       02550000
+D58FWSF  EQU   X'20'     -- Write Structured Field                      02560000
+D58FPA1  EQU   X'10'     -- Reflect PA1 to virtual machine              02570000
+D58FRM   EQU   X'80'     -- Read Modified                               02580000
+         SPACE 3                                                        02590000
+* +-----------------------------------------------------+               02600000
+* |                                                     |               02610000
+* |          3178/3278 Remote Attached Values           |               02620000
+* |          (also used with structured field)          |               02630000
+* |                                                     |               02640000
+* +-----------------------------------------------------+               02650000
+         SPACE 1                                                        02660000
+*                                                                       02670000
+*        3270DS Command Codes (when part of the data stream)            02680000
+*                                                                       02690000
+CC_W     EQU   X'F1'     Write                                          02700000
+CC_EW    EQU   X'F5'     Erase/Write                                    02710000
+CC_EWA   EQU   X'7E'     Erase/Write Alternate                          02720000
+CC_RB    EQU   X'F2'     Read Buffer                                    02730000
+CC_RM    EQU   X'F6'     Read Modified                                  02740000
+CC_RMA   EQU   X'6E'     Read Modified All                              02750000
+CC_EAU   EQU   X'6F'     Erase All Unprotected                          02760000
+CC_WSF   EQU   X'F3'     Write Structured Field                         02770000
+         EJECT ,                                                        02780000
+         POP   PRINT                                                    02790000

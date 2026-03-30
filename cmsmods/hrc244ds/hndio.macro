@@ -1,0 +1,773 @@
+         MACRO                                                          00010000
+&LABEL   HNDIO &FUNC,        Function: SET | CLR                       *00020000
+               &DEVNAME=,    Device name                               *00030000
+               &EXIT=,       Address of handling routine               *00040000
+               &DEVICE=,     Device address                            *00050000
+               &NOTIFY=,     Notify pgm of interrupt occurance         *00060000
+               &INTBLOK=,    Address of user's INTBLOK                 *00070000
+               &KEEP=,       KEEP handler past EOC                     *00080000
+               &SYSTEM=,     Hold handler past ABEND processing        *00090000
+               &PERSIST=,    Keep handler over device DET/DEF          *00100000
+               &UWORD=,      User word                                 *00110000
+               &CLRLIST=,    Address of list of handlers to clear      *00120000
+               &ERROR=,      Error exit address                        *00130000
+               &MF=I                                                    00140000
+.*                                                                      00150000
+.**************************************************************         00160000
+.*                                                                      00170000
+.*   HNDIO  --  Manage User-Provided I/O Interrupt Handlers             00180000
+.*                                                                      00190000
+.*   Plist format -                                                     00200000
+.*                                                                      00210000
+.*       SET Function                                                   00220000
+.*                                                                      00230000
+.*       DC    CL8'DMSHDITP'   0  Entry point                           00240000
+.*       DC    CL4'SET'        8  Function                              00250000
+.*       DC    CL4            12  Device name                           00260000
+.*       DC    AL4            16  Exit address                          00270000
+.*       DC    XL2            20  Device address                        00280000
+.*       DC    XL1            22  Processing Flag:                      00290000
+.*                                X'1.......' SYSTEM=YES                00300000
+.*                                X'.1......' KEEP=YES                  00310000
+.*                                X'..1.....' NOTIFY=ASAP               00320000
+.*                                X'...1....' PERSIST=YES               00330000
+.*                                                                      00340000
+.*       DC    XL1            23  (not used)                            00350000
+.*       DC    AL4            24  INTBLOK address                       00360000
+.*       DC    AL4            28  INTBLOK length                        00370000
+.*       DC    AL4            32  UWORD                                 00380000
+.*       DC    8X'FF'         36  Fence                                 00390000
+.*                                                                      00400000
+.*       CLR Function                                                   00410000
+.*                                                                      00420000
+.*       DC    CL8'DMSHDITP'   0  Entry Point                           00430000
+.*       DC    CL4'CLR'        8  Function                              00440000
+.*       DC    CL4            12  Device name                           00450000
+.*       DC    AL4            16  CLRLIST value                         00460000
+.*       DC    8X'FF'         20  Fence                                 00470000
+.*                                                                      00480000
+.* Note: This is an adaptation of the HNDIO macro from VM/ESA.          00490000
+.* It has mostly the same syntax as VM/ESA and zVM but was              00500000
+.* rewritten to not use all the inner macro calls from the              00510000
+.* "Macro Writing System" that was used in the later VM versions.       00520000
+.* One notable difference in this version is that the bit flag          00530000
+.* options (SYSTEM=, KEEP=, etc) do not support the (addr,mask)         00540000
+.* format in this reworked version.                                     00550000
+.**************************************************************         00560000
+.*                                                                      00570000
+         LCLA  &IX,&USED                                                00580000
+         LCLB  &SET,&CLR,&MFI,&MFL,&MFE,&MFLC,&MFLL,&BIT,&NODN,&MFLREG  00590000
+         LCLB  &OIMASK(4),&NIMASK(4)                                    00600000
+         LCLC  &MFADDR,&MFLEN,&WORK,&CH,&ERROPT,&BRTGT,&R,&MASK         00610000
+.*                                                                      00620000
+.************************************* Validate call type               00630000
+         AIF   (T'&FUNC EQ 'O').ERR1                                    00640000
+&SET     SETB  ('&FUNC' EQ 'SET')                                       00650000
+&CLR     SETB  ('&FUNC' EQ 'CLR')                                       00660000
+         AIF   (NOT (&SET OR &CLR)).ERR2                                00670000
+.*                                                                      00680000
+.************************************* Check MF= options                00690000
+&MFI     SETB  ('&MF' EQ 'I')                                           00700000
+&MFL     SETB  ('&MF' EQ 'L')                                           00710000
+&MFE     SETB  ('&MF(1)' EQ 'E' AND N'&MF EQ 2 AND '&MF(2)' NE '')      00720000
+&MFLC    SETB  ('&MF(1)' EQ 'L' AND N'&MF GT 1 AND '&MF(2)' NE '')      00730000
+&MFLL    SETB  (&MFLC AND N'&MF EQ 3 AND '&MF(3)' NE '')                00740000
+.*                                                                      00750000
+         AIF   (NOT (&MFI OR &MFL OR &MFE OR &MFLC)).ERR3               00760000
+.*                                                                      00770000
+         AIF   (NOT (&MFE OR &MFLC)).NMFAD                              00780000
+&MFADDR  SETC  '&MF(2)'                                                 00790000
+.NMFAD   ANOP  ,                                                        00800000
+         AIF   (NOT &MFLL).NMFLN                                        00810000
+&MFLEN   SETC  '&MF(3)'                                                 00820000
+.NMFLN   ANOP  ,                                                        00830000
+.*                                                                      00840000
+.************************************* SET option verification          00850000
+         AIF   (NOT &SET).DO#CLR                                        00860000
+.*                                                                      00870000
+.*       Check required parms on standard MF                            00880000
+         AIF   (NOT &MFI).VERSET1                                       00890000
+&ERROPT  SETC  'DEVNAME='                                               00900000
+         AIF   (T'&DEVNAME EQ 'O').ERR4                                 00910000
+&ERROPT  SETC  'DEVICE='                                                00920000
+         AIF   (T'&DEVICE EQ 'O').ERR4                                  00930000
+.*       Note: Syntax diagram in zVM docs says EXIT                     00940000
+.*             is also required but the VM/ESA macros                   00950000
+.*             are coded to default EXIT to 0                           00960000
+.*                                                                      00970000
+.VERSET1 ANOP  ,                                                        00980000
+.*                                    Verify DEVNAME if present         00990000
+         AIF   (T'&DEVNAME EQ 'O').NOLENCK                              01000000
+&ERROPT  SETC  'DEVNAME='                                               01010000
+         AIF   (N'&DEVNAME NE 1).ERR5                                   01020000
+         AIF   ('&DEVNAME'(1,1) NE '(').LENCK                           01030000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01040000
+         AGO   .NOLENCK                                                 01050000
+.LENCK   ANOP  ,                                                        01060000
+         AIF   (K'&DEVNAME NE 4).ERR5                                   01070000
+.NOLENCK ANOP  ,                                                        01080000
+.*                                                                      01090000
+.*                                     Verify DEVICE if present         01100000
+         AIF   (T'&DEVICE EQ 'O').DEVOK                                 01110000
+&ERROPT  SETC  'DEVICE='                                                01120000
+         AIF   (N'&DEVICE NE 1).ERR5                                    01130000
+         AIF   ('&DEVICE'(1,1) NE '(').CKDEV                            01140000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01150000
+         AGO   .DEVOK                                                   01160000
+.CKDEV   ANOP  ,                                                        01170000
+         AIF   (K'&DEVICE GT 4).ERR5                                    01180000
+&IX      SETA  1                                                        01190000
+.LOOP    ANOP  ,                                                        01200000
+         AIF   (&IX GT K'&DEVICE).DEVOK                                 01210000
+&CH      SETC  '&DEVICE'(&IX,1)                                         01220000
+         AIF   ((('&CH' LT '0') OR ('&CH' GT '9'))                     *01230000
+               AND (('&CH' LT 'A') OR ('&CH' GT 'F'))).ERR5             01240000
+&IX      SETA  &IX+1                                                    01250000
+         AGO   .LOOP                                                    01260000
+.DEVOK   ANOP  ,                                                        01270000
+.*                                                                      01280000
+.*                                    Verify EXIT if present            01290000
+         AIF   (T'&EXIT EQ 'O').EXITOK                                  01300000
+&ERROPT  SETC  'EXIT='                                                  01310000
+         AIF   (N'&EXIT NE 1).ERR5                                      01320000
+         AIF   ('&EXIT'(1,1) NE '(').EXITOK                             01330000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01340000
+.EXITOK  ANOP  ,                                                        01350000
+.*                                                                      01360000
+.*                                    Verify NOTIFY if present          01370000
+         AIF   (T'&NOTIFY EQ 'O').NOTEOK                                01380000
+&ERROPT  SETC  'NOTIFY='                                                01390000
+         AIF   ('&NOTIFY' EQ 'ASAP').NOTEOK                             01400000
+         AIF   ('&NOTIFY' NE 'WAIT').ERR5                               01410000
+.NOTEOK  ANOP  ,                                                        01420000
+.*                                                                      01430000
+.*                                    Verify INTBLOK if present         01440000
+         AIF   (T'&INTBLOK EQ 'O').IBLKOK                               01450000
+&ERROPT  SETC  'INTBLOK='                                               01460000
+         AIF   (N'&INTBLOK NE 2).ERR5                                   01470000
+         AIF   (T'&INTBLOK(1) EQ 'O').ERR5                              01480000
+         AIF   ('&INTBLOK(1)'(1,1) NE '(').IBLK2                        01490000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01500000
+.IBLK2   ANOP  ,                                                        01510000
+         AIF   (T'&INTBLOK(2) EQ 'O').ERR5                              01520000
+         AIF   ('&INTBLOK(2)'(1,1) NE '(').IBLKOK                       01530000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01540000
+.IBLKOK  ANOP  ,                                                        01550000
+.*                                                                      01560000
+.*                                    Verify UWORD if present           01570000
+         AIF   (T'&UWORD EQ 'O').UWDOK                                  01580000
+&ERROPT  SETC  'UWORD='                                                 01590000
+         AIF   (N'&UWORD NE 1).ERR5                                     01600000
+         AIF   ('&UWORD'(1,1) NE '(').UWDOK                             01610000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01620000
+.UWDOK   ANOP  ,                                                        01630000
+.*                                                                      01640000
+.*                                    Verify KEEP if present            01650000
+         AIF   (T'&KEEP EQ 'O').KEEPOK                                  01660000
+&ERROPT  SETC  'KEEP='                                                  01670000
+         AIF   (N'&KEEP EQ 2).ERR6                                      01680000
+         AIF   (N'&KEEP NE 1).ERR5                                      01690000
+         AIF   ('&KEEP'(1,1) NE '(').KEEP2                              01700000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01710000
+         AGO   .KEEPOK                                                  01720000
+.KEEP2   ANOP  ,                                                        01730000
+         AIF   ('&KEEP' EQ 'YES').KEEPOK                                01740000
+         AIF   ('&KEEP' NE 'NO').ERR5                                   01750000
+.KEEPOK  ANOP  ,                                                        01760000
+.*                                                                      01770000
+.*                                    Verify SYSTEM if present          01780000
+         AIF   (T'&SYSTEM EQ 'O').SYSOK                                 01790000
+&ERROPT  SETC  'SYSTEM='                                                01800000
+         AIF   (N'&SYSTEM EQ 2).ERR6                                    01810000
+         AIF   (N'&SYSTEM NE 1).ERR5                                    01820000
+         AIF   ('&SYSTEM'(1,1) NE '(').SYS2                             01830000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01840000
+         AGO   .SYSOK                                                   01850000
+.SYS2    ANOP  ,                                                        01860000
+         AIF   ('&SYSTEM' EQ 'YES').SYSOK                               01870000
+         AIF   ('&SYSTEM' NE 'NO').ERR5                                 01880000
+.SYSOK   ANOP  ,                                                        01890000
+.*                                                                      01900000
+.*                                    Verify PERSIST if present         01910000
+         AIF   (T'&PERSIST EQ 'O').PERSOK                               01920000
+&ERROPT  SETC  'PERSIST='                                               01930000
+         AIF   (N'&PERSIST EQ 2).ERR6                                   01940000
+         AIF   (N'&PERSIST NE 1).ERR5                                   01950000
+         AIF   ('&PERSIST'(1,1) NE '(').PERS2                           01960000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        01970000
+         AGO   .PERSOK                                                  01980000
+.PERS2   ANOP  ,                                                        01990000
+         AIF   ('&PERSIST' EQ 'YES').PERSOK                             02000000
+         AIF   ('&PERSIST' NE 'NO').ERR5                                02010000
+.PERSOK  ANOP  ,                                                        02020000
+.*                                                                      02030000
+.*                                     CLRLIST not valid for SET        02040000
+&ERROPT  SETC  'CLRLIST='                                               02050000
+         AIF   (T'&CLRLIST NE 'O').ERR7                                 02060000
+         AGO   .DOPLIST                                                 02070000
+.*                                                                      02080000
+.************************************* CLR option verification          02090000
+.*                                                                      02100000
+.DO#CLR  ANOP  ,                                                        02110000
+.*                                     Many  options are not allowed    02120000
+&ERROPT  SETC  'EXIT='                                                  02130000
+         AIF   (T'&EXIT NE 'O').ERR7                                    02140000
+&ERROPT  SETC  'DEVICE='                                                02150000
+         AIF   (T'&DEVICE NE 'O').ERR7                                  02160000
+&ERROPT  SETC  'NOTIFY='                                                02170000
+         AIF   (T'&NOTIFY NE 'O').ERR7                                  02180000
+&ERROPT  SETC  'INTBLOK='                                               02190000
+         AIF   (T'&INTBLOK NE 'O').ERR7                                 02200000
+&ERROPT  SETC  'KEEP='                                                  02210000
+         AIF   (T'&KEEP NE 'O').ERR7                                    02220000
+&ERROPT  SETC  'SYSTEM='                                                02230000
+         AIF   (T'&SYSTEM NE 'O').ERR7                                  02240000
+&ERROPT  SETC  'PERSIST='                                               02250000
+         AIF   (T'&PERSIST NE 'O').ERR7                                 02260000
+&ERROPT  SETC  'UWORD='                                                 02270000
+         AIF   (T'&UWORD NE 'O').ERR7                                   02280000
+.*                                                                      02290000
+.*                                     Validate DEVNAME & CLRLIST       02300000
+         AIF   (&MFE OR &MFLC).DOPLIST                                  02310000
+         AIF   (T'&DEVNAME EQ 'O' AND T'&CLRLIST EQ 'O').ERR8           02320000
+         AIF   (T'&DEVNAME NE 'O' AND T'&CLRLIST EQ 'O').CLRDN1         02330000
+         AIF   (T'&DEVNAME EQ 'O' AND T'&CLRLIST NE 'O').CLRDN2         02340000
+         MNOTE 4,'The DEVNAME and CLRLIST parameters are mutually exclu*02350000
+               sive.  The DEVNAME parameter is ignored.'                02360000
+&NODN    SETB  1                                                        02370000
+.*                                                                      02380000
+.CLRDN2  ANOP  ,                  CLRLIST only                          02390000
+&ERROPT  SETC  'CLRLIST='                                               02400000
+         AIF   (N'&CLRLIST NE 1).ERR5                                   02410000
+         AIF   ('&CLRLIST'(1,1) NE '(').DOPLIST                         02420000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        02430000
+         AGO   .DOPLIST                                                 02440000
+.*                                                                      02450000
+.CLRDN1  ANOP  ,                  DEVNAME only                          02460000
+&ERROPT  SETC  'DEVNAME='                                               02470000
+         AIF   (N'&DEVNAME NE 1).ERR5                                   02480000
+         AIF   ('&DEVNAME'(1,1) NE '(').CLRDNCK                         02490000
+&MFLREG  SETB  (&MFLREG OR &MFL)                                        02500000
+         AGO   .DOPLIST                                                 02510000
+.CLRDNCK ANOP  ,                                                        02520000
+         AIF   (K'&DEVNAME NE 4).ERR5                                   02530000
+.*       AGO   .DOPLIST                                                 02540000
+.*                                                                      02550000
+.*                                                                      02560000
+.*************************************** Verifications complete         02570000
+.*                                                                      02580000
+.DOPLIST ANOP  ,                                                        02590000
+         AIF   (NOT &MFLREG).NOMSG                                      02600000
+         MNOTE 4,'Register operands are not valid for MF=L. All (reg) o*02610000
+               perand values are ignored.'                              02620000
+.NOMSG   ANOP  ,                                                        02630000
+.*                                Route based on MF type                02640000
+         AIF   (&MFI).MFSTD       Process 'standard' form               02650000
+         AIF   (&MFL).MFL         Process list form                     02660000
+         AIF   (&MFLC).MFLC       Process complex list form             02670000
+         AIF   (&MFE).MFE         Process execute form                  02680000
+.*                                                                      02690000
+.*       The various validation error messages                          02700000
+.*                                                                      02710000
+.ERR1    MNOTE 8,'Function not specified'                               02720000
+         MEXIT ,                                                        02730000
+.ERR2    MNOTE 8,'Invalid function - &FUNC'                             02740000
+         MEXIT ,                                                        02750000
+.ERR3    MNOTE 8,'Missing or invalid MF= operand'                       02760000
+         MEXIT ,                                                        02770000
+.ERR4    MNOTE 8,'The &FUNC function requires the &ERROPT operand'      02780000
+         MEXIT ,                                                        02790000
+.ERR5    MNOTE 8,'Invalid value for the &ERROPT operand'                02800000
+         MEXIT ,                                                        02810000
+.ERR6    MNOTE 8,'&ERROPT specification format is not supported'        02820000
+         MEXIT ,                                                        02830000
+.ERR7    MNOTE 8,'&ERROPT is not valid with the &FUNC function'         02840000
+         MEXIT ,                                                        02850000
+.ERR8    MNOTE 8,'Either DEVNAME= or CLRLIST= operand is required for t*02860000
+               he CLR function'                                         02870000
+         MEXIT ,                                                        02880000
+.*                                                                      02890000
+.*                                                                      02900000
+.*------------------------------------------------------------*         02910000
+.*       Generate 'standard' form macro expansion             *         02920000
+.*------------------------------------------------------------*         02930000
+.MFSTD   ANOP  ,                                                        02940000
+         CNOP  0,4                     Fullword boundary please         02950000
+         AIF   (T'&LABEL EQ 'O').NLAB1                                  02960000
+&LABEL   DS    0H                                                       02970000
+.NLAB1   ANOP  ,                                                        02980000
+&BRTGT   SETC  'DMS&SYSNDX.A'                                           02990000
+         BAL   1,&BRTGT                                                 03000000
+         DC    CL8'DMSHDITP'           Entry point                      03010000
+         DC    CL4'&FUNC'              Function                         03020000
+         AIF   (&CLR).STDCLR                                            03030000
+.*                                                                      03040000
+.* *********************************** SET function plist               03050000
+&CH      SETC  '?'                                                      03060000
+         AIF   ('&DEVNAME'(1,1) EQ '(').STDRG1                          03070000
+&CH      SETC  '&DEVNAME'                                               03080000
+.STDRG1  ANOP  ,                                                        03090000
+         DC    CL4'&CH'                Device name                      03100000
+.*                                                                      03110000
+&CH      SETC  '*-*'                                                    03120000
+         AIF   ('&EXIT'(1,1) EQ '(').STDRG2                             03130000
+&CH      SETC  '&EXIT'                                                  03140000
+.STDRG2  ANOP  ,                                                        03150000
+         DC    AL4(&CH)                Exit address                     03160000
+.*                                                                      03170000
+&CH      SETC  '0000'                                                   03180000
+         AIF   ('&DEVICE'(1,1) EQ '(').STDRG3                           03190000
+&CH      SETC  '&DEVICE'                                                03200000
+.STDRG3  ANOP  ,                                                        03210000
+         DC    XL2'&CH'                Device address                   03220000
+.*                                                                      03230000
+&CH      SETC  '0'                                                      03240000
+         AIF   (T'&SYSTEM EQ 'O').STDRG4A                               03250000
+         AIF   ('&SYSTEM'(1,1) EQ '(').STDRG4A                          03260000
+         AIF   ('&SYSTEM' NE 'YES').STDRG4A                             03270000
+&CH      SETC  '1'                                                      03280000
+.STDRG4A ANOP  ,                                                        03290000
+.*                                                                      03300000
+&BIT     SETB  0                                                        03310000
+         AIF   (T'&KEEP EQ 'O').STDRG4B                                 03320000
+         AIF   ('&KEEP'(1,1) EQ '(').STDRG4B                            03330000
+         AIF   ('&KEEP' NE 'YES').STDRG4B                               03340000
+&BIT     SETB  1                                                        03350000
+.STDRG4B ANOP  ,                                                        03360000
+&CH      SETC  '&CH.&BIT'                                               03370000
+.*                                                                      03380000
+&BIT     SETB  1                                                        03390000
+         AIF   (T'&NOTIFY EQ 'O').STDRG4C                               03400000
+         AIF   ('&NOTIFY' EQ 'ASAP').STDRG4C                            03410000
+&BIT     SETB  0                                                        03420000
+.STDRG4C ANOP  ,                                                        03430000
+&CH      SETC  '&CH.&BIT'                                               03440000
+.*                                                                      03450000
+&BIT     SETB  0                                                        03460000
+         AIF   (T'&PERSIST EQ 'O').STDRG4D                              03470000
+         AIF   ('&PERSIST'(1,1) EQ '(').STDRG4D                         03480000
+         AIF   ('&PERSIST' NE 'YES').STDRG4D                            03490000
+&BIT     SETB  1                                                        03500000
+.STDRG4D ANOP  ,                                                        03510000
+&CH      SETC  '&CH.&BIT.0000'                                          03520000
+.*                                                                      03530000
+         DC    BL1'&CH'                Processing Flags                 03540000
+         DC    XL1'00'                 (not used)                       03550000
+.*                                                                      03560000
+&CH      SETC  '0'                                                      03570000
+         AIF   (T'&INTBLOK(1) EQ 'O').STDRG5                            03580000
+&CH      SETC  '*-*'                                                    03590000
+         AIF   ('&INTBLOK(1)'(1,1) EQ '(').STDRG5                       03600000
+&CH      SETC  '&INTBLOK(1)'                                            03610000
+.STDRG5  ANOP  ,                                                        03620000
+         DC    AL4(&CH)                INTBLOK address                  03630000
+.*                                                                      03640000
+&CH      SETC  '0'                                                      03650000
+         AIF   (T'&INTBLOK(2) EQ 'O').STDRG6                            03660000
+&CH      SETC  '*-*'                                                    03670000
+         AIF   ('&INTBLOK(2)'(1,1) EQ '(').STDRG6                       03680000
+&CH      SETC  '&INTBLOK(2)'                                            03690000
+.STDRG6  ANOP  ,                                                        03700000
+         DC    AL4(&CH)                INTBLOK length                   03710000
+.*                                                                      03720000
+&CH      SETC  '0'                                                      03730000
+         AIF   (T'&UWORD EQ 'O').STDRG7                                 03740000
+&CH      SETC  '*-*'                                                    03750000
+         AIF   ('&UWORD'(1,1) EQ '(').STDRG7                            03760000
+&CH      SETC  '&UWORD'                                                 03770000
+.STDRG7  ANOP  ,                                                        03780000
+         DC    AL4(&CH)                UWORD                            03790000
+         AGO   .STDFILL                                                 03800000
+.*                                                                      03810000
+.*                                                                      03820000
+.************************************* CLR function plist               03830000
+.STDCLR  ANOP  ,                                                        03840000
+&CH      SETC  '0'                                                      03850000
+         AIF   (T'&DEVNAME EQ 'O' OR &NODN).STDCLR1                     03860000
+&CH      SETC  '*-*'                                                    03870000
+         AIF   ('&DEVNAME'(1,1) EQ '(').STDCLR1                         03880000
+         DC    CL4'&DEVNAME'           Device name                      03890000
+         AGO   .STDCLR2                                                 03900000
+.STDCLR1 ANOP  ,                                                        03910000
+         DC    AL4(&CH)                Device name                      03920000
+.STDCLR2 ANOP  ,                                                        03930000
+.*                                                                      03940000
+&CH      SETC  '0'                                                      03950000
+         AIF   (T'&CLRLIST EQ 'O').STDCLR3                              03960000
+&CH      SETC  '*-*'                                                    03970000
+         AIF   ('&CLRLIST'(1,1) EQ '(').STDCLR3                         03980000
+&CH      SETC  '&CLRLIST'                                               03990000
+.STDCLR3 ANOP  ,                                                        04000000
+         DC    AL4(&CH)                CLRLIST value                    04010000
+.*                                                                      04020000
+.*                                                                      04030000
+.STDFILL ANOP  ,                                                        04040000
+         DC    8X'FF'                  Fence                            04050000
+&BRTGT   DS    0H                                                       04060000
+&R       SETC  '1'                R1 point to the PList                 04070000
+         AGO   .FILLPL            Join below to fill in from regs       04080000
+.*                                                                      04090000
+.*                                                                      04100000
+.*------------------------------------------------------------*         04110000
+.*       Generate Execute form macro expansion   MF=(E,xxx)   *         04120000
+.*------------------------------------------------------------*         04130000
+.MFE     ANOP  ,                                                        04140000
+         AIF   (T'&LABEL EQ 'O').NLAB2                                  04150000
+&LABEL   DS    0H                                                       04160000
+.NLAB2   ANOP  ,                                                        04170000
+&R       SETC  '1'                                                      04180000
+&CH      SETC  '&MF(2)'                                                 04190000
+         AIF   ('&MF(2)'(1,1) EQ '(').MFEREG                            04200000
+         LA    1,&CH                   Point to the MF=L form           04210000
+         AGO   .FILLPL                                                  04220000
+.MFEREG  ANOP  ,                                                        04230000
+         LR    1,&CH                   Point to MF=L form               04240000
+         AGO   .FILLPL                                                  04250000
+.*                                                                      04260000
+.*                                                                      04270000
+.*------------------------------------------------------------*         04280000
+.*       Generate Complex-List macro expansion   MF=(L,xxx)   *         04290000
+.*------------------------------------------------------------*         04300000
+.MFLC    ANOP  ,                                                        04310000
+         AIF   (T'&LABEL EQ 'O').NLAB3                                  04320000
+&LABEL   DS    0H                                                       04330000
+.NLAB3   ANOP  ,                                                        04340000
+         AIF   ('&MF(2)'(1,1) EQ '(').MFLCRG                            04350000
+         LA    1,&MF(2)                Generate MF=L here               04360000
+&R       SETC  '1'                                                      04370000
+         AGO   .FILLPL                                                  04380000
+.MFLCRG  ANOP  ,                                                        04390000
+&R       SETC  '&MF(2)'                                                 04400000
+.*       AGO   .FILLPL                                                  04410000
+.*                                                                      04420000
+.*                                                                      04430000
+.*------------------------------------------------------------*         04440000
+.*       Fill in plist from regs, etc for standard, MF=E,     *         04450000
+.*       and complex MF=L                                     *         04460000
+.*------------------------------------------------------------*         04470000
+.FILLPL  ANOP  ,                                                        04480000
+         AIF   (&MFI).FILL1       Skip 1st 2 for std form               04490000
+         MVC   0(8,&R),=CL8'DMSHDITP' Set CMS function name             04500000
+         MVC   8(4,&R),=CL4'&FUNC'    Set desired function              04510000
+.FILL1   ANOP  ,                                                        04520000
+.*                                                                      04530000
+         AIF   (&CLR).FILLCLR                                           04540000
+.*                                                                      04550000
+.* *********************************** SET function plist               04560000
+.*                                                                      04570000
+         AIF   (T'&DEVNAME EQ 'O').FDVNOK1                              04580000
+&CH      SETC  '0(&DEVNAME(1))'                                         04590000
+         AIF   ('&DEVNAME'(1,1) EQ '(').FDVNSET                         04600000
+         AIF   (&MFI).FDVNOK1                                           04610000
+&CH      SETC  '=CL4''&DEVNAME'''                                       04620000
+.FDVNSET ANOP  ,                                                        04630000
+         MVC   12(4,&R),&CH            Set DEVNAME                      04640000
+.FDVNOK1 ANOP  ,                                                        04650000
+.*                                                                      04660000
+         AIF   (T'&EXIT EQ 'O').FEXOK1                                  04670000
+         AIF   ('&EXIT'(1,1) EQ '(').FEXREG                             04680000
+         AIF   (&MFI).FEXOK1                                            04690000
+         MVC   16(4,&R),=AL4(&EXIT)    Set EXIT address                 04700000
+         AGO   .FEXOK1                                                  04710000
+.FEXREG  ANOP  ,                                                        04720000
+         ST    &EXIT(1),16(,&R)        Set EXIT address                 04730000
+.FEXOK1  ANOP  ,                                                        04740000
+.*                                                                      04750000
+         AIF   (T'&DEVICE EQ 'O').FDVAOK1                               04760000
+         AIF   ('&DEVICE'(1,1) EQ '(').FDVAREG                          04770000
+         AIF   (&MFI).FDVAOK1                                           04780000
+         MVC   20(2,&R),=XL2'&DEVICE'  Set DEVICE address               04790000
+         AGO   .FDVAOK1                                                 04800000
+.FDVAREG ANOP  ,                                                        04810000
+         STCM  &DEVICE(1),3,20(&R)     Set DEVICE address               04820000
+.FDVAOK1 ANOP  ,                                                        04830000
+.*                                                                      04840000
+.*       With 'standard' form, the flags need to be                     04850000
+.*       set separately, the others, set the aggregate                  04860000
+         AIF   (&MFI).FFLGREG                                           04870000
+.*                                                                      04880000
+&OIMASK(1) SETB 0   default is no change                                04890000
+&NIMASK(1) SETB 1   ...                                                 04900000
+         AIF   (T'&SYSTEM EQ 'O').FFLG1A                                04910000
+&NIMASK(1) SETB 0                                                       04920000
+         AIF   ('&SYSTEM'(1,1) EQ '(').FFLG1A                           04930000
+         AIF   ('&SYSTEM' NE 'YES').FFLG1A                              04940000
+&OIMASK(1) SETB 1                                                       04950000
+.FFLG1A  ANOP  ,                                                        04960000
+.*                                                                      04970000
+&OIMASK(2) SETB 0                                                       04980000
+&NIMASK(2) SETB 1                                                       04990000
+         AIF   (T'&KEEP EQ 'O').FFLG2A                                  05000000
+&NIMASK(2) SETB 0                                                       05010000
+         AIF   ('&KEEP'(1,1) EQ '(').FFLG2A                             05020000
+         AIF   ('&KEEP' NE 'YES').FFLG2A                                05030000
+&OIMASK(2) SETB 1                                                       05040000
+.FFLG2A  ANOP  ,                                                        05050000
+.*                                                                      05060000
+&OIMASK(3) SETB 0                                                       05070000
+&NIMASK(3) SETB 1                                                       05080000
+         AIF   (T'&NOTIFY EQ 'O').FFLG3A                                05090000
+&NIMASK(3) SETB 0                                                       05100000
+&OIMASK(3) SETB 1                                                       05110000
+         AIF   ('&NOTIFY' EQ 'ASAP').FFLG3A                             05120000
+&OIMASK(3) SETB 0                                                       05130000
+.FFLG3A  ANOP  ,                                                        05140000
+.*                                                                      05150000
+&OIMASK(4) SETB 0                                                       05160000
+&NIMASK(4) SETB 1                                                       05170000
+         AIF   (T'&PERSIST EQ 'O').FFLG4A                               05180000
+&NIMASK(4) SETB 0                                                       05190000
+         AIF   ('&PERSIST'(1,1) EQ '(').FFLG4A                          05200000
+         AIF   ('&PERSIST' NE 'YES').FFLG4A                             05210000
+&OIMASK(4) SETB 1                                                       05220000
+.FFLG4A  ANOP  ,                                                        05230000
+&CH      SETC  '&NIMASK(1)&NIMASK(2)&NIMASK(3)&NIMASK(4).1111'          05240000
+         NI    22(&R),B'&CH'           Turn off some flags              05250000
+&CH      SETC  '&OIMASK(1)&OIMASK(2)&OIMASK(3)&OIMASK(4).0000'          05260000
+         OI    22(&R),B'&CH'           Turn on option flags             05270000
+.*                                                                      05280000
+.*       Now set flags based on registers                               05290000
+.FFLGREG ANOP  ,                                                        05300000
+.*                                                                      05310000
+         AIF   (T'&SYSTEM EQ 'O').FFLG1B                                05320000
+         AIF   ('&SYSTEM'(1,1) NE '(').FFLG1B                           05330000
+         AIF   (&MFI).FFLG1M                                            05340000
+         NI    22(&R),B'01111111'      Turn off SYSTEM                  05350000
+.FFLG1M  ANOP  ,                                                        05360000
+         LTR   &SYSTEM(1),&SYSTEM(1)   Is SYSTEM set on?                05370000
+         BZ    *+8                     ..no, leave it off               05380000
+         OI    22(&R),B'10000000'      ..yes, then set the flag         05390000
+.FFLG1B  ANOP  ,                                                        05400000
+.*                                                                      05410000
+         AIF   (T'&KEEP EQ 'O').FFLG2B                                  05420000
+         AIF   ('&KEEP'(1,1) NE '(').FFLG2B                             05430000
+         AIF   (&MFI).FFLG2M                                            05440000
+         NI    22(&R),B'10111111'      Turn off KEEP                    05450000
+.FFLG2M  ANOP  ,                                                        05460000
+         LTR   &KEEP(1),&KEEP(1)       Is KEEP set on?                  05470000
+         BZ    *+8                     ..no, leave it off               05480000
+         OI    22(&R),B'01000000'      ..yes, then set the flag         05490000
+.FFLG2B  ANOP  ,                                                        05500000
+.*                                                                      05510000
+         AIF   (T'&PERSIST EQ 'O').FFLG3B                               05520000
+         AIF   ('&PERSIST'(1,1) NE '(').FFLG3B                          05530000
+         AIF   (&MFI).FFLG3M                                            05540000
+         NI    22(&R),B'11101111'      Turn off PERSIST                 05550000
+.FFLG3M  ANOP  ,                                                        05560000
+         LTR   &PERSIST(1),&PERSIST(1) Is PERSIST set on?               05570000
+         BZ    *+8                     ..no, leave it off               05580000
+         OI    22(&R),B'00010000'      ..yes, then set the flag         05590000
+.FFLG3B  ANOP  ,                                                        05600000
+.*                                                                      05610000
+         AIF   (T'&INTBLOK(1) EQ 'O').FIB1OK1                           05620000
+&CH      SETC  '&INTBLOK(1)'                                            05630000
+         AIF   ('&INTBLOK(1)'(1,1) EQ '(').FIB1REG                      05640000
+         AIF   (&MFI).FIB1OK1                                           05650000
+         MVC   24(4,&R),=AL4(&CH)      Set INTBLOK address              05660000
+         AGO   .FIB1OK1                                                 05670000
+.FIB1REG ANOP  ,                                                        05680000
+         ST    &CH,24(,&R)             Set INTBLOK address              05690000
+.FIB1OK1 ANOP  ,                                                        05700000
+.*                                                                      05710000
+         AIF   (T'&INTBLOK(2) EQ 'O').FIB2OK1                           05720000
+&CH      SETC  '&INTBLOK(2)'                                            05730000
+         AIF   ('&INTBLOK(2)'(1,1) EQ '(').FIB2REG                      05740000
+         AIF   (&MFI).FIB2OK1                                           05750000
+         MVC   28(4,&R),=AL4(&CH)      Set INTBLOK length               05760000
+         AGO   .FIB2OK1                                                 05770000
+.FIB2REG ANOP  ,                                                        05780000
+         ST    &CH,28(,&R)             Set INTBLOK length               05790000
+.FIB2OK1 ANOP  ,                                                        05800000
+.*                                                                      05810000
+         AIF   (T'&UWORD EQ 'O').FUWDOK1                                05820000
+&CH      SETC  '&UWORD(1)'                                              05830000
+         AIF   ('&UWORD'(1,1) EQ '(').FUWDREG                           05840000
+         AIF   (&MFI).FUWDOK1                                           05850000
+         MVC   32(4,&R),=AL4(&CH)      Set UWORD address                05860000
+         AGO   .FUWDOK1                                                 05870000
+.FUWDREG ANOP  ,                                                        05880000
+         ST    &CH,32(,&R)             Set UWORD address                05890000
+.FUWDOK1 ANOP  ,                                                        05900000
+&USED    SETA  32+4                                                     05910000
+         AGO   .FILLEND                                                 05920000
+.*                                                                      05930000
+.*                                                                      05940000
+.* *********************************** CLR function plist               05950000
+.*                                                                      05960000
+.FILLCLR ANOP  ,                                                        05970000
+         AIF   (T'&DEVNAME EQ 'O' OR &NODN).FDNCLR1                     05980000
+&CH      SETC  '0(&DEVNAME(1))'                                         05990000
+         AIF   ('&DEVNAME'(1,1) EQ '(').FDNCSET                         06000000
+         AIF   (&MFI).FDNCLR1                                           06010000
+&CH      SETC  '=CL4''&DEVNAME'''                                       06020000
+.FDNCSET ANOP  ,                                                        06030000
+         MVC   12(4,&R),&CH            Set DEVNAME                      06040000
+.FDNCLR1 ANOP  ,                                                        06050000
+.*                                                                      06060000
+         AIF   (T'&CLRLIST EQ 'O').FCLSOK1                              06070000
+&CH      SETC  '&CLRLIST(1)'                                            06080000
+         AIF   ('&CLRLIST'(1,1) EQ '(').FCLSREG                         06090000
+         AIF   (&MFI).FCLSOK1                                           06100000
+         MVC   16(4,&R),=AL4(&CH)      Set EXIT address                 06110000
+         AGO   .FEXOK1                                                  06120000
+.FCLSREG ANOP  ,                                                        06130000
+         ST    &CH,16(,&R)             Set EXIT address                 06140000
+.FCLSOK1 ANOP  ,                                                        06150000
+&USED    SETA  16+4                                                     06160000
+.*                                                                      06170000
+.*                                                                      06180000
+.*-----------------------------------------------------------           06190000
+.* End of plist build                                                   06200000
+.*-----------------------------------------------------------           06210000
+.FILLEND ANOP  ,                                                        06220000
+         AIF   (&MFI).NFENCE                                            06230000
+         MVC   &USED(8,&R),=8X'FF'     Fence                            06240000
+&USED    SETA  &USED+8                                                  06250000
+.NFENCE  ANOP  ,                                                        06260000
+         AIF   (NOT &MFLL).NMFLL                                        06270000
+&MFLEN   EQU   &USED                   (plist length)                   06280000
+.NMFLL   ANOP  ,                                                        06290000
+.*-----------------------------------------------------------           06300000
+.* If Standard form or MF=E, issue an SVC 202.                          06310000
+.* If MF=L or MF=(L,addr) or MF=(L,(reg)), we are done.                 06320000
+.*-----------------------------------------------------------           06330000
+         AIF   (&MFI OR &MFE).GENSVC                                    06340000
+         MEXIT ,                                                        06350000
+.*-----------------------------------------------------------           06360000
+.* Generate the SVC call                                                06370000
+.*-----------------------------------------------------------           06380000
+.GENSVC  ANOP                                                           06390000
+         SVC   202                     Process the call                 06400000
+.*-----------------------------------------------------------           06410000
+.* Processing for ERROR=                                                06420000
+.*-----------------------------------------------------------           06430000
+.ERROR   ANOP  ,                                                        06440000
+         AIF   (T'&ERROR EQ 'O').ERROR1                                 06450000
+         AIF   ('&ERROR' EQ '*').ERROR1                                 06460000
+         AIF   ('&ERROR'(1,1) EQ '(').ERROR2                            06470000
+         DC    AL4(&ERROR)             Error processing address         06480000
+         AGO   .ERROR3                                                  06490000
+.ERROR1  ANOP  ,                                                        06500000
+         DC    AL4(1)                                                   06510000
+         AGO   .ERROR3                                                  06520000
+.ERROR2  ANOP  ,                                                        06530000
+         LTR   15,15                   Check return code                06540000
+         BNZR  &ERROR(1)               Process error if non-zero        06550000
+.ERROR3  ANOP  ,                                                        06560000
+         MEXIT ,                                                        06570000
+.*                                                                      06580000
+.*                                                                      06590000
+.*------------------------------------------------------------*         06600000
+.*       Generate List form macro expansion    MF=L           *         06610000
+.*------------------------------------------------------------*         06620000
+.MFL     ANOP  ,                                                        06630000
+                                                                        06640000
+&LABEL   DS    0D                      Doubleword aligned please        06650000
+         DC    CL8'DMSHDITP'           Entry point                      06660000
+         DC    CL4'&FUNC'              Function                         06670000
+         AIF   (&CLR).STDCLR                                            06680000
+.*                                                                      06690000
+.* *********************************** SET function plist               06700000
+&CH      SETC  '?'                                                      06710000
+         AIF   ('&DEVNAME'(1,1) EQ '(').MFLRG1                          06720000
+&CH      SETC  '&DEVNAME'                                               06730000
+.MFLRG1  ANOP  ,                                                        06740000
+         DC    CL4'&CH'                Device name                      06750000
+.*                                                                      06760000
+&CH      SETC  '*-*'                                                    06770000
+         AIF   ('&EXIT'(1,1) EQ '(').MFLRG2                             06780000
+&CH      SETC  '&EXIT'                                                  06790000
+.MFLRG2  ANOP  ,                                                        06800000
+         DC    AL4(&CH)                Exit address                     06810000
+.*                                                                      06820000
+&CH      SETC  '0000'                                                   06830000
+         AIF   ('&DEVICE'(1,1) EQ '(').MFLRG3                           06840000
+&CH      SETC  '&DEVICE'                                                06850000
+.MFLRG3  ANOP  ,                                                        06860000
+         DC    XL2'&CH'                Device address                   06870000
+.*                                                                      06880000
+&CH      SETC  '0'                                                      06890000
+         AIF   (T'&SYSTEM EQ 'O').MFLRG4A                               06900000
+         AIF   ('&SYSTEM'(1,1) EQ '(').MFLRG4A                          06910000
+         AIF   ('&SYSTEM' NE 'YES').MFLRG4A                             06920000
+&CH      SETC  '1'                                                      06930000
+.MFLRG4A ANOP  ,                                                        06940000
+.*                                                                      06950000
+&BIT     SETB  0                                                        06960000
+         AIF   (T'&KEEP EQ 'O').MFLRG4B                                 06970000
+         AIF   ('&KEEP'(1,1) EQ '(').MFLRG4B                            06980000
+         AIF   ('&KEEP' NE 'YES').MFLRG4B                               06990000
+&BIT     SETB  1                                                        07000000
+.MFLRG4B ANOP  ,                                                        07010000
+&CH      SETC  '&CH.&BIT'                                               07020000
+.*                                                                      07030000
+&BIT     SETB  1                                                        07040000
+         AIF   (T'&NOTIFY EQ 'O').MFLRG4C                               07050000
+         AIF   ('&NOTIFY' EQ 'ASAP').MFLRG4C                            07060000
+&BIT     SETB  0                                                        07070000
+.MFLRG4C ANOP  ,                                                        07080000
+&CH      SETC  '&CH.&BIT'                                               07090000
+.*                                                                      07100000
+&BIT     SETB  0                                                        07110000
+         AIF   (T'&PERSIST EQ 'O').MFLRG4D                              07120000
+         AIF   ('&PERSIST'(1,1) EQ '(').MFLRG4D                         07130000
+         AIF   ('&PERSIST' NE 'YES').MFLRG4D                            07140000
+&BIT     SETB  1                                                        07150000
+.MFLRG4D ANOP  ,                                                        07160000
+&CH      SETC  '&CH.&BIT.0000'                                          07170000
+.*                                                                      07180000
+         DC    BL1'&CH'                Processing Flags                 07190000
+         DC    XL1'00'                 (not used)                       07200000
+.*                                                                      07210000
+&CH      SETC  '0'                                                      07220000
+         AIF   (T'&INTBLOK(1) EQ 'O').MFLRG5                            07230000
+&CH      SETC  '*-*'                                                    07240000
+         AIF   ('&INTBLOK(1)'(1,1) EQ '(').MFLRG5                       07250000
+&CH      SETC  '&INTBLOK(1)'                                            07260000
+.MFLRG5  ANOP  ,                                                        07270000
+         DC    AL4(&CWORK)             INTBLOK address                  07280000
+.*                                                                      07290000
+&CH      SETC  '0'                                                      07300000
+         AIF   (T'&INTBLOK(2) EQ 'O').MFLRG6                            07310000
+&CH      SETC  '*-*'                                                    07320000
+         AIF   ('&INTBLOK(2)'(1,1) EQ '(').MFLRG6                       07330000
+&CH      SETC  '&INTBLOK(2)'                                            07340000
+.MFLRG6  ANOP  ,                                                        07350000
+         DC    AL4(&CH)                INTBLOK length                   07360000
+.*                                                                      07370000
+&CH      SETC  '0'                                                      07380000
+         AIF   (T'&UWORD EQ 'O').MFLRG7                                 07390000
+&CH      SETC  '*-*'                                                    07400000
+         AIF   ('&UWORD'(1,1) EQ '(').MFLRG7                            07410000
+&CH      SETC  '&UWORD'                                                 07420000
+.MFLRG7  ANOP  ,                                                        07430000
+         DC    AL4(&CH)                UWORD                            07440000
+         AGO   .MFLFILL                                                 07450000
+.*                                                                      07460000
+.*                                                                      07470000
+.************************************* CLR function plist               07480000
+.MFLCLR  ANOP  ,                                                        07490000
+&CH      SETC  '0'                                                      07500000
+         AIF   (T'&DEVNAME EQ 'O' OR &NODN).MFLCLR1                     07510000
+&CH      SETC  '*-*'                                                    07520000
+         AIF   ('&DEVNAME'(1,1) EQ '(').MFLCLR1                         07530000
+         DC    CL4'&DEVNAME'           Device name                      07540000
+         AGO   .MFLCLR2                                                 07550000
+.MFLCLR1 ANOP  ,                                                        07560000
+         DC    AL4(&CH)                Device name                      07570000
+.MFLCLR2 ANOP  ,                                                        07580000
+.*                                                                      07590000
+&CH      SETC  '0'                                                      07600000
+         AIF   (T'&CLRLIST EQ 'O').MFLCLR3                              07610000
+&CH      SETC  '*-*'                                                    07620000
+         AIF   ('&CLRLIST'(1,1) EQ '(').MFLCLR3                         07630000
+&CH      SETC  '&CLRLIST'                                               07640000
+.MFLCLR3 ANOP  ,                                                        07650000
+         DC    AL4(&CH)                CLRLIST value                    07660000
+.*                                                                      07670000
+.*                                                                      07680000
+.MFLFILL ANOP  ,                                                        07690000
+         DC    8X'FF'                  Fence                            07700000
+         MEXIT ,                                                        07710000
+.*                                                                      07720000
+         MEND                                                           07730000

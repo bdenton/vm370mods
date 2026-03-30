@@ -12,7 +12,13 @@
 ./ * HISTORY:
 ./ *  5-Oct-2025 WDENTON  Initial version for VM370CE V1 R1.2
 ./ * 14-Oct-2025 WDENTON  Move hilite of current line to DMSSCR 
+./ * 29-Jan-2026 WDENTON  Fix bug FILE still ending w/MORE...
 ./ *
 ./ D 01452100 1452300
 ./ I 01453000 $ 01453100
          MVI   SCRFLGS,0      Clear screen writing flags       HRC242DS 01453100
+./ R 03974000 $ 03974100 100
+         BNZ   SAVEND              Yes, not FILE cmd           HRC242DS 03974100
+         MVI   SCRFLGS,0           FILE just clears screen     HRC242DS 03974200
+         B     EDEXIT1             and exit the editor         HRC242DS 03974300
+SAVEND   DS    0H                  SAVE or AUTOSAVE            HRC242DS 03974400

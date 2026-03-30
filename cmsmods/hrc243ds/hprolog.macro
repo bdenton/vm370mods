@@ -1,0 +1,43 @@
+         MACRO                                                          00010000
+&NAME    HPROLOG &OPT,&SHARED=,&TYPE=                                   00020000
+.* *****************************************************************    00030000
+.* *                                                                    00040000
+.* *     Generate the VM/CE standard module prolog:                     00050000
+.* *                                                                    00060000
+.* *     0 -  7 : module name                                           00070000
+.* *     8 -  9 : module length                                         00080000
+.* *     A - 11 : assembly date  mm/dd/yy                               00090000
+.* *         12 : separator                                             00100000
+.* *    13 - 17 : assembly time  hh.mm                                  00110000
+.* *                                                                    00120000
+.* *****************************************************************    00130000
+         GBLC  &HSECT                  Module CSECT name                00140000
+         GBLB  &HMODRO                 Module is read-only              00150000
+         GBLB  &HMODNUC                Module is part of CMS nucleus    00160000
+.*                                                                      00170000
+         LCLC  &LSECT                  Working CSECT name               00180000
+.*                                                                      00190000
+         AIF   (T'&NAME NE 'O').OK                                      00200000
+&LSECT   SETC  '$$$&SYSNDX'                                             00210000
+         MNOTE 8,'HPROLOG is missing Control Section name. default set -00220000
+               to &LSECT'                                               00230000
+         AGO   .OK1                                                     00240000
+.OK      ANOP  ,                                                        00250000
+&LSECT   SETC  '&NAME'                                                  00260000
+.*                                                                      00270000
+.OK1     ANOP  ,                                                        00280000
+&HMODRO  SETB  (T'&SHARED NE 'O' AND '&SHARED' EQ 'YES')                00290000
+&HMODRO  SETB  (&HMODRO OR (T'&OPT NE 'O' AND '&OPT' EQ 'READONLY'))    00300000
+.*                                                                      00310000
+&HMODNUC SETB  (T'&TYPE NE 'O' AND '&TYPE' EQ 'NUCLEUS')                00320000
+.*                                                                      00330000
+.GO      ANOP  ,                                                        00340000
+&HSECT   SETC  '&LSECT'                                                 00350000
+&HSECT   CSECT ,                                                        00360000
+         DC    CL8'&LSECT'             Module name                      00370000
+         DC    AL2(H@@@END-&HSECT)     Module size                      00380000
+         DC    C'&SYSDATE',C'-'        Assembly date                    00390000
+         DC    C'&SYSTIME'             Assembly time                    00400000
+         DC    0D'0'                   (fill to next dword)             00410000
+         SPACE 3                                                        00420000
+         MEND                                                           00430000

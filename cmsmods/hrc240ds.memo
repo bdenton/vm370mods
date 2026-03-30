@@ -1,0 +1,149 @@
+LOCAL MODIFICATION: HRC240DS
+
+Allow record length up to 255 bytes for UPDATE 
+
+Affected Files:
+===============
+
+DMSUPD   ASSEMBLE
+EXECUPDT EXEC     (new file)
+
+Prerequisites:
+==============
+
+none
+
+Description:
+============
+
+This update extends the UPDATE command to support source files with  
+record lengths up to 255 bytes.  The updated file format rules are:
+
+ -- The input source file must be fixed format with a record
+    length between 80 and 255 bytes.
+ -- All update files must be the same format as the input file
+ -- The SID and sequence numbers are still in the last 17
+    columns of the source/update files regardless of length.
+ -- CNTRL and AUX files must still be fixed length with 
+    80 byte records
+ 
+ This update also makes a slight change to the update log file
+ format when the input files are wider than 80 bytes. In this case,
+ the log file will have a record size of 121 bytes.
+
+Details:
+========
+
+DMSUPD ASSEMBLE
+---------------
+
+Most of the updates to this module were to support dynamic record
+length handling. There are a couple of other notable changes:
+
+ -- It was necessary to add an additional (4th!!) base register.
+    R6 was chosen to fill this role.
+    
+ -- As mentioned in the description, the output update log now has
+    a slightly different format when the source/update file records
+    are longer than 80 bytes. These changes are:
+    
+    * The update log listing file will have a LRECL of 121
+    * If the source/update records ae longer than 104 (120-16),
+      then the log line will consist of the first 82 columns
+      of the logged record (104-5-17) followed by an ellipse (' ... ')
+      and the right most 17 columns of the record so the log  will 
+      still show the SID and sequence
+
+ -- Two new error messages are added:
+ 
+    DMSUPD007E File 'fileid' does not have a logical record length >= 80 and <= 255
+    DMSUPD007E File 'updfile' does not have the same format and record length as 'srcfile'
+  
+----------------------------------------------------------------------------
+
+EXECUPDT EXEC (new file)
+-------------
+
+This new EXEC is a functionally equivalent subset of the EXECUPDT tool
+that is part of later versions of VM.  Those versions of VM use this
+tool to maintain REXX files using the UPDATE command.  
+
+EXECUPDT can use UPDATE To maintain files that would normally have
+variable length records without any sequence numbers.  The following
+outlines the approach to take for a sample file:  GADGET EXEC
+
+-- The base source file has fixed length records at least 17 bytes
+   longer than the actual source statements and having sequence
+   numbers in the last eight columns.
+   
+-- The base source file would be named:  GADGET $EXEC
+
+-- EXECUPDT would be used to apply updates to this file and produce
+   the update listing and log file.
+   
+-- The result of the EXECUPDT processing would be a file with variable
+   length records having the last 17 columns and extra trailing space
+   removed. The name of this result file would be:  GADGET EXEC
+   This is the file that would be placed in the build target.
+
+The EXECUPDT command syntax is:
+
+   EXECUPDT fn <ft   <fm   >> <(options...<)>>
+                EXEC  *
+   Where:
+ 
+   fn ft fm
+         is the file identifier of the source input file.  The
+         file must consist of card image records with length
+         less than or equal to 255.  Record format must be
+         Fixed.
+         The last 8 columns of each card image must contain
+         a sequence number.
+         If the filetype or filemode are omitted,
+         EXEC and * are assumed, respectively.
+ 
+  Options:
+ 
+     CTL cfn  specifies that "cfn CNTRL" is an update control
+              file that controls the application of multiple
+              update files to the source input file.
+  
+     NOUPdate specifies that no update files are to be
+              applied to the source.  The HISTORY option
+              will be ignored if this is specified.
+ 
+     HISTory  specifies that the file 'cfn UPDATES' which is
+              created by the UPDATE command is to be appended
+              to the updated source as a comment.
+ 
+     NOHISTory specifies that no history log is to be appended
+              to the updated source.  This is the default.
+ 
+     SID      specifies that the last 17 columns contain
+              information to be removed from the source file.
+              This must be in the format
+ 
+                   n-16            n ( <= 255 )
+                   |               |
+                   V               V
+                   SID_CODE SEQ_NUMB
+ 
+     NOSID    specifies that only sequence numbers are to be
+              removed from the updated source (the last 8
+              columns).  This is the default.
+ 
+     Other options as with the UPDATE command.
+
+This version of EXECUPDT does not do any of the other file modification
+steps that the REXX version in newer VM systems does like stripping
+out comments or compacting the result file.
+
+ One note: There is a school of thought that the EXEC control files that
+ are used to build and maintain VM (e.g. CPLOAD EXEC) should be managed
+ using UPDATE. Most of these files can be managed with UPDATE without
+ needing this new EXECUPDT tool since old school EXEC files that have
+ fixed length 80 byte records can also have sequence numbers since the
+ old EXEC processor only uses columns 1-72 of fixed-80 records.
+ 
+----------------------------------------------------------------------------
+

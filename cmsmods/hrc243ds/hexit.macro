@@ -1,0 +1,313 @@
+         MACRO                                                          00010000
+&LABEL   HEXIT &REG,&RC=,&CC=                                           00020000
+.* *****************************************************************    00030000
+.* *                                                                    00040000
+.* *     Generate the VM/CE method return logic.                        00050000
+.* *     -- Return status configured on HENTER macro                    00060000
+.* *     -- Must be the last statement in the method                    00070000
+.* *                                                                    00080000
+.* *****************************************************************    00090000
+.*                                                                      00100000
+         GBLC  &HSECT             Module CSECT name                     00110000
+         GBLB  &HMODRO            Module is read-only                   00120000
+         GBLB  &HMODNUC           Module is part of CMS nucleus         00130000
+         GBLB  &HNOSA             Method has no local save area         00140000
+         GBLB  &HNOSV             Method does not use save areas        00150000
+         GBLB  &HRETRC            Method returns R15 and CC             00160000
+         GBLB  &HRETR0            Method returns value in R0            00170000
+         GBLB  &HRETR1            . . . . . . . . . . . . R1            00180000
+         GBLB  &HRETR01           . . . . . . . . . . . . R0-R1         00190000
+         GBLB  &HRETR02           . . . . . . . . . . . . R0-R2         00200000
+         GBLB  &HRETR03           . . . . . . . . . . . . R0-R3         00210000
+         GBLA  &HSADWSZ           Size of dynamic save area             00220000
+.*                                                                      00230000
+         LCLB  &KR15,&KR0,&KR1    registers to pass back                00240000
+         LCLC  &RETREG                                                  00250000
+.*                                                                      00260000
+.*       return register other than R15 an only be used                 00270000
+.*       with nethods having the NOSAVE pattern                         00280000
+.*                                                                      00290000
+         AIF   (T'&REG EQ 'O').NREG                                     00300000
+         AIF   ('&REG' EQ 'R15' OR '&REG' EQ 15).nREG                   00310000
+         AIF   (&HNOSV).REGOK  only vaild if not using save areas       00320000
+         MNOTE 8,'Return register must be R15 when using save areas'    00330000
+         AGO   .NREG                                                    00340000
+.REGOK   ANOP  ,                                                        00350000
+&RETREG  SETC  '&REG'                                                   00360000
+.NREG    ANOP  ,                                                        00370000
+.*                                                                      00380000
+.*       Set the RC in R15 if needed                                    00390000
+.*                                                                      00400000
+         AIF   (NOT &HRETRC).NR15Z    
+         AIF   (T'&RC EQ 'O').R15Z                                      00410000
+         AIF   ('&RC(1)' EQ '(').R15RG                                  00420000
+         AIF   (T'&RC NE 'F' AND T'&RC NE 'A').RC1                      00430000
+         L     R15,&RC                 Set return code in R15           00440000
+         AGO   .R15Z                                                    00450000
+.RC1     ANOP  ,                                                        00460000
+         AIF   (T'&RC NE 'H').RC2                                       00470000
+         LH    R15,&RC                 Set return code in R15           00480000
+         AGO   .R15Z                                                    00490000
+.RC2     ANOP  ,                                                        00500000
+         LA    R15,&RC                 Set return code in R15           00510000
+         AGO   .R15Z                                                    00520000
+.*                                                                      00530000
+.R15RG   ANOP  ,                                                        00540000
+&R       SETC  '&RC'(2,K'&RC-2)                                         00550000
+         AIF   ('&R' EQ '15' OR '&R' EQ 'R15').R15Z                     00560000
+         LR    R15,&R                  Set return code in R15           00570000
+.*                                                                      00580000
+.R15Z    ANOP  ,                                                        00590000
+.*       The RC is now in R15 and must be preserved in the              00600000
+.*       caller's save area in case this method's dynamic               00610000
+.*       save area is to be released via DMSFRET                        00620000
+&KR15    SETB  1       must preserve new R15 across FRET                00630000
+.NR15Z   ANOP  ,                                                        00640000
+.*                                                                      00650000
+.*       Also need to save R0 and/or R1 across the                      00660000
+.*       DMSFRET call in the case when they are to                      00670000
+.*       be this method's return value(s)                               00680000
+.*                                                                      00690000
+         AIF   (&HRETR0 OR &HRETR01 OR &HRETR02 OR &HRETR03).KR0A       00700000
+         AIF   (&HRETR1).KR1A                                           00710000
+         AGO   .KRZ                                                     00720000
+.KR0A    ANOP  ,                                                        00730000
+&KR0     SETB  1                                                        00740000
+         AIF   (&HRETR1 OR &HRETR01 OR &HRETR02 OR &HRETR03).KR1A       00750000
+         AGO   .KRZ                                                     00760000
+.KR1A    ANOP  ,                                                        00770000
+&KR1     SETB  1                                                        00780000
+.KRZ     ANOP  ,                                                        00790000
+.*                                                                      00800000
+.*                                                                      00810000
+         AIF   (T'&LABEL EQ 'O').NLBL                                   00820000
+&LABEL   DS    0H                                                       00830000
+.NLBL    ANOP  ,                                                        00840000
+.*                                                                      00850000
+         AIF   (&HNOSV).NSV1           Save areas not used              00860000
+         AIF   (&HNOSA).NOSAZ          no local save aera               00870000
+         AIF   (&HSADWSZ LE 0).NSA1                                     00880000
+         LR    R14,R13                 Keep local save area address     00890000
+.NSA1    ANOP  ,                                                        00900000
+         L     R13,4(,R13)             Back up a save area              00910000
+.*                                                                      00920000
+         AIF   (&HSADWSZ LE 0).NOSAZ                                    00930000
+         AIF   (NOT &KR15).NKR15                                        00940000
+         ST    R15,16(,R13)            Save R15 across DMSFRET          00950000
+.NKR15   ANOP  ,                                                        00960000
+         AIF   (NOT &KR0).NKR0                                          00970000
+         ST    R0,20(,R13)             Save R0 across DMSFRET           00980000
+.NKR0    ANOP  ,                                                        00990000
+         AIF   (NOT &KR1).NKR1                                          01000000
+         ST    R1,24(,R13)             Save R1 across DMSFRET           01010000
+.NKR1    ANOP  ,                                                        01020000
+         LA    R0,&HSADWSZ             Dynamic save area size (dwords)  01030000
+         LR    R1,R14                  Release dynamic save area stg    01040000
+         AIF   (&HMODNUC).NUCFR           need nucleus save area        01050000
+         DMSFRET DWORDS=(0),LOC=(1)    ...                              01060000
+         AGO   .FRSAZ                                                   01070000
+.*                                                                      01080000
+.NUCFR   ANOP  ,                                                        01090000
+         DMSFRET DWORDS=(0),LOC=(1),TYPCALL=BALR                        01110000
+.*                                                                      01130000
+.FRSAZ   ANOP  ,                                                        01140000
+.*       register restore is different when DMSFRET was called          01150000
+*                                                                       01160000
+         AIF   (NOT &KR15).NRC15                                        01170000
+*        R15 has the restored Return Code                               01180000
+.NRC15   ANOP  ,                                                        01190000
+         AIF   (NOT &KR0).NRC0                                          01200000
+         AIF   (NOT &HRETR0).NRC0A                                      01210000
+*        R0  has the restored full-word return value                    01220000
+         AGO   .NRGALL                                                  01230000
+.NRC0A   ANOP  ,                                                        01240000
+         AIF   (NOT &HRETR01).NRC0B                                     01250000
+*        R0+R1 has the restored double-word return value                01260000
+         AGO   .NRGALL                                                  01270000
+.NRC0B   ANOP  ,                                                        01280000
+.*       3WORD and 4WORD returns a re tricky                            01290000
+         AIF   (&HRETR02).NRC02                                         01300000
+         AIF   (&HRETR03).NRC03                                         01310000
+         AGO   .NRGALL                                                  01320000
+.*                                                                      01330000
+.NRC0    ANOP  ,                                                        01340000
+         AIF   (NOT &KR1).NRGALL                                        01350000
+         AIF   (NOT &HRETR1).NRGALL                                     01360000
+*        R1  has the restored address return value                      01370000
+.NRGALL  ANOP  ,                                                        01380000
+*                                                                       01390000
+         LM    R14,R12,12(R13)         Restore regs + return values     01400000
+         AGO   .RET                                                     01410000
+.*                                                                      01420000
+.*       Special cases for 3-word and 4-word returns                    01430000
+.*                                                                      01440000
+.NRC02   ANOP  ,                                                        01450000
+*        R0+R1 has the restored 1st two words and                       01460000
+*        R2    has the 3rd word of the three word return value          01470000
+*                                                                       01480000
+         LM    R14,R1,12(R13)          Restore retaddr + return values  01490000
+         LM    R3,R12,32(R13)          Restore caller's other registers 01500000
+         AGO   .RET                                                     01510000
+.*                                                                      01520000
+.NRC03   ANOP  ,                                                        01530000
+*        R0+R1 has the restored 1st two words and                       01540000
+*        R2-R3 has the last 2 words of quad-word return value           01550000
+*                                                                       01560000
+         LM    R14,R1,12(R13)          Restore retaddr + return values  01570000
+         LM    R4,R12,36(R13)          Restore caller's other registers 01580000
+         AGO   .RET                                                     01590000
+.NOSAZ   ANOP  ,                                                        01600000
+.*                                                                      01610000
+         AIF   (&HRETRC).RETRC1                                         01620000
+.*                                                                      01630000
+.* R15 will be restored  (no RC)                                        01640000
+         AIF   (&HRETR0).RETR0                                          01650000
+         AIF   (&HRETR1).RETR1                                          01660000
+         AIF   (&HRETR01).RETR01                                        01670000
+         AIF   (&HRETR02).RETR02                                        01680000
+         AIF   (&HRETR03).RETR03                                        01690000
+         AGO   .RESTALL                                                 01700000
+.* No RC declared                                                       01710000
+.RETR0   ANOP  ,                                                        01720000
+*                                                                       01730000
+*        R0  has the returned full-word value                           01740000
+*                                                                       01750000
+         LM    R14,R15,12(R13)         Restore most of the              01760000
+         LM    R1,R12,20(R13)            caller's registers             01770000
+         AGO   .RET                                                     01780000
+.RETR1   ANOP  ,                                                        01790000
+*                                                                       01800000
+*        R1  has the returned address                                   01810000
+*                                                                       01820000
+         LM    R14,R0,12(R13)          Restore most of the              01830000
+         LM    R2,R12,28(R13)            caller's registers             01840000
+         AGO   .RET                                                     01850000
+.RETR01  ANOP  ,                                                        01860000
+*                                                                       01870000
+*        R0+R1 has the returned double-word value                       01880000
+*                                                                       01890000
+         LM    R14,R15,12(R13)         Restore most of the              01900000
+         LM    R2,R12,28(R13)            caller's registers             01910000
+         AGO   .RET                                                     01920000
+.RETR02  ANOP  ,                                                        01930000
+*                                                                       01940000
+*        R0-R2 has the returned three word values                       01950000
+*                                                                       01960000
+         LM    R14,R15,12(R13)         Restore most of the              01970000
+         LM    R3,R12,32(R13)            caller's registers             01980000
+         AGO   .RET                                                     01990000
+.RETR03  ANOP  ,                                                        02000000
+*                                                                       02010000
+*        R0-R3 has the returned quad-word value                         02020000
+*                                                                       02030000
+         LM    R14,R15,12(R13)         Restore most of the              02040000
+         LM    R4,R12,36(R13)            caller's registers             02050000
+         AGO   .RET                                                     02060000
+.RESTALL ANOP  ,                                                        02070000
+         LM    R14,R12,12(R13)         Restore caller's registers       02080000
+         AGO   .RET                                                     02090000
+.*                                                                      02100000
+.* Retuen code is allowed..                                             02110000
+.RETRC1  ANOP  ,                                                        02120000
+         AIF   (&HRETR0).R141                                           02130000
+         AIF   (&HRETR1).R1402                                          02140000
+         AIF   (&HRETR01).R142                                          02150000
+         AIF   (&HRETR02).R143                                          02160000
+         AIF   (&HRETR03).R144                                          02170000
+*                                                                       02180000
+*        R15 has the Return Code                                        02190000
+*                                                                       02200000
+         L     R14,12(,R13)            Restore most of the              02210000
+         LM    R0,R12,20(R13)            caller's registers             02220000
+         AGO   .RET                                                     02230000
+.R141    ANOP  ,                                                        02240000
+*                                                                       02250000
+*        R15 has the Return Code                                        02260000
+*        R0  has the returned full-word value                           02270000
+*                                                                       02280000
+         L     R14,12(,R13)            Restore most of the              02290000
+         LM    R1,R12,24(R13)            caller's registers             02300000
+         AGO   .RET                                                     02310000
+.R1402   ANOP  ,                                                        02320000
+*                                                                       02330000
+*        R15 has the Return Code                                        02340000
+*        R1  has the returned address                                   02350000
+*                                                                       02360000
+         L     R14,12(,R13)            Restore most of the              02370000
+         L     R0,20(,R13)               caller's registers             02380000
+         LM    R2,R12,28(R13)              ...                          02390000
+         AGO   .RET                                                     02400000
+.R142    ANOP  ,                                                        02410000
+*                                                                       02420000
+*        R15   has the Return Code                                      02430000
+*        R0+R1 has the returned double-word value                       02440000
+*                                                                       02450000
+         L     R14,12(,R13)            Restore most of the              02460000
+         LM    R2,R12,28(R13)            caller's registers             02470000
+         AGO   .RET                                                     02480000
+.R143    ANOP  ,                                                        02490000
+*                                                                       02500000
+*        R15   has the Return Code                                      02510000
+*        R0-R2 has the returned three word values                       02520000
+*                                                                       02530000
+         L     R14,12(,R13)            Restore most of the              02540000
+         LM    R3,R12,32(R13)            caller's registers             02550000
+         AGO   .RET                                                     02560000
+.R144    ANOP  ,                                                        02570000
+*                                                                       02580000
+*        R15   has the Return Code                                      02590000
+*        R0-R3 has the returned quad-word value                         02600000
+*                                                                       02610000
+         L     R14,12(,R13)            Restore most of the              02620000
+         LM    R4,R12,36(R13)            caller's registers             02630000
+.*                                                                      02640000
+.*                                                                      02650000
+.* set CC if RC or &CC parm                                             02660000
+.RET     ANOP  ,                                                        02670000
+         MVI   12(R13),X'FF'           Mark save area as returned       02680000
+.NSV1    ANOP  ,                                                        02690000
+         AIF   (T'&CC EQ 'O').CCDEF                                     02700000
+         AIF   ('&CC' EQ '0').CC0                                       02710000
+         AIF   ('&CC' EQ '1').CC1                                       02720000
+         AIF   ('&CC' EQ '2').CC2                                       02730000
+         AIF   ('&CC' EQ '3').CC3                                       02740000
+         MNOTE 4,'CC operand is not a number from 0-3'                  02750000
+         AGO   .RETZ                                                    02760000
+.CC0     ANOP  ,                                                        02770000
+         TM    *,X'22'                 Set CC=0                         02780000
+         AGO   .RETZ                                                    02790000
+.CC1     ANOP  ,                                                        02800000
+         TM    *,X'94'                 Set CC=1                         02810000
+         AGO   .RETZ                                                    02820000
+.CC2     ANOP  ,                                                        02830000
+         CLI   *,X'94'                 Set CC=2                         02840000
+         AGO   .RETZ                                                    02850000
+.CC3     ANOP  ,                                                        02860000
+         TM    *,X'91'                 Set CC=3                         02870000
+         AGO   .RETZ                                                    02880000
+.*                                                                      02890000
+.CCDEF   ANOP  ,                                                        02900000
+         AIF   (NOT &HRETRC).RETZ                                       02910000
+         LTR   R15,R15                 Set CC from RC                   02920000
+.RETZ    ANOP  ,                                                        02930000
+.*                                                                      02940000
+         AIF   (NOT &HNOSV OR T'&RETREG EQ 'O').RETSTD                  02950000
+         BR    &RETREG                 Return to caller                 02960000
+         AGO   .POP                                                     02970000
+.RETSTD  ANOP  ,                                                        02980000
+         BR    R14                     Return to caller                 02990000
+.POP     ANOP  ,                                                        03000000
+         SPACE 1                                                        03010000
+         POP   USING                                                    03020000
+.*                                                                      03030000
+.*       clear options for next time                                    03040000
+&HNOSA   SETB  0                                                        03050000
+&HNOSV   SETB  0                                                        03060000
+&HRETRC  SETB  0                                                        03070000
+&HRETR0  SETB  0                                                        03080000
+&HRETR1  SETB  0                                                        03090000
+&HRETR01 SETB  0                                                        03100000
+&HRETR02 SETB  0                                                        03110000
+&HRETR03 SETB  0                                                        03120000
+&HSADWSZ SETA  0                                                        03130000
+         MEND                                                           03140000

@@ -1,0 +1,64 @@
+         MACRO                                                          
+&LBL     HWINRB  ,
+         PUSH  PRINT                                                     
+         AIF   ('&SYSPARM' NE 'SUP').WED01                              
+         PRINT OFF,NOGEN                                                
+.WED01   ANOP  ,
+********************************************************************** 
+*                                 
+*        HWINRB  -  Full-Screen WindoW Manager Request Block
+*                                                               
+********************************************************************** 
+         SPACE 1
+HWINRB   DSECT ,                  WindoW Manager Request Block
+WRBFWDPT DS    A                  --> Next RB  
+*
+WRBFUNC  DS    XL1                Request Function:
+WRBFQRY  EQU   0                  -- Query device capabilities
+WRBFWRIT EQU   1                  -- Full-screen write       
+WRBFREAD EQU   2                  -- Full-screen read
+*
+WRBFLAG1 DS    XL1                Modifiers to the requested function
+* For writes
+WRBERASE EQU   X'80'              Erase write (alt)            
+* For reads
+WRBRDBUF EQU   X'80'              Read buffer 
+*
+WRBRC    DS    XL1                Return code
+         DS    XL1                (not used)
+*         
+WRBARGS  DS    0F                 Content based on function requested
+WRBMINLN EQU   *-HWINRB           Basic HWINRB length
+         SPACE 1
+* +-----------------------------------------
+* |      Write Functions          
+* +-----------------------------------------
+WRBADDR  DS    A                  Row number
+PSRBCOL  DS    H                  Column number
+PSRBCSRL EQU   *-PSRB             Length of Cursor function
+         SPACE 1
+* +-----------------------------------------
+* |      Extras for Write Function                
+* +-----------------------------------------
+PSRBTXTA DS    A                  Address of field text
+PSRBTXTL DS    H                  Length of field text
+PSRBATTR DS    XL1                Field attribute
+PSRBCOLR DS    XL1                Field color
+PSRBHIGH DS    XL1                Field extendd hilite
+PSRBPSS  DS    XL1                Field PSS 
+         DS    2XL1               (not used)
+PSRBWRTL EQU   *-PSRB             Length of Write function
+         SPACE 1
+* +-----------------------------------------
+* |      Read Functions          
+* +-----------------------------------------
+         ORG   PSRBARGS
+PSRBBUFA DS    A                  
+PSRBRDL  EQU   *-PSRB             Length of Read Function
+         SPACE 3
+         ORG   ,
+PSRBLENB EQU   *-PSRB
+PSRBLEND EQU   (PSRBLENB+7)/8
+         EJECT ,
+         POP   PRINT
+         MEND

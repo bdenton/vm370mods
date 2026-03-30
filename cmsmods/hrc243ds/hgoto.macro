@@ -1,0 +1,58 @@
+         MACRO                                                          00010000
+&LABEL   HGOTO &NAME                                                    00020000
+.* *****************************************************************    00030000
+.* *                                                                    00040000
+.* *     Standard VM/CE GOTO method transfer linkage.                   00050000
+.* *     -- Sets R15 to target method                                   00060000
+.* *     -- Back up one savearea                                        00070000
+.* *     -- Restores all caller's registers except R15                  00080000
+.* *     -- BR R15                                                      00090000
+.* *                                                                    00100000
+.* *****************************************************************    00110000
+         GBLC  &HSECT             Module CSECT name                     00120000
+         GBLB  &HMODRO            Module is read-only                   00130000
+         GBLB  &HMODNUC           Module is part of CMS nucleus         00140000
+         GBLB  &HNOSA             Method has no local save area         00150000
+         GBLB  &HNOSV             Method does not use save areas        00160000
+         GBLC  &HCALLTB(255)      Keep track of called methods          00170000
+         GBLA  &HCALLCT           (the count)                           00180000
+.*                                                                      00190000
+         LCLA  &I                                                       00200000
+         LCLC  &R                                                       00210000
+.*                                                                      00220000
+&I       SETA  1                                                        00230000
+         AIF   (T'&LABEL EQ 'O').NOLAB                                  00240000
+&LABEL   DS    0H                                                       00250000
+.NOLAB   ANOP                                                           00260000
+         AIF   (T'&NAME EQ 'O').NONAME                                  00270000
+         AIF   (T'&NAME EQ 'I').NOEXT                                   00280000
+         AIF   (T'&NAME EQ 'H').NOEXT                                   00290000
+         AIF   (T'&NAME EQ 'M').NOEXT                                   00300000
+         AIF   ('&NAME'(1,1) NE '(').LOOP                               00310000
+&R       SETC  '&NAME'(2,K'&NAME-2)                                     00320000
+         AGO   .REG                                                     00330000
+.LOOP    ANOP  ,                                                        00340000
+         AIF   (&I GT &KCALL).ADD                                       00350000
+         AIF   ('&TABCALL(&I)' EQ '&NAME').NOEXT                        00360000
+&I       SETA  &I+1                                                     00370000
+         AGO   .LOOP                                                    00380000
+.ADD     ANOP                                                           00390000
+&KCALL   SETA  &KCALL+1                                                 00400000
+&TABCALL(&KCALL) SETC '&NAME'                                           00410000
+         EXTRN &NAME                   External reference               00420000
+.NOEXT   ANOP  ,                                                        00430000
+         L     R15,=A(&NAME)           Address of target routine        00440000
+         AGO   .NONAME                                                  00450000
+.REG     ANOP  ,                                                        00460000
+         AIF   ('&R' EQ '15' OR '&R' EQ 'R15').NONAME                   00470000
+         LR    R15,&R                  Get target routine address       00480000
+.NONAME  ANOP  ,                                                        00490000
+         AIF   (&HNOSV).NSV                                             00500000
+         AIF   (&HNOSA).NSA                                             00510000
+         L     R13,4(,R13)             Back up a save area              00520000
+.NSA     ANOP  ,                                                        00530000
+         L     R14,12(,R13)            Restore caller's registers       00540000
+         LM    R0,R12,20(R13)          ...                              00550000
+.NSV     ANOP  ,                                                        00560000
+         BR    R15                     Transfer to target routine       00570000
+         MEND                                                           00580000

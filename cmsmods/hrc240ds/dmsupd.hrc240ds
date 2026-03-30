@@ -5,7 +5,7 @@
 ./ * updated file format rules are:
 ./ *
 ./ * -- The input source file must be fixed format with a record
-./ *    length between 80 and 25 bytes.
+./ *    length between 80 and 255 bytes.
 ./ * -- All update files must be the same format as the input file
 ./ * -- CNTRL and AUX files must still be fixed length with 
 ./ *    80 byte records

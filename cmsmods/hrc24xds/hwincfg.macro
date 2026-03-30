@@ -1,0 +1,100 @@
+         MACRO                                                          
+&LBL     HWINCFG ,
+         PUSH  PRINT                                                     
+         AIF   ('&SYSPARM' NE 'SUP').WED01                              
+         PRINT OFF,NOGEN                                                
+.WED01   ANOP  ,
+********************************************************************** 
+*                                 
+*        HWINCFG  -  Full-Screen Console Configuration
+*                                                               
+********************************************************************** 
+         SPACE 1                                                          
+HWINCFG  DSECT ,                  Full-Screen Configuration             
+* +-----------------------------------------------+
+* |      Console Device Definition                |
+* +-----------------------------------------------+
+HWINROWS DS    H              +0  Number of rows on screen              
+HWINCOLS DS    H              +2  Number of columns on screen           
+*
+HWINADDR DS    XL2            +4  Virtual device address
+*
+HWINTYPE DS    XL1            +6  Console device type
+HWIN3270 EQU   X'70'              -- 3270 class display
+HWIN2741 EQU   X'41'              -- 2741 hardcopy device
+HWIN3215 EQU   X'15'              -- 3210/3215 console
+HWINDISC EQU   X'DC'              -- Disconnected
+*
+HWINOPTN DS    XL1            +7  Display device features
+HWINCOLR EQU   X'80'              X....... Color
+HWINHIGH EQU   X'40'              .X...... Extended highlight
+HWINPSS  EQU   X'20'              ..X..... Programmed Symbol Sets
+HWIN14BT EQU   X'10'              ...X.... 14-bit addressing     
+*        EQU   X'08'              ....X... (not used)
+*        EQU   X'04'              .....X.. (not used)
+*        EQU   X'02'              ......X. (not used)
+*        EQU   X'01'              .......X (not used)
+* +-----------------------------------------------+
+* |      Console Device CP Configuration          |
+* +-----------------------------------------------+
+HWINSFL1 DS    XL1            +8  SET command options
+HWINLEDT EQU   X'80'              X....... LINEDIT ON
+HWINEMCD EQU   X'40'              .X...... EMSG CODE
+HWINEMTX EQU   X'20'              ..X..... EMSG TEXT
+HWINEMON EQU   HWINEMCD+HWINEMTX  .XX..... EMSG ON
+*
+HWINTFL1 DS    XL1            +9  TERMINAL command options:
+HWINTATN EQU   X'80'              X....... ATTN ON
+HWINTAPL EQU   X'40'              .X...... APL on
+HWINTTXT EQU   X'20'              ..X..... TEXT on
+HWINTHLT EQU   X'10'              ...X.... Hilight on
+HWINSCSV EQU   X'08'              ....X... SCRNSAVE on
+HWINAUCR EQU   X'04'              .....X.. AUTOCR on
+HWINHOLD EQU   X'02'              ......X. HOLD on
+HWINTSTP EQU   X'01'              .......X TIMESTAM on
+*
+HWINTFL2 DS    XL1            +A  TERMINAL options (cont):
+HWINTMCP EQU   X'80'              X....... Terminal Mode CP
+HWINCM70 EQU   X'40'              .X...... Terminal conmode 3270
+HWINBKGC EQU   X'20'              ..X..... Terminal Breakin Guestctl
+*        EQU   X'10'              ...X.... (not used)
+*        EQU   X'08'              ....X... (not used)
+*        EQU   X'04'              .....X.. (not used)
+*        EQU   X'02'              ......X. (not used)
+*        EQU   X'01'              .......X (not used)
+*
+HWINBKEY DS    XL1            +B  Terminal BRkkey
+HWINLNEN DS    CL1            +C  Terminal Linend
+HWINLDEL DS    CL1            +D  Terminal LineDel
+HWINCDEL DS    CL1            +E  Terminal Chardel
+HWINESCP DS    CL1            +F  Terminal Escape
+HWINTAB  DS    CL1           +10  Terminal Tabchar
+HWINTMCD DS    XL1           +11  RDEVTMCD
+HWINLSIZ DS    H             +12  Terminal Linesize
+HWINMOR1 DS    H             +14  Terminal MORE NN mm
+HWINMOR2 DS    H             +16  Terminal MORE nn MM
+*         
+DEFLEND  EQU   C'#'               Default LINEND
+DEFLDEL  EQU   X'4A'              Default LINEDEL (cent sign)
+DEFCDEL  EQU   C'@'               Default CHARDEL
+DEFESC   EQU   C'"'               Default ESCAPE
+DEFTAB   EQU   X'6A'              Default TABCHAR (broken vertical)
+
+HWINVDEV DS    0XL4           +18 Virtual Device CP Information
+HWINVCLS DS    XL1                .. VDEVTYPC
+HWINVTYP DS    XL1                .. VDEVTYPE
+HWINVSTA DS    XL1                .. VDEVSTAT
+HWINVFLG DS    XL1                .. VDEVFLAG
+*
+HWINRDEV DS    0XL4           +1C Real Device CP Information:
+HWINRCLS DS    XL1                .. RDEVTYPC
+HWINRTYP DS    XL1                .. RDEVTYPE
+HWINRMDL DS    XL1                .. RDEVMDL
+HWINRLLN DS    XL1                .. RDEVLLEN
+*
+HWINCFLN EQU   *-HWINCFG
+HWINCFLD EQU   (HWINCFLN+7)/8
+         EJECT ,
+         POP   PRINT
+         MEND
+         

@@ -1,0 +1,14 @@
+         MACRO                                                          00010000
+&NAME    HEPILOG ,                                                      00020000
+.* *****************************************************************    00030000
+.* *                                                                    00040000
+.* *     Generate the VM/CE standard module ending                      00050000
+.* *                                                                    00060000
+.* *****************************************************************    00070000
+         GBLC  &HSECT                                                   00080000
+&HSECT   CSECT ,                       Resume module scope              00090000
+         ORG   ,                       Reset location counter to end    00100000
+&NAME    DS    0D                      Round up to double word          00110000
+H@@@END  EQU   *                       Mark end of module               00120000
+         END   ,                                                        00130000
+         MEND                                                           00140000

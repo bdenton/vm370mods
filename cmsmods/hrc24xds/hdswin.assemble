@@ -1,0 +1,697 @@
+WIN      TITLE 'HDSWIN           VM370CE: VIRTUAL MACHINE/370 COMMUNITY-
+                EDITION'                                       
+*        ISEQ  73,80                   Validate sequence numbers
+HDSWIN   HPROLOG READONLY,TYPE=NUCLEUS                                                      
+         SPACE 3                                                        00050000
+         SPACE 3                                                        00060000
+         SPACE 3                                                        00070000
+*********************************************************************** 00080000
+*                                                                       00090000
+* MODULE NAME -                                                         00100000
+*                                                                       00110000
+*        HDSWIN  -  VM/CE Full-Screen Window Manager                    00120000
+*                                                                       00130000
+* ENTRY POINTS -                                                        00140000
+*                                                                       00150000
+*        HDSWINEP - Main entry point from HWINDOW macro                 00160000
+*                                                                       00170000
+*********************************************************************** 00180000
+         TITLE 'HDSWIN:HDSWINEP  VM370CE: VIRTUAL MACHINE/370 COMMUNITY-
+                EDITION'                                       
+* ********************************************************************
+* --TODO
+* ********************************************************************
+         SPACE 1
+HDSWINEP HENTER FROMCMS,RC=YES,
+         SPACE 1
+         USING PSCB,R10                Presentation Space Control BLock
+         L     R10,NUCPSCB             ... anchored in NUCON
+         USING PSRB,R9                 Presentation Space Request Block
+         LTR   R9,R1                   ... fron caller in R1
+         BZ    BADCALL                 ... error if missing
+         SPACE 3
+*
+*        Function = STATUS
+*        -- just return the current PSCB
+*
+         CLI   PSRBFUNC,PSRBSTAT       Function = Status??
+         BE    WINRET0                 ..yes, just return the PSCB
+         SPACE 1
+*
+*        Function = INITIALIZE
+*        -- Create the PSCB if it doesn't exist yet
+*        -- Reset and reinitialize the existing PSCB
+*
+         CLI   PSRBFUNC,PSRBINIT       Function = Initializes??
+         BNE   WINRW                   ..no, go route the R/W functions
+         HICALL HDSWINIT               ..yes, call init method
+*                                             (Returned R1 = PSCB)
+         B     WINRET                  and return to caller 
+         SPACE 3              
+*
+*        Route other processing based on function code
+*
+WINRW    DS    0H
+         CLI   PSRBFUNC,PSRBREAD       Function = Read?
+         BNE   NOTRD                   ..no, next try
+         HICALL HDSWINRD               ..yes, call the Read method
+         B     WINRWRET                and return
+         SPACE 1
+NOTRD    DS    0H
+         CLI   PSRBFUNC,PSRBWRIT       Function = Write?
+         BNE   NOTWT                   ..no, next try
+         HICALL HDSWINWT               ..yes, call the Write method
+         B     WINRWRET                and return
+         SPACE 1
+NOTWT    DS    0H
+         CLI   PSRBFUNC,PSRBCSR        Function = Cursor?
+         BNE   BADCALL                 ..no, error, bad call
+         HICALL HDSWINCS               ..yes, call the Cursor method
+         SPACE 3
+*
+*        Common return processing
+*         
+WINRWRET DS    0H
+         LTR   R15,R15                 errors returned?
+         BNZ   WINRET                  ..yes, just return them         
+         B     WINRETCB                ..no, set to return the PSCB
+         SPACE 1
+BADCALL  DS    0H
+         LA    R15,4                   Return RC=4
+         B     WINRET
+WINRET0  DS    0H
+         XR    R15,R15                 Return RC=CC=0
+WINRETCB DS    0H         
+         LR    R1,R10                  and the PSCB in R1
+WINRET   DS    0H         
+         HEXIT ,
+         TITLE 'HDSWIN:HDSWINWT  VM370CE: VIRTUAL MACHINE/370 COMMUNITY-
+                EDITION'                                       
+* ********************************************************************
+* *
+* *  ENTRY CONDITIONS:
+* *       
+* *      R9  = PSRB
+* *      R10 = PSCB
+* *
+* ********************************************************************
+         SPACE 1
+HDSWINWT HENTER RC=YES               
+         USING PSCB,R10                Presentation Space Control Block
+         USING PSRB,R9                 Presentation Space Request Block
+         SPACE 3
+*
+*        First, accumulate options that will contribute to the WCC
+*        and control the rest of the write flow
+*
+*//TODO
+*
+*        Then add the new writing request to the pending lise
+*        in sorted order by field row/column...
+*         
+*//TODO
+*        If this is am immediate write, send the pending
+*        to the screen
+*
+*//TODO
+         HEXIT ,
+         TITLE 'HDSWIN:HDSWINIT  VM370CE: VIRTUAL MACHINE/370 COMMUNITY-
+                EDITION'                                       
+* ********************************************************************
+* ********************************************************************
+         SPACE 1
+HDSWINIT HENTER RC=YES,RESULT=ADDR
+         LTR   R10,R10
+         BNZ   REINIT
+         SPACE 1
+*
+*        Allocate long term storage for a new PSCB
+*
+         LA    R0,PSCBLEND
+         DMSFREE DWORDS=(0),AREA=LOW,TYPE=NUCLEUS,                     X
+               TYPCALL=BALR,ERR=NOSTORE
+         USING PSCB,R10
+         LR    R10,R1
+         XC    0(PSCBLENB,R10),0(R10)
+         B     GETDEFS
+         SPACE 1
+REINIT   DS    0H
+*** TODO                  
+         SPACE 3
+*
+*        Get the display device definitions
+*           
+GETDEFS  DS    0H
+         LA    R0,INITWKLD          First get some temp storage 
+         DMSFREE DWORDS=(0),ERR=NOSTORE
+         USING INITWORK,R9
+         LR    R9,R1
+*
+*        Get Diag24 info
+*
+         XR    R1,R1
+         LR    R2,R1
+         LR    R3,R1
+         BCTR  R2,0
+         DIAG  R1,R2,X'0024'
+         STCM  R1,8,PSCBTMCD
+         STH   R1,PSCBADDR
+         ST    R2,PSCBVDEV
+         BC    2,NORDEV
+         ST    R3,PSCBRDEV
+         B     DO8C
+NORDEV   DS    0H
+         OI    PSCBOPTN,PSCBDISC
+*
+*        Do DIag 8C
+*    
+DO8C     DS    0H
+         LA    R1,D8CBUFF
+         LA    R2,D8CBUFFL
+         LH    R3,PSCBADDR
+         DIAG  R1,R2,X'008C'
+         LTR   R1,R1
+         BNZ   NO8C 
+         SPACE 1
+         LH    R0,D8CROWS
+         STH   R0,PSCBROWS
+         LH    R0,D8CCOLS
+         STH   R0,PSCBCOLS
+         TM    D8CFLAG,D8CCOLOR
+         BNO   *+8
+         OI    PSCBOPTN,PSCBCOLR
+         TM    D8CFLAG,D8CXHIGH
+         BNO   *+8
+         OI    PSCBOPTN,PSCBHIGH
+         TM    D8CFLAG,D8CPSS   
+         BNO   *+8
+         OI    PSCBOPTN,PSCBPSS  
+         TM    D8CFLAG,D8C14BIT
+         BNO   *+8
+         OI    PSCBOPTN,PSCB14BT
+         SPACE 3
+*
+*        Get TERMINAL command settings
+*
+NO8C     DS    0H
+         LA    R1,QRYTERM         Command to process
+         LA    R2,TERMOPTS        List of options to process
+         BAL   R14,EXAMINE
+         SPACE 2
+*
+*        Get SET command settings
+*
+         LA    R1,QRYSET          Command to process
+         LA    R2,SETOPTS         List of options to process
+         BAL   R14,EXAMINE
+         B     INITEND
+         SPACE 3
+*
+*        Issue a CP command and process the results         
+*
+EXAMINE  DS    0H
+         ST    R14,12(,R13)       Save return address & args
+         LR    R8,R2              (save option list arg)
+         SPACE 1
+         XR    R4,R4              Ry =  L'command
+         IC    R4,0(,R1)
+         LA    R2,1(,R1)          Rx -> command
+         LA    R3,QRYBUFF         Rx+1 -> response
+         LA    R5,QRYBUFFL        Ry+1 = L'response 
+         ICM   R4,8,=X'40'        Set "return response" option
+         DIAG  R2,R4,X'08'        Issue CP command
+         BNZ   EXAMEND            ..just ignore errors
+         SPACE 1
+         LR    R0,R4              Response length
+         LR    R1,R3              Response address
+         BAL   R14,TOKENIZE
+         SPACE 3
+*
+*        Top of main token processing loop
+*
+         LR    R3,R1              Point at the tokens
+EXAMLP1  DS    0H
+         CLC   0(8,R3),=8X'FF'
+         BE    EXAMEND
+         SPACE 1
+*
+*        Top of option selectoin loop
+*
+         USING OPTIONS,R5
+         LA    R5,2(,R8)          Start of list of options
+         LA    R6,OPTLEN          list entry length
+         LH    R7,0(,R8)          End of list
+         AR    R7,R8
+         SPACE 1
+EXAMLP2  DS    0H
+         CLC   OPTNAME,0(R3)       
+         BE    EXAMDO
+         BXLE  R5,R6,EXAMLP2                   
+EXAMNX1  DS    0H         
+         LA    R3,8(,R3)
+         B     EXAMLP1
+         SPACE 3
+EXAMDO   DS    0H
+         XR    R1,R1
+         IC    R1,OPTARG
+         B     *+4(R1)            These all return to EXAMNX1
+         B     EXAMNX1            0 = no arg
+         B     EXAMCHAR           4 = ON | OFF | char
+         B     EXAMNUM            8 = num | OFF
+         B     EXAMBOOL           12 = ON | OFF
+         B     EXAMVAR            16 = string | num num
+         SPACE 1
+*         
+*        End of token processing
+*
+EXAMEND  DS    0H
+         L     R14,12(,R13)       return to caller          
+         BR    R14
+         SPACE 3
+*-----------------------------------------------------------------
+*
+*        ARGCHAR: ON | OFF | char
+*        -- OPTOPT = default char
+*        -- OPTARGET = PSCB offset to CL1 field
+*
+*-----------------------------------------------------------------
+EXAMCHAR DS    0H
+         BAL   R14,GETARG         Get the option value
+         C     R0,=C'OFF '        is OFF ?
+         BNE   EXAMCH1            ..no
+         XR    R0,R0              ..yes, set value = 0
+         B     EXAMCH2
+EXAMCH1  DS    0H         
+         C     R0,=C'ON  '        is it ON?
+         SRL   R0,24              ..no, put char in last byte
+         BNE   EXAMCH2            ..  
+         IC    R0,OPTOPT          ..yes, use default value
+EXAMCH2  DS    0H
+         LH    R1,OPTARGET        PSCB field to receive          
+         STC   R0,PSCB(R1)        .. and store the character
+         B     EXAMNX1            then continue to next token
+         SPACE 3
+*-----------------------------------------------------------------
+*
+*        ARGNUM : num | OFF
+*        -- OPTARGET = PSCB offset to halfword field
+*
+*-----------------------------------------------------------------
+EXAMNUM  DS    0H
+         BAL   R14,GETARG         Get the option value
+         BAL   R14,NUMARG         Convert to binary
+         LH    R1,OPTARGET        PSCB field to receive          
+         STH   R0,PSCB(R1)        .. and store the halfword value
+         B     EXAMNX1            then continue to next token
+         SPACE 3
+*-----------------------------------------------------------------
+*
+*        ARGBOOL : ON | OFF
+*        -- OPTOPT   = flag to be turned on
+*        -- OPTARGET = PSCB offset to flags       
+*
+*-----------------------------------------------------------------
+EXAMBOOL DS    0H
+         BAL   R14,GETARG         Get the option value
+         LH    R2,OPTARGET        Get field offset
+         LA    R2,PSCB(R2)        .. and address
+         IC    R1,OPTOPT          Get the flag
+         C     R0,=C'ON  '        is it ON?
+         BE    EXAMBOL1           ..yes, go do the OR                
+         C     R0,=C'OFF '        is OFF ?
+         BNE   EXAMNX1            ..no, ignore it
+         LCR   R1,R1              ..yes, flip the bits
+         EX    R1,EXAMNI          and AND onto the field
+         B     EXAMNX1            next token please
+EXAMBOL1 DS    0H
+         EX    R1,EXAMOI          OR in the new flag         
+         B     EXAMNX1            next token please
+         SPACE 1
+EXAMOI   OI    0(R2),*-*          ** Executed ** 
+EXAMNI   NI    0(R2),*-*          ** Executed ** 
+         SPACE 3
+*-----------------------------------------------------------------
+*
+*        ARGVAR : specific processing for each token
+*        -- OPTARGET = offset from EXAMVAR to processing routine
+*
+*-----------------------------------------------------------------
+EXAMVAR  DS    0H          
+         BAL   R14,GETARG         Get the 1st or only arg
+         LH    R2,OPTARGET        offset to method
+         B     EXAMVAR(R2)        and go to processing method
+         SPACE 3
+*-----------------------------------------------
+*
+*        TERMinal MODE CP | VM
+*
+*-----------------------------------------------
+EXMODE   DS    0H
+         C     R0,=C'CP  '
+         BNE   EXMODE1
+         OI    PSCBTFL2,PSCBTMCP
+         B     EXAMNX1            next token please
+EXMODE1  DS    0H
+         NI    PSCBTFL2,255-PSCBTMCP
+         B     EXAMNX1            next token please
+         SPACE 3        
+*-----------------------------------------------
+*
+*        TERMinal CONMODE 3215 | 3270
+*
+*-----------------------------------------------
+EXCONMOD DS    0H
+         C     R0,=C'3270'
+         BNE   EXCMOD1
+         OI    PSCBTFL2,PSCBCM70
+         B     EXAMNX1            next token please
+EXCMOD1  DS    0H
+         NI    PSCBTFL2,255-PSCBCM70
+         B     EXAMNX1            next token please
+         SPACE 3        
+*-----------------------------------------------
+*
+*        TERMinal BREAKIN IMMED | GUESTCTL
+*
+*-----------------------------------------------
+EXBRKIN  DS    0H
+         C     R0,=C'GUES'
+         BNE   EXBKIN1
+         OI    PSCBTFL2,PSCBBKGC
+         B     EXAMNX1            next token please
+EXBKIN1  DS    0H
+         NI    PSCBTFL2,255-PSCBBKGC
+         B     EXAMNX1            next token please
+         SPACE 3
+*-----------------------------------------------
+*
+*        TERMinal BRKKEY  key | NONE       
+*
+*-----------------------------------------------
+EXBRKKEY DS    0H
+         C     R0,=C'NONE'
+         BNE   EXBKEY1
+         MVI   PSCNBKEY,0
+         B     EXAMNX1
+EXBKEY1  DS    0H
+         LA    R2,EXKEYTAB
+         LA    R1,EXKEYTBN
+EXBKEY2  DS    0H
+         C     R0,0(,R2)             
+         BE    EXBKEY3
+         LA    R2,5(,R2)
+         BCT   R1,EXBKEY2
+         B     EXAMNX1
+EXBKEY3  DS    0H
+         IC    R0,4(,R2)
+         STC   R0,PSCBBKEY
+         B     EXAMNX1
+         SPACE 3
+*-----------------------------------------------
+*
+*        SET EMSG CODE | TEXT | ON | OFF     
+*
+*-----------------------------------------------
+EXEMSG   DS    0H
+         C     R0,=C'OFF '
+         BNE   EXEMSG1
+         NI    PSCBTFL2,255-PSCBEMON
+         B     EXAMNX1
+EXEMSG1  DS    0H
+         C     R0,=C'ON  '
+         BNE   EXEMSG2
+         OI    PSCBTFL2,PSCBEMON
+         B     EXAMNX1
+EXEMSG2  DS    0H
+         C     R0,=C'CODE'
+         BNE   EXEMSG3
+         OI    PSCBTFL2,PSCBEMCD
+         NI    PSCBTFL2,255-PSCBEMTX
+         B     EXAMNX1
+EXEMSG3  DS    0H
+         C     R0,=C'TEXT'
+         BNE   EXAMNX1
+         OI    PSCBTFL2,PSCBEMTX
+         NI    PSCBTFL2,255-PSCBEMCD
+         B     EXAMNX1
+         SPACE 3
+*-----------------------------------------------------------------
+*
+*        TERMINAL MORE num1 num2
+*
+*-----------------------------------------------------------------
+EXMORE   DS    0H
+         BAL   R14,GETARG         Get the option value
+         BAL   R14,NUMARG         Convert to binary
+         STH   R0,PSCBMOR1        .. and save 1st number                 
+         BAL   R14,GETARG         Get 2nd option value
+         BAL   R14,NUMARG         Convert to binary
+         STH   R0,PSCBMOR2        .. and save 2nd number                 
+         B     EXAMNX1            then continue to next token
+         EJECT ,
+******************************************************************
+*
+*        Convert an argument to binary
+*        Input R0+R1 = 8 byte plist token to convert
+*        Output R0 = binary value or 0 if token = 'OFF'
+*
+******************************************************************
+NUMARG   DS    0H
+         C     R0,=C'OFF '        is OFF ?
+         BNE   NUMARG1            ..no, convert to binary
+         XR    R0,R0              ..yes, set to -1
+         BCTR  R0,0             
+         BR    R14           
+NUMARG1  DS    0H
+         CLM   R1,1,=C' '         Right justify the number
+         BNE   NUMARG2            ...
+         SRDL  R0,8               ...
+         B     NUMARG1            ...
+NUMARG2  DS    0H
+         STM   R0,R1,DWORK1       Make zoned decimal
+         OC    DWORK1,=8C'0'      ... change 00 to F0
+         PACK  DWORK2,DWORK1      ... change to packed decimal
+         CVB   R0,DWORK2          ... then to binary
+         BR    R14                and return
+         SPACE 3
+******************************************************************
+*
+*        Get next token in the plist
+*         
+******************************************************************
+GETARG   DS    0H
+         LA    R3,8(,R3)          Bump plist pointer          
+         CLI   0(R3),X'FF'        at the end?
+         BE    EXAMEND            ..yes, stop examining
+         LM    R0,R1,0(R3)        Return in R0+R1
+         BR    R14
+         SPACE 3
+******************************************************************
+*
+*        Tokenize a command's response into a plist
+*
+*        Logic largely stolen from DMSSCN
+*
+******************************************************************
+TOKENIZE DS    0H
+         SR    R15,R15        ZERO THE RETURN CODE                      
+         SPACE 1
+*
+*        Set up looping thru the input string:
+*        R1 = character cursor
+*        R2 = step value (1)
+*        R3 = end of the input string
+*
+         LR    R3,R0              Get the end of the input string
+         BCTR  R1,0                 (back up the cursor for 1st BXH)      
+         AR    R3,R1                  R3 -> last char in the input
+         LA    R2,1               Set the input cursor step value
+         SPACE 1
+*
+*        Set up for looping thru the result plist:
+*        R5 = current plist entry to be filled
+*        R6 = plist step value (8)
+*        R7 = plist limit (allow for 64 entries + fence)
+*
+         LA    R5,TOKENS          Build the tokens here
+         LA    R6,8               Each one is this size
+         LA    R7,ETOKENS         And this is the plist limit                 
+         SPACE 1
+*
+*        Top of the input scanning loop... 
+*        skip whitespace
+*
+TOKLP1   DS    0H
+         BXH   R1,R2,TOKDONE      Scan across the whole input string
+         CLI   0(R1),C' '         Skip spaces
+         BE    TOKLP1             ...
+         CLI   0(R1),C','         Skip separators
+         BE    TOKLP1             ...
+         CLI   0(R1),X'15'        Skip line ends
+         BE    TOKLP1             ...
+         SPACE 1
+*        Next token starts here
+         SPACE 1         
+         LR    R4,R1              Set token start address
+         SPACE 1
+TOKLP2   DS    0H         
+         BXH   R1,R2,TOKEND       Scan across the token characters
+         CLI   0(R1),C' '         Ends with a space
+         BE    TOKEND             ...
+         CLI   0(R1),C','         Ends with a separator
+         BE    TOKEND             ...
+         CLI   0(R1),X'15'        Ends with a line end
+         BNE   TOKLP2             ...
+         SPACE 1
+*        Token ends here
+         SPACE 1         
+TOKEND   DS    0H         
+         LR    R8,R1              End of token is reached
+         BCTR  R1,0               (Back up input cursor for next BXH)
+         SR    R8,R4              Get token length
+         CR    R8,R6              Is it longer than a plist token?
+         BNL   TOKTRUNC           ..yes, go truncate it
+         MVC   0(8,R5),=CL8' '    Clear token to blanks
+         BCTR  R8,0                 and move new token
+         EX    R8,TOKMOVE             to the plist result
+         BXLE  R5,R6,TOKLP1       Bump result pointer & get next token
+         B     TOKERROR           ..Error if no more result space        
+         SPACE 1
+TOKMOVE  MVC   0(0,R5),0(R4)      ** Executed **
+         SPACE 1                                                        
+TOKTRUNC DS    0H                 Token is longer than 8
+         MVC   0(8,R5),0(R4)        so, just truncate it
+         BXLE  R5,R6,TOKLP1       Bump result pointer & get next token
+*                                 ..Error if no more result space        
+         SPACE 3                                                        
+TOKERROR DS    0H
+         LA    R15,4              ERROR: Too many tokens in input
+         SPACE 1
+TOKDONE  DS    0H
+         MVC   0(8,R5),=8X'FF'    Add fence to end of the tokens
+         LA    R1,TOKENS          Pass back the tokenized input        
+         LTR   R15,R15            Set CC from the R15 return code
+         BR    R14                and return to caller                  
+         SPACE 3
+* ********************************************************************
+* ***           
+* ***    End of the initialization stuff       
+* ***           
+* ********************************************************************
+         SPACE 1
+INITEND  DS    0H
+         LR    R1,R10
+         HEXIT ,         
+         TITLE 'HDSWIN           VM370CE: VIRTUAL MACHINE/370 COMMUNITY-
+                EDITION'       
+         LTORG ,
+         EJECT ,
+QRYTERM  DC    AL1(QRYTERML),C'QUERY TERMINAL'
+QRYTERML EQU   *-QRYTERM-1
+QRYSET   DC    AL1(QRYSETL),C'QUERY SET'
+QRYSETL  EQU   *-QRYSET-1
+         SPACE 3
+ARGCHAR  EQU   4                  ON | OFF | char
+ARGNUM   EQU   8                  num | OFF
+ARGBOOL  EQU   12                 ON | OFF
+ARGVAR   EQU   16                 string | num num
+         SPACE 1
+TERMOPTS DS    0H
+         DC    AL2(TOPTEND-*)
+         DC    CL8'LINEND  ',AL1(ARGCHAR,DEFLEND),AL2(PSCBLEND-PSCB)
+         DC    CL8'LINEDEL ',AL1(ARGCHAR,DEFLDEL),AL2(PSCBLDEL-PSCB)
+         DC    CL8'CHARDEL ',AL1(ARGCHAR,DEFCDEL),AL2(PSCBCDEL-PSCB)
+         DC    CL8'ESCAPE  ',AL1(ARGCHAR,DEFESC),AL2(PSCBESCP-PSCB)
+         DC    CL8'TABCHAR ',AL1(ARGCHAR,DEFTAB),AL2(PSCBTAB-PSCB)
+         DC    CL8'LINESIZE',AL1(ARGNUM,0),AL2(PSCBLSIZ-PSCB)
+         DC    CL8'ATTN    ',AL1(ARGBOOL,PSCBTATN),AL2(PSCBTFL1-PSCB)
+         DC    CL8'APL     ',AL1(ARGBOOL,PSCBTAPL),AL2(PSCBTFL1-PSCB)
+         DC    CL8'TEXT    ',AL1(ARGBOOL,PSCBTTXT),AL2(PSCBTFL1-PSCB)
+         DC    CL8'MODE    ',AL1(ARGVAR,0),AL2(EXMODE-EXAMVAR)
+         DC    CL8'HILIGHT ',AL1(ARGBOOL,PSCBTHLT),AL2(PSCBTFL1-PSCB)
+         DC    CL8'CONMODE ',AL1(ARGVAR,0),AL2(EXCONMOD-EXAMVAR)
+         DC    CL8'BREAKIN ',AL1(ARGVAR,0),AL2(EXBRKIN-EXAMVAR)
+         DC    CL8'BRKKEY  ',AL1(ARGVAR,0),AL2(EXBRKKEY-EXAMVAR)
+         DC    CL8'SCRNSAVE',AL1(ARGBOOL,PSCBSCSV),AL2(PSCBTFL1-PSCB)
+         DC    CL8'AUTOCR  ',AL1(ARGBOOL,PSCBAUCR),AL2(PSCBTFL1-PSCB)
+         DC    CL8'HOLD    ',AL1(ARGBOOL,PSCBHOLD),AL2(PSCBTFL1-PSCB)
+         DC    CL8'MORE    ',AL1(ARGVAR,0),AL2(EXMORE-EXAMVAR)
+         DC    CL8'TIMESTAM',AL1(ARGBOOL,PSCBTSTP),AL2(PSCBTFL1-PSCB)
+TOPTEND  EQU   *
+         SPACE 1
+SETOPTS  DS    0H
+         DC    AL2(SOPTEND-*)
+         DC    CL8'LINEDIT ',AL1(ARGBOOL,PSCBLEDT),AL2(PSCBTFL2-PSCB)
+         DC    CL8'EMSG    ',AL1(ARGVAR,0),AL2(EXEMSG-EXAMVAR)
+SOPTEND  EQU   *
+         SPACE 1
+EXKEYTAB DS    0CL5          
+         DC    CL4'NONE',AL1(0)
+         DC    CL4'PA1 ',AL1(AID_PA1)
+         DC    CL4'PA2 ',AL1(AID_PA2)
+         DC    CL4'PF01',AL1(AID_PF1)
+         DC    CL4'PF02',AL1(AID_PF2)
+         DC    CL4'PF03',AL1(AID_PF3)
+         DC    CL4'PF04',AL1(AID_PF4)
+         DC    CL4'PF05',AL1(AID_PF5)
+         DC    CL4'PF06',AL1(AID_PF6)
+         DC    CL4'PF07',AL1(AID_PF7)
+         DC    CL4'PF08',AL1(AID_PF8)
+         DC    CL4'PF09',AL1(AID_PF9)
+         DC    CL4'PF10',AL1(AID_PF10)
+         DC    CL4'PF11',AL1(AID_PF11)
+         DC    CL4'PF12',AL1(AID_PF12)
+         DC    CL4'PF13',AL1(AID_PF13)
+         DC    CL4'PF14',AL1(AID_PF14)
+         DC    CL4'PF15',AL1(AID_PF15)
+         DC    CL4'PF16',AL1(AID_PF16)
+         DC    CL4'PF17',AL1(AID_PF17)
+         DC    CL4'PF18',AL1(AID_PF18)
+         DC    CL4'PF19',AL1(AID_PF19)
+         DC    CL4'PF20',AL1(AID_PF20)
+         DC    CL4'PF21',AL1(AID_PF21)
+         DC    CL4'PF22',AL1(AID_PF22)
+         DC    CL4'PF23',AL1(AID_PF23)
+         DC    CL4'PF24',AL1(AID_PF24)
+         DC    CL4'CLEA',AL1(AID_CLEAR)
+EXKEYTBN EQU   (*-EXKEYTAB)/L'EXKEYTAB         
+         EJECT ,
+INITWORK DSECT ,
+DWORK1   DS    D
+DWORK2   DS    D
+D8CBUFF  DS    0D                 Doubleword boundary required
+D8CFLAG  DS    XL1
+D8CCOLOR EQU   X'80'
+D8CXHIGH EQU   X'40'
+D8CPSS   EQU   X'20'
+D8C14BIT EQU   X'01'
+D8CPARTS DS    XL1
+D8CCOLS  DS    H
+D8CROWS  DS    H
+D8CBUFFL EQU   *-D8CBUFF
+         SPACE 1
+         ORG   D8CBUFF                 Reuse space
+TOKENS   DS    0D
+         DS    80CL8
+         DS    CL8
+ETOKENS  EQU   *
+         ORG   TOKENS+40*8             Overlap bottom half 
+QRYBUFF  DS    10CL80                  QUERY response (10 line max)
+QRYBUFFL EQU   *-QRYBUFF
+         ORG   ,
+INITWKL  EQU   *-INITWORK
+INITWKLD EQU   (INITWKL+1)/8
+         SPACE 3
+OPTIONS  DSECT ,
+OPTNAME  DS    CL8
+OPTARG   DS    XL1
+OPTOPT   DS    XL1
+OPTARGET DS    AL2
+OPTLEN   EQU   *-OPTIONS
+         EJECT ,
+         PSCB  ,
+         PSRB  ,
+         NUCON ,
+NUCPSCB  EQU   NUCON+X'FFC'  **TEMP**
+         REGEQU ,
+         HEPILOG ,

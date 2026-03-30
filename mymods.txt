@@ -30,4 +30,15 @@ HRC250DK - Support any screen size
 CMS Mods
 =========
 HRC240DS - Update support for record lengths 80-255
-HRC248DS - Expand command line size to 255
+HRC241DS - Restore EDIT REPEAT subcommand removed by HRC342DS
+HRC242DS - Fix EDIT screen handling bugs in HRC340DS
+HRC243DS - Comprehensive module linkage macros
+HRC244DS - Add support for most of HNDIO from VM/ESA
+
+
+HRC244DS - VM/CE Full-Screen Window Manager
+
+HRC248DS - (future) Expand command line size to 255
+
+HRC250DS - Dynamic 327x screen size support for EDIT
+
