@@ -1,0 +1,79 @@
+./ * HRC244DS - Add support for most of HNDIO from VM/ESA
+./ *
+./ * Modify  the I/O First-Level Interrupt Handler to add
+./ * support for the HNDIO macro and its enhanced features
+./ * for user-defined Second-Level Interrupt Handlers. The 
+./ * changes to this module include:
+./ *
+./ * -- Make use of the new DEVSECT macro when accessing
+./ *    both the table of user-defined interrupt handlers
+./ *    as well as the entries in the DEVTAB table.
+./ *
+./ * -- For interrupt handlers declared using the HNDIO
+./ *    macro, the invocation linkage is enhanced to:
+./ *    >> Set R5 to zero since INTBLOK is not supported
+./ *    >> Set R6 to the UWORD declared on the HNDIO macro
+./ *    >> Set R12 to the handler entry point (same as R15)
+./ *    >> Set R13 to point to an 18 word save area  
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 22-Mar-2026 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00136000 $ 00136100
+         USING DEVSECT,R9     Address User-Defined-Table       HRC244DS 00136100
+./ R 00138000 $ 00138100 100
+SRCHU    DS    0H                                              HRC244DS 00138100
+         CH    R4,DEVADDR     Does device addr match in table? HRC244DS 00138200
+./ I 00140000 $ 00140100 100
+         DROP  R9             Done w/user-defined tbl for now  HRC244DS 00140100
+*                                                              HRC244DS 00140200
+         USING DEVSECT,R5     Switch to DEVTAB                 HRC244DS 00140300
+./ R 00142000 $ 00142100 100
+SRCHU    DS    0H                                              HRC244DS 00142100
+         CH    R4,DEVADDR     Is this the interrupting device? HRC244DS 00142200
+./ I 00146000 $ 00146100
+         DROP  R5             Done wiith DEVTAB for now        HRC244DS 00146100
+./ R 00149000 $ 00149100 100
+         USING DEVSECT,R9     Switch back to user-defined tbl  HRC244DS 00149100
+FOUNDU   DS    0H                                              HRC244DS 00149200
+         L     R15,DEVSLIH    2nd-lvl interrupt handler to R15 HRC244DS 00149300
+./ R 00156000 00162000 $ 00155500 1000
+         STM   R0,R1,DEVIOPSW     Save interrupted PSW         HRC244DS 00155500
+         STM   R2,R3,DEVCSW       and CSW in the table         HRC244DS 00156500
+         TM    DEVFLAG,DEVASAP    Are we handling now?         HRC244DS 00157500
+         BO    CALLUINT           ..yes, call handler now      HRC244DS 00158500
+         TM    DEVFLAG,DEVPSDOW   Expecting thie interrupt?    HRC244DS 00159500
+         BO    CALLUINT           ..yes, then call the handler HRC244DS 00160500
+         OI    DEVFLAG,DEVINTR    ..no, show interrupt recvd   HRC244DS 00161500
+         NI    DEVFLAG,255-DEVINTP       but not yet processed HRC244DS 00162500
+./ R 00164000 $ 00163550 100
+*                                                              HRC244DS 00163550
+CALLUINT DS    0H                                              HRC244DS 00163650
+         TM    DEVFLAG,DEVHNDIO   Is this HNDINT or HNDIO?     HRC244DS 00163750
+         BNO   BALR14             HNDINT takes legacy path     HRC244DS 00163850
+         SR    R5,R5              No INTBLOK for VM/CE         HRC244DS 00163950
+         L     R6,DEVUWORD        R6 = UWORD                   HRC244DS 00164050
+         LA    R13,IOSAVE2        R13 -> handler save area     HRC244DS 00164150
+         LA    R14,GO             Return to GO below           HRC244DS 00164250
+         LR    R12,R15            HNDIO passes R12             HRC244DS 00164350
+         BR    R15                and go to the handler        HRC244DS 00164450
+         DROP  R9                 Done w/user-defined table    HRC244DS 00164550
+*                                                              HRC244DS 00164650
+./ R 00166000 $ 00166100 100
+         USING DEVSECT,R5     Switch back to DEVTAB            HRC244DS 00166100
+FOUNDR   DS    0H                                              HRC244DS 00166200
+         L     R15,DEVSLIH    2nd-lvl interrupt handler to R15 HRC244DS 00166300
+./ R 00183000 $ 00183100
+         TM    DEVFLAG,DEVPSDOW   Were we waiting for this int HRC244DS 00183100
+./ R 00188000 00189000 $ 00188020 1000
+         NI    DEVFLAG,255-DEVPSDOW-DEVINTR-DEVINTP Clr stat   HRC244DS 00188020
+         MVC   0(4,R6),DEVNAME Save name of interrupting dev   HRc244DS 00189020
+./ R 00195300 $ 00195310
+         C     R8,DEVSLIH    Does int rtn exist for this dev?  HRC244DS 00195310
+./ R 00195700 $ 00195710
+         OI    DEVFLAG,DEVINTR+DEVINTP  Mark it rec'd & proc'd HRc244DS 00195710
+./ D 00249000 00254000
+./ D 00258000 00263000

@@ -1,0 +1,19 @@
+./ * HRC244DS - Add support for most of HNDIO from VM/ESA
+./ *
+./ * Update DEVTAB and User Interrupt Table references 
+./ * to use the new DEVSECT DSECT. This update makes 
+./ * structure or logic changes.  
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 29-Mar-2026 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00322000 $ 00322010 20
+         USING DEVSECT,R3                                      HRC244DS 00322010
+CHKEEP   DS    0H                                              HRC244DS 00322030
+         TM    DEVFLAG,DEVKEEP    Is the KEEP flag set?        HRC244DS 00322050
+./ R 00329000 $ 00329010
+         DROP  R2,R3                                           HRC244DS 00329010
+./ D 00721000                            

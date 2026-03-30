@@ -1,0 +1,37 @@
+         MACRO                                          
+         DEVSECT ,                                      
+         PUSH  PRINT                                    
+         AIF   ('&SYSPARM' NE 'SUP').WED01              
+         PRINT OFF,NOGEN  
+.WED01   ANOP  ,          
+* *************************************************************
+* *
+* *      User Interrupt Table Entry (by HNDINT or HNDIO)
+* *      First 16 bytes also maps entries in DEVTAB
+* *
+* *************************************************************
+DEVSECT  DSECT ,              *** User Interrupt Table Entry ***     
+DEVADDR  DS    1H                 Virtual device address
+DEVTYPE  DS    0XL2               Device type (in DEVTAB)
+DEVFLAG  DS    1X                 Device flags
+DEVPSDOW EQU   X'80'              X....... Pseudo wait bit (from WAITD)
+DEVASAP  EQU   X'40'              .X...... HNDINT/HNDIO issued w/ ASAP 
+DEVINTR  EQU   X'20'              ..X..... Interrupt received
+DEVINTP  EQU   X'10'              ...X.... Interrupt processed
+DEVKEEP  EQU   X'08'              ....X... KEEP past end-of-command
+DEVABNKP EQU   X'04'              .....X.. Keep beyond ABEND processing
+DEVPERST EQU   X'02'              ......X. Keep beyond DET/DEF 
+DEVHNDIO EQU   X'01'              .......X Created via HNDIO
+         DS    XL1                (not used)
+DEVNAME  DS    CL4                Symbolic device name
+DEVSLIH  DS    1A                 Interrupt handler address
+DEVMISC  DS    XL4                Use varies by device type
+*                             End of DEVTAB entries
+         ORG   DEVMISC        User Interrupt Table has more
+DEVIOPSW DS    2F                 I/O Old PSW
+DEVCSW   DS    2F                 CSW
+DEVUWORD DS    1F                 UWORD from HNDIO
+DEVSIZE  EQU   *-DEVSECT      Interrupt Table Entry size (in bytes)
+         EJECT ,
+         POP   PRINT
+         MEND 

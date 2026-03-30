@@ -1,0 +1,26 @@
+./ * HRC244DS - VM/CE Full-Screen Window Manager
+./ *
+./ * Add new NUCON fields needed for the VM/CE  
+./ * Full-Screen Window Manager
+./ * -- Address of nucleus resident HDSWIN 
+./ * -- Anchor for the active PSCB
+./ *
+./ * PREREQUISITE UPDATES:
+./ * --------------------
+./ * NUCON    HRC403DS
+./ * DMSNUC   HRC403DS
+./ *
+./ * COREQUISITE UPDATES:
+./ * -------------------
+./ * DMSNUC   HRC244DS
+./ *
+./ * CHANGE LOG:
+./ * ----------
+./ * 05-Oct-2024 wdenton  Initial version
+./ * 02-Nov-2024 wdenton  Add link to nucleus resident HDSWIN
+./ * 
+./ R 00500000 $ 00499040 20 
+         ORG   NUCON+X'FF8'   Redefine last 2 words in NUCON  @HRC244DS 00499040
+AHDSWIN  DC    V(HDSWINEP)    Full-Screen Window Manager      @HRC244DS 00499060
+NUCPSCB  DC    A(0)           Active PSCB                     @HRC244DS 00499080
+         EJECT ,                                              @HRC244DS 00500000

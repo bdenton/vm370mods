@@ -1,0 +1,50 @@
+./ * HRC244DS - Add support for most of HNDIO from VM/ESA
+./ *
+./ * Update DEVTAB and User Interrupt Table references 
+./ * to use the new DEVSECT DSECT. This update makes 
+./ * structure or logic changes.  
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 29-Mar-2026 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00126000 $ 00126100
+         USING DEVSECT,R5                                      HRC244DS 00126100
+./ R 00131000 $ 00131010 10
+SRCHU    DS    0H                                              HRC244DS 00131010
+         CL    R2,DEVNAME     Does symbolic name match?        HRC244DS 00131020
+./ I 00133000 $ 00133100 50
+         DROP  R5                                              HRC244DS 00133100
+         USING DEVSECT,R9                                      HRC244DS 00133150
+./ R 00135000 $ 00135010 10
+SRCHR    DS    0H                                              HRC244DS 00135010
+         CL    R2,DEVNAME     Does symbolic name match?        HRC244DS 00135020
+./ R 00144000 00145000 $ 00144010 500
+FOUND    DS    0H                                              HRC244DS 00144010
+         OI    DEVFLAG,DEVPSDOW   Set pseudo-wait flag         HRC244DS 00144510
+         TM    DEVFLAG,DEVINTR    Already received interrupt?  HRC244DS 00145010
+./ R 00158000 $ 00158010
+         TM    DEVFLAG,DEVINTP Has interrupt been processed?   HRC244DS 00158010
+./ R 00162000 00163000 $ 00162010 1000
+         MVC   IOOPSW+2(2),DEVIOPSW+2 Fill in dev addr         HRC244DS 00162010
+         MVC   CSW,DEVCSW     and restore real CSW             HRC244DS 00163010
+./ R 00167000 $ 00167010 100
+         NI    DEVFLAG,255-DEVINTR-DEVINTP clr interrupt state HRC244DS 00167010
+*                                                              HRC244DS 00167110
+         DROP  R9                                              HRC244DS 00167210
+./ I 00173000 $ 00173100
+         USING DEVSECT,R5                                      HRC244DS 00173100
+./ R 00174000 $ 00174010 10
+OFFSTATU DS    0H                                              HRC244DS 00174010
+         NI    DEVFLAG,255-DEVPSDOW    Clr all pseudo waits    HRC244DS 00174020
+./ I 00175000 $ 00175100 50
+         DROP  R5                                              HRC244DS 00175100
+         USING DEVSECT,R9                                      HRC244DS 00175150
+./ R 00177000 $ 00177010 10
+OFFSTATR DS    0H                                              HRC244DS 00177010
+         NI    DEVFLAG,255-DEVPSDOW    Clr all pseudo waits    HRC244DS 00177020
+./ D 00183000 00194000
+./ I 00207000 $ 00207100 
+         DEVSECT ,                                             HRC244DS 00207100                                    

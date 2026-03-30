@@ -1,0 +1,32 @@
+./ * HRC244DS - Add support for most of HNDIO from VM/ESA
+./ *
+./ * DMSNUC data area updates needed to support the HNDIO  
+./ * macro. This update makes two changes to IOSECT:  
+./ *
+./ * -- Reflects the increased size of the User Interrupt
+./ *    Table entries created from HNDINT and HNDIO 
+./ *
+./ * -- Adds a second 18-word save area reflecting the   
+./ *    HNDIO specifications that call for the handler        
+./ *    to be called with R13 pointing to a save area.
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 22-Mar-2026 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ I 00002000 $ 00002050
+         LCLC  &NUC                                            HRC244DS 00002050
+./ I 00006000 $ 00006100
+&NUC     SETC  '&SYSECT'                                       HRC244DS 00006100
+./ R 00015000 $ 00015010
+         DC    A(DEVSIZE)     Length of each entry             HRC244DS 00015010
+./ I 00028000 $ 00028100
+*
+IOSAVE2  DS    24F            User HNDIO handler savearea      HRC244DS 00028000
+./ I 00029100 $ 00029110 10
+         DEVSECT                                               HRC244DS 00029110
+         AIF   ('&SECT' NE 'CSECT').MEND                       HRC244DS 00029120
+&NUC     CSECT ,              Resume main CSECT                HRC244DS 00029130
+.MEND    ANOP  ,                                               HRC244DS 00029140

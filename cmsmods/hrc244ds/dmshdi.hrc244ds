@@ -1,0 +1,405 @@
+./ * HRC244DS - Add support for most of HNDIO from VM/ESA
+./ *
+./ * This update adds the new DMSHDITP entry point to
+./ * process the calls made from the HNDIO macro.
+./ * 
+./ * This update also adds DSECT mappings of all plists 
+./ * and makes use of the new DEVSECT mapping of the User
+./ * Interrupt Table entries.   
+./ * 
+./ * Associated with this update, the HNDINT MODULE will
+./ * be deleted and this module will be moved into the
+./ * resident CMS nucleus.
+./ *
+./ * PREREQUISITES:
+./ * none
+./ *
+./ * HISTORY:
+./ * 28-Mar-2026 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 00017000 00017100 $ 00017010 100
+*        Reentrant, Nucleus Resident, Disabled                 HRC244DS 00017010
+*        (Update HRC244DS removes HNDINT MODULE)               HRC244DS 00017110
+./ I 00021000 $ 00021100
+*        2. DMSHDITP - Entry point from HNDIO macro            HRC244DS 00021100
+./ I 00027000 $ 00027100                                     
+*        For HNDINT invocations, the plist is as follows:      HRC244DS 00027100
+./ R 00030000 00031000 $ 00020100 100                                     
+*            +---CL4                 Device name               HRC244DS 00020100
+*            |   AL4                 Routine address           HRC244DS 00020200
+*         +--+   XL2                 Device address            HRC244DS 00020100
+*         |  |   CL1                 ASAP|WAIT                 HRC244DS 00020300
+*         |  +---CL1                 C'C' = NOKEEP             HRC244DS 00020400
+*         |                                                    HRC244DS 00020500
+*         +---(subsequent handlers)                            HRC244DS 00020600 
+./ I 00034000 $ 00034015 15                      
+*        For HNDIO SET invocations, the plist is as follows:   HRC244DS 00034015
+*                                                              HRC244DS 00034030
+*                                                              HRC244DS 00034045
+*        CL8'DMSHDITP'       SVC 204 entry point               HRC244DS 00034060
+*        CL4'SET'            Function                          HRC244DS 00034075
+*        CL4                 Device name                       HRC244DS 00034090
+*        AL4                 Routine address                   HRC244DS 00034105
+*        XL2                 Device address                    HRC244DS 00034120
+*        XL1                 Processing Flag                   HRC244DS 00034135
+*                            X'1... ....' -- SYSTEM=YES        HRC244DS 00034150
+*                            X'.1.. ....' -- KEEP=YES          HRC244DS 00034165
+*                            X'..1. ....' -- NOTIFY=ASAP       HRC244DS 00034180
+*                            X'...1 ....' -- PERSIST=YES       HRC244DS 00034195
+*        XL1                 Reserved                          HRC244DS 00034210
+*        AL4                 INTBLOK address                   HRC244DS 00034325
+*        AL4                 INTBLOK length                    HRC244DS 00034340
+*        AL4                 User word                         HRC244DS 00034355
+*        XL8                 Plist fence - X'FF'               HRC244DS 00034370
+*                                                              HRC244DS 00034385
+*        For HNDIO CLR invocations, the plist is as follows:   HRC244DS 00034400
+*                                                              HRC244DS 00034415
+*        CL8'DMSHDITP'       SVC 204 entry point               HRC244DS 00034430
+*        CL4'CLR'            Function                          HRC244DS 00034445
+*        CL4                 Device name                       HRC244DS 00034460
+*        AL4                 CLRLIST value                     HRC244DS 00034475
+*        XL8                 Plist fence - X'FF'               HRC244DS 00034490
+./ R 00126000 00131000 $ 00126100 100
+DMSHDI   CSECT ,                                               HRC244DS 00126100
+         DC    CL8'DMSHDI'             Module name eyecatcher  HRC244DS 00126200
+         DC    AL2(HDI@END-DMSHDI)     Module length           HRC244DS 00126300
+         SPACE 1                                               HRC244DS 00126400
+         ENTRY HNDINT                  HNDINT entry point      HRC244DS 00126500
+HNDINT   DS    0H                      ...                     HRC244DS 00126600
+         LR    R12,R15                 Set up permanent base   HRC244DS 00126700
+         LA    R15,HNDINT-DMSHDI       ...                     HRC244DS 00126800
+         SLR   R12,R15                 ...                     HRC244DS 00126900
+         USING DMSHDI,R12              ...                     HRC244DS 00127000
+         USING NUCON,0                 We use NUCON a lot      HRC244DS 00127100
+         SPACE 1                                               HRC244DS 00127200
+         USING USERSAVE,R13                                    HRC244DS 00127300
+         XC    0(USERSIZE,R13),0(R13)  Clear part of savearea  HRC244DS 00127400
+         DROP  R13                                             HRC244DS 00127500
+./ I 00135000 $ 00135100 100
+         USING HNDHEAD,R1                                      HRC244DS 00135100
+         PUSH  USING                                           HRC244DS 00135200
+./ R 00136000 00136010
+         CLC   @SET,HNDACTN   Is it 'SET'?                     HRC244DS 00136010
+./ R 00138000 00138010
+         CLC   @CLR,HNDACTN   Is it 'CLR'?                     HRC244DS 00138010
+./ R 00140000 00140010
+         CLC   @PURGE,HNDACTN If not, is it 'PURGE'            HRC244DS 00140010
+./ R 00147000 $ 00147010
+         LA    R2,HNDENTRY    Now let R2 be start of entries   HRC244DS 00147010
+./ R 00149000 00151000 $ 00148100 1000
+         USING HNDPLST,R3                                      HRC244DS 00148100
+         LA    R4,HNDSIZE     Set R4 = HNDINT entry size       HRC244DS 00149100
+         LA    R0,DEVSIZE     R0 = initial result size (1 entryHRC244DS 00150100
+         CLC   HNDNAME,FENCE  Make sure entries are there      HRC244DS 00151100
+./ I 00156000 $ 00156020 20
+*------------------------------------------------------------- HRC244DS 00156020
+*        Top of loop to count & validate HNDINT entries        HRC244DS 00156040
+*------------------------------------------------------------- HRC244DS 00156060
+./ R 00158000 00159000 $ 00158100 500
+         A     R0,=A(DEVSIZE) Increment R0 for another entry   HRC244DS 00158100
+LM1415   DS    0H                                              HRC244DS 00158600
+         LM    R14,R15,HNDNAME Get dev name & handler addr     HRC244DS 00159100
+./ R 00171000 $ 00171010
+         CLC   HNDFENCE,FENCE Look for fence after plist       HRC244DS 00171010
+./ I 00172000 $ 00172100 10
+*                                                              HRC244DS 00172100
+*         End on initial pass thru HNDINT list                 HRC244DS 00172110
+./ R 00180000 $ 00180010
+         LA    R7,HNDSIZE(,R2) Set up R7,R8,&R9 fr outer loop  HRC244DS 00180010
+./ R 00187000 $ 00187010 10
+CLC37    DS    0H                                              HRC244DS 00187010
+         CLC   HNDNAME,0(R7)  Check the symbolic names         HRC244DS 00187020        
+./ I 00190000 $ 00190100 50
+         DROP  R3             Done with HNDPLST                HRC244DS 00190100
+         SPACE 3                                               HRC244DS 00190150
+*------------------------------------------------------------- HRC244DS 00190200
+*        HNDINT & HNDIO join up here to build DEVSECT table    HRC244DS 00190250
+*        Registers are:                                        HRC244DS 00190300
+*        R0 = space needed for new entries                     HRC244DS 00190350
+*        R1 = HNDHEAD address                                  HRC244DS 00190400
+*        R2 = First new HDRPLST                                HRC244DS 00190450
+*        R8 = Length of each HDRPLST entry                     HRC244DS 00190500
+*        R9 = Last new HDRPLST                                 HRC244DS 00190550
+*------------------------------------------------------------- HRC244DS 00190600
+./ R 00193000 $ 00193010
+         LA    R4,DEVSIZE     Let R4 = 32 now (R8 still = 12)  HRC244DS 00193010
+./ R 00196000 $ 00196010
+         CLC   @CLR,HNDACTN   Is this a 'CLR' call?            HRC244DS 00196010
+./ R 00205000 $ 00205010
+         AR    R5,R4          plus 32 = # of bytes in old tbl  HRC244DS 00205010
+./ I 00233000 $ 00233050 50
+*                                                              HRC244DS 00233050
+         USING DEVSECT,R3                                      HRC244DS 00233100
+         USING HNDPLST,R7                                      HRC244DS 00233150
+./ R 00236000 $ 00236010 10
+CLC37A   DS    0H                                              HRC244DS 00236010
+         CLC   DEVNAME,HNDNAME New name matches old name?      HRC244DS 00236020
+./ R 00241000 00244000 $ 00241100 200
+         DROP  R3                                              HRC244DS 00241100
+         USING DEVSECT,R15                                     HRC244DS 00241300
+STNEW1   DS    0H                 (joins here from REPLACE)    HRC244DS 00241500
+         XC    DEVSECT(DEVSIZE),DEVSECT Clear the entry        HRC244DS 00241700
+         TM    MYFLAGS,DEVHNDIO   Is this a HNDIO call?        HRC244DS 00241900
+         BO    STHNDIO            ..yes, fill from that plist  HRC244DS 00242100
+*                                                              HRC244DS 00242300
+         MVC   DEVADDR,HNDDEVAD   Device address into entry    HRC244DS 00242500
+         MVC   DEVNAME,HNDNAME    Device name into entry       HRC244DS 00242700
+         MVC   DEVSLIH,HNDRTNAD   Handler addr into entry      HRC244DS 00242900
+         CLI   HNDWHEN,C'A'       Is it 'A' for ASAP?          HRC244DS 00243100
+./ R 00246000 00247000 $ 00246100 200
+         OI    DEVFLAG,DEVASAP    Set flag for FLIH use        HRC244DS 00246100
+ASAPOK   DS    0H                                              HRC244DS 00246300
+         CLI   HNDKEEP,C'K'       Is it 'K' for KEEP?          HRC244DS 00246500
+./ R 00249000 $ 00249010 30
+         OI    DEVFLAG,DEVKEEP    Set flag for FLIH            HRC244DS 00249010
+         DROP  R7                 (done with HNDPLST)          HRC244DS 00249040
+*                                                              HRC244DS 00249070
+STHNDIO  DS    0H                 Build new one from HNDIO     HRC244DS 00249100
+         USING SETPLST,R7         the SET plist                HRC244DS 00249130
+         MVC   DEVADDR,SETDEVAD   Set the Device Address       HRC244DS 00249160
+         MVC   DEVNAME,SETDNAME   Set the Device Name          HRC244DS 00249190
+         MVC   DEVSLIH,SETRTNAD   Set the Interrupt Handler    HRC244DS 00249220
+         TM    SETPFLAG,SETASAP   NOTIFY=ASAP?                 HRC244DS 00249250
+         BNO   *+8                ..no, skip                   HRC244DS 00249280
+         OI    DEVFLAG,DEVASAP    ..yes, set flag for FLIH     HRC244DS 00249310
+         TM    SETPFLAG,SETKEEP   KEEP=YES?                    HRC244DS 00249340
+         BNO   *+8                ..no, skip                   HRC244DS 00249470
+         OI    DEVFLAG,DEVKEEP    ..yes, set flag for FLIH     HRC244DS 00249500
+         MVC   DEVUWORD,SETUWORD  Set the User Word            HRC244DS 00249530
+         DROP  R7                                              HRC244DS 00249560
+./ I 00268000 $ 00268100 50
+         POP   USING                                           HRC244DS 00268100
+         USING DEVSECT,R3                                      HRC244DS 00268150
+         USING HNDPLST,R7                                      HRC244DS 00268200
+*                                                              HRC244DS 00268250
+./ I 00273000 $ 00273100 50
+ERR11    DS    0H             Return RC=11 Bad CLR plist       HRC244DS 00273100
+         LA    R15,11                                          HRC244DS 00273150
+         B     RETURN                                          HRC244DS 00273200
+./ R 00283000 $ 00283010 10
+CLC37B   DS    0H                                              HRC244DS 00283010
+         CLC   DEVNAME,HNDNAME New name matches old name?      HRC244DS 00283020
+./ R 00305000 $ 00305010 10
+CLC37C   DS    0H                                              HRC244DS 00305010
+         CLC   DEVNAME,HNDNAME New name matches old name?      HRC244DS 00305020
+./ R 00312000 $ 00312010 10
+ZREPLACE DS    0H                                              HRC244DS 00312010
+         XC    DEVSECT(DEVSIZE),DEVSECT Clear the entry        HRC244DS 00312020
+./ R 00320000 $ 00320010
+         MVC   0(DEVSIZE,R6),DEVSECT   Move entry to top       HRC244DS 00320010
+./ R 00341000 $ 00341010 10
+CHECK    DS    0H                                              HRC244DS 00341010
+         TM    DEVFLAG,DEVKEEP     Is KEEP flag set?           HRC244DS 00341020
+./ R 00343000 $ 00343010
+         XC    DEVSECT(DEVSIZE),DEVSECT Clear the entry        HRC244DS 00343010
+./ R 00349000 00350000 $ 00348803 2
+         EJECT ,                                               HRC244DS 00348803
+*-----------------------------------------------------------*  HRC244DS 00348805
+*                            *----------*                   *  HRC244DS 00348807
+*  Entry Point -             * DMSHDITP *                   *  HRC244DS 00348809
+*                            *----------*                   *  HRC244DS 00348811
+*                                                           *  HRC244DS 00348813
+*  Function - Entry point for HNDIO plists and validates    *  HRC244DS 00348815
+*             the HNDIO plist prior to joining HNDINT code  *  HRC244DS 00348817
+*-----------------------------------------------------------*  HRC244DS 00348819
+         SPACE 1                                               HRC244DS 00348821
+DMSHDITP DS    0H                                              HRC244DS 00348823
+         USING DMSHDITP,R15                                    HRC244DS 00348825
+         LR    R12,R15                                         HRC244DS 00348827
+         LA    R15,DMSHDITP-DMSHDI                             HRC244DS 00348829
+         SLR   R12,R15                                         HRC244DS 00348831
+         DROP  R15                                             HRC244DS 00348833
+         USING DMSHDI,R12                                      HRC244DS 00348835
+         USING NUCON,0                                         HRC244DS 00348837
+         USING USERSAVE,R13                                    HRC244DS 00348839
+         XC    0(USERSIZE,R13),0(R13)                          HRC244DS 00348841
+         DROP  R13                                             HRC244DS 00348843
+         USING TEMP,R13                                        HRC244DS 00348845
+         ST    R14,JS14       Save return address              HRC244DS 00348847
+         ST    R1,JS01        And save plist pointer           HRC244DS 00348849
+         USING HNDHEAD,R1     addressing for plist head        HRC244DS 00348851
+         SR    R15,R15        Initialize ERRCODE to zero       HRC244DS 00348853
+         ST    R15,ERRCODE    ....                             HRC244DS 00348855
+         SPACE 1                                               HRC244DS 00348857
+         L     R10,AIOSECT    Get IOSECT address               HRC244DS 00348859
+         USING IOSECT,R10                                      HRC244DS 00348861
+         LA    R2,HNDENTRY    Point to plist detaile           HRC244DS 00348863
+         CLC   @SET,HNDACTN   Is it SET?                       HRC244DS 00348865
+         BE    IOSET          BE IF YES, HANDLE 'SET'.         HRC244DS 00348867
+         CLC   @CLR,HNDACTN   Is it CLR?                       HRC244DS 00348869
+         BE    IOCLR          BE IF YES, HANDLE 'CLR'.         HRC244DS 00348871
+         B     ERR01          ERROR IF NO LEGAL CALL.          HRC244DS 00348873
+*                                                              HRC244DS 00348875
+IOSET    DS    0H             Handle HNDIO SET                 HRC244DS 00348877
+         USING SETPLST,R2                                      HRC244DS 00348879
+         LA    R7,DEVSIZE     Start out size for one           HRC244DS 00348881
+*                             entry-use as collector for       HRC244DS 00348883
+*                             how much storage to get for      HRC244DS 00348885
+*                             new USRIOTBL                     HRC244DS 00348887
+         SPACE 1                                               HRC244DS 00348889
+*-----------------------------------------------------------*  HRC244DS 00348891
+*  Check for device name of zero or blanks, and routine     *  HRC244DS 00348893
+*  address not properly aligned.                            *  HRC244DS 00348895
+*-----------------------------------------------------------*  HRC244DS 00348897
+         ICM   R5,15,SETDNAME Get device name and test         HRC244DS 00348899
+         BZ    ERR11          Nothing there...error            HRC244DS 00348901
+         CL    R5,BLNKNAME    Is the name all blanks?          HRC244DS 00348903
+         BZ    ERR11          Blanks aren't good!              HRC244DS 00348905
+         L     R6,SETRTNAD    Get routine address              HRC244DS 00348907
+         N     R6,ONE         Check lowest bit                 HRC244DS 00348909
+         BNZ   ERR01          Error if it was odd-numbered     HRC244DS 00348911
+         SPACE 1                                               HRC244DS 00348913
+*-----------------------------------------------------------*  HRC244DS 00348915
+*  Set up to join up with code common with HNDINT above     *  HRC244DS 00348917
+*-----------------------------------------------------------*  HRC244DS 00348919
+         SPACE 1                                               HRC244DS 00348921
+         LR    R0,R7          R0 = size of new table entries   HRC244DS 00348923
+*                             R1 = HNDHEAD address             HRC244DS 00348925
+*                             R2 = First new HDRPLST           HRC244DS 00348927
+*        LA    R8,SETSIZE     R8 = Length of each plist entry  HRC244DS 00348929
+*        LA    R9,0(R8,R2)    R9 = Last new HDRPLST            HRC244DS 00348931
+*                                                              HRC244DS 00348932
+         OI    MYFLAGS,DEVHNDIO   Mark as a HNDIO call?        HRC244DS 00348933
+         B     PLISTOK            and join with HNDINT above   HRC244DS 00348935
+         DROP  R2                                              HRC244DS 00348937
+         SPACE 3                                               HRC244DS 00348939
+*-----------------------------------------------------------*  HRC244DS 00348941
+*  That leaves the HNDIO CLR processing.  Can't share much  *  HRC244DS 00348943
+*  with HNDINT because of the CLRLIST option                *  HRC244DS 00348945
+*-----------------------------------------------------------*  HRC244DS 00348947
+IOCLR    DS    0H                                              HRC244DS 00348949
+         USING CLRPLST,R2                                      HRC244DS 00348951
+         ICM   R3,15,AUSRITBL Are there any old entries?       HRC244DS 00348953
+         BE    ERR3           ..no, return RC=3                HRC244DS 00348955
+         L     R5,AUSRILST    Get addr of last table entry     HRC244DS 00348957
+*                                                              HRC244DS 00348959
+         ICM   R7,15,CLRDNAME Is DEVNAME specified?            HRC244DS 00348961
+         BZ    TRYCLIST       ..no, try CLRLIST                HRC244DS 00348963
+         LA    R8,LR15E       Set retaddr from CLR routine     HRC244DS 00348965
+         LR    R4,R3          Copy USRIOTBL start              HRC244DS 00348967
+         B     LOCHNDLR       Join common routine              HRC244DS 00348969
+*                                                              HRC244DS 00348971
+TRYCLIST DS    0H                                              HRC244DS 00348973
+         ICM   R6,15,CLRCLIST Get CLRLIST address              HRC244DS 00348975
+         BZ    ERR11          Not there... return RC=11        HRC244DS 00348977
+         LA    R8,STRTLIST    Prepare to loop to here          HRC244DS 00348979
+STRTLIST DS    0H                                              HRC244DS 00348981
+         CLC   0(4,R6),FENCE  End of CLRLIST?                  HRC244DS 00348983
+         BE    LR15E          ..yes, finished.                 HRC244DS 00348985
+         ICM   R7,15,0(R6)    Get first device name to CLR     HRC244DS 00348987
+         BZ    ERR11          All zero, return RC=11           HRC244DS 00348989
+         ICM   R3,15,AUSRITBL Get a fresh copy of USRIOTBL     HRC244DS 00348991
+         BZ    ERR3           ..disappeared somehow            HRC244DS 00348993
+         LR    R4,R3          Copy USRIOTBL start              HRC244DS 00348995
+*                                                              HRC244DS 00348999
+*        Locate the matching AUSRITBL entry                    HRC244DS 00349001
+LOCHNDLR DS    0H                                              HRC244DS 00349003
+         USING DEVSECT,R4                                      HRC244DS 00349005
+         CL    R7,BLNKNAME    Name all blanks?                 HRC244DS 00349007
+         BE    ERR11          Blanks aren't good               HRC244DS 00349009
+         C     R7,DEVNAME     Does device name match?          HRC244DS 00349011
+         BE    CLRIT          Yes...clear it from the USRIOTBL HRC244DS 00349013
+         CR    R4,R5          We past the end of the USRIOTBL  HRC244DS 00349015
+         BE    ERR3           Yes...then we're done            HRC244DS 00349017
+         LA    R4,DEVSIZE(R4) Bump to next entry in USRIOTBL   HRC244DS 00349019
+         B     LOCHNDLR       And try the next one             HRC244DS 00349021
+*-----------------------------------------------------------*  HRC244DS 00349023
+*  A matching device name was found in the USRIOTBL         *  HRC244DS 00349025
+*-----------------------------------------------------------*  HRC244DS 00349027
+CLRIT    DS    0H                                              HRC244DS 00349029
+         LA    R11,DEVSIZE   Size of an entry                  HRC244DS 00349031
+         CR    R4,R5         Last entry to be released?        HRC244DS 00349033
+         BNE   CLRMOVE       No; move rest of entries up       HRC244DS 00349035
+         LR    R9,R4         Copy location to release          HRC244DS 00349037
+         B     RELENTRY      And release the last entry        HRC244DS 00349039
+CLRMOVE  DS    0H                                              HRC244DS 00349041
+         LA    R9,DEVSIZE(R4)     Point to next entry          HRC244DS 00349043
+         MVC   0(DEVSIZE,R4),0(R9)  Move following entry to    HRC244DS 00349045
+*                            fill the "dead" entry             HRC244DS 00349047
+         CR    R9,R5         Last entry moved?                 HRC244DS 00349049
+         BE    RELENTRY      Yes...drop the dead one...        HRC244DS 00349051
+         LA    R9,DEVSIZE(R9) Bump to next entries             HRC244DS 00349053
+         LA    R4,DEVSIZE(R4)                                  HRC244DS 00349055
+         B     CLRMOVE       And repeat                        HRC244DS 00349057
+*                                                              HRC244DS 00349059
+RELENTRY DS    0H                                              HRC244DS 00349061
+         LA    R0,7(,R11)    Figure dwords to release          HRC244DS 00349063
+         SRL   R0,3          ...                               HRC244DS 00349065
+         DMSFRET DWORDS=(0),LOC=(1),TYPCALL=BALR  release last HRC244DS 00349067
+         C     R11,IONTABL    Last surviving entry deleted?    HRC244DS 00349069
+         BNE   CLRPTRS        No; others survive               HRC244DS 00349071
+         XC    AUSRILST,AUSRILST  Zero out last entry pointer  HRC244DS 00349073
+         XC    AUSRITBL,AUSRITBL  Zero out USRIOTBL pointer    HRC244DS 00349075
+         XC    IONTABL,IONTABL    Zero out size of USRIOTBL    HRC244DS 00349077
+         B     CLRITRET                                        HRC244DS 00349079
+CLRPTRS  DS    0H                                              HRC244DS 00349081
+         SR    R5,R11         Subtract one entry               HRC244DS 00349083
+         ST    R5,AUSRILST    Point to the new last entry      HRC244DS 00349085
+         L     R9,IONTABL     Get size of old table            HRC244DS 00349087
+         SR    R9,R11         Get new size                     HRC244DS 00349089
+         ST    R9,IONTABL     Store new size                   HRC244DS 00349091
+CLRITRET DS    0H                                              HRC244DS 00349093
+         LA    R6,4(R6)       Bump CLRLIST pointer             HRC244DS 00349095
+         BR    R8             Return                           HRC244DS 00349097
+         DROP  R2,R4                                           HRC244DS 00349099
+         SPACE 3                                               HRC244DS 00349101
+*        CONSTANTS ...                                         HRC244DS 00349103
+./ I 00354500 $ 00354600 50
+@SET     DC    CL4'SET'                                        HRC244DS 00354600
+@CLR     DC    CL4'CLR'                                        HRC244DS 00354650
+@PURGE   DC    CL4'PURGE'                                      HRC244DS 00354700
+BLNKNAME DC    CL4' '                                          HRC244DS 00354750
+./ R 00369000 $ 00369010
+         DC    A(DEVSIZE)     Entry size (for BXLE)            HRC244DS 00369010
+./ R 00371000 00374000 $ 00371050 50
+         SPACE 1                                               HRC244DS 00371050
+MYFLAGS  DC    X'00'          Various flags                    HRC244DS 00371100
+         EJECT ,                                               HRC244DS 00371150
+*------------------------------------------------------------- HRC244DS 00371200
+*  Internal DSECTs....                                         HRC244DS 00371250
+*------------------------------------------------------------- HRC244DS 00371300
+         SPACE 1                                               HRC244DS 00371350
+HNDHEAD  DSECT ,                  Common heading               HRC244DS 00371400
+HNDCMND  DS    CL8                Command name                 HRC244DS 00371450
+HNDACTN  DS    CL4                SET | CLR                    HRC244DS 00371500
+HNDENTRY EQU   *                  First HNDINT entry           HRC244DS 00371550
+HNDHEADL EQU   *-HNDHEAD          Heading length               HRC244DS 00371600
+         SPACE 2                                               HRC244DS 00371650
+HNDPLST  DSECT ,                  HNDINT Plist entry mapping   HRC244DS 00371700
+HNDNAME  DS    CL4                Device name                  HRC244DS 00371750
+HNDRTNAD DS    AL4                Interrupt handler            HRC244DS 00371800
+HNDDEVAD DS    XL2                Device address               HRC244DS 00371850
+HNDWHEN  DS    CL1                Asap | Wait                  HRC244DS 00371900
+HNDKEEP  DS    CL1                Keep                         HRC244DS 00371950
+HNDSIZE  EQU   *-HNDPLST                                       HRC244DS 00372000
+HNDFENCE DS    XL4                                             HRC244DS 00372050
+HNDTOT   EQU   *-HNDPLST                                       HRC244DS 00372100
+         SPACE 2                                               HRC244DS 00372150
+SETPLST  DSECT ,                  HNDIO SET Plist mapping      HRC244DS 00372200
+SETDNAME DS    CL4                Device name                  HRC244DS 00372250
+SETRTNAD DS    AL4                Interrupt handler            HRC244DS 00372300
+SETDEVAD DS    XL2                Device address               HRC244DS 00372350
+SETPFLAG DS    XL1                Flags                        HRC244DS 00372400
+SETSYST  EQU   X'80'              X....... SYSTEM=YES          HRC244DS 00372450
+SETKEEP  EQU   X'40'              .X...... KEEP=YES            HRC244DS 00372500
+SETASAP  EQU   X'20'              ..X..... NOTIFY=ASAP         HRC244DS 00372550
+SETPERST EQU   X'10'              ...X.... PERSIST=YES         HRC244DS 00372600
+         DS    XL1                (not used)                   HRC244DS 00372650
+SETIBKAD DS    AL4                INTBLOK address              HRC244DS 00372700
+SETIBKLN DS    FL4                INTBLOK length               HRC244DS 00372750
+SETUWORD DS    AL4                User Word                    HRC244DS 00372800
+SETSIZE  EQU   *-SETPLST                                       HRC244DS 00372850
+SETFENCE DS    XL8                                             HRC244DS 00372900
+SETTOT   EQU   *-SETPLST                                       HRC244DS 00372950
+         SPACE 2                                               HRC244DS 00373000
+CLRPLST  DSECT                                                 HRC244DS 00373050
+CLRDNAME DS    CL4                Device name                  HRC244DS 00373100
+CLRNMLEN EQU   *-CLRDNAME         How long each name           HRC244DS 00373150
+CLRCLIST DS    AL4                CLRLIST address              HRC244DS 00373200
+CLRFENCE DS    XL8                                             HRC244DS 00373250
+CLRSIZE  EQU   *-CLRPLST                                       HRC244DS 00373300
+./ I 00379000 $ 00379050 50
+DMSHDI   CSECT ,              Resume main CSECT                HRC244DS 00379050
+         ORG   ,              Resume location counter          HRC244DS 00379100
+         DS    0D             Round to dword                   HRC244DS 00379150
+HDI@END  EQU   *              Mark end of CSECT                HRC244DS 00379200
