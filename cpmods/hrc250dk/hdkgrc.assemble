@@ -1440,129 +1440,129 @@ RDR77DSL EQU   *-RDR77DS                                                14350000
 * |                                                        |            14400000
 * |      0B (Select)                                       |            14410000
 * |      01 (Write) WCC                                    |            14420000
-* |                                                        |            14450000
-* +--------------------------------------------------------+            14460000
-         SPACE 1                                                        14470000
-         PUSH  USING                                                    14480000
-BLD77WNG DS    0H                                                       14490000
-         MVC   GRFCCW1(WNG77CPL),WNG77CP  Channel program               14500000
-         MVC   GRFXBUFF(WNG77DSL),WNG77DS Data stream                   14510000
-*                                                                       14520000
-         LA    R1,WNG77DSL             Set data stream length           14530000
-         STH   R1,GRFCCW2+6              into the write CCW             14540000
-         LA    R1,GRFXBUFF             Data stream goes here            14550000
-         STCM  R1,7,GRFCCW2+1          plug in CCW address              14560000
-         B     GOODEXIT                                                 14570000
-         SPACE 1                                                        14580000
-         POP   USING                                                    14590000
-         SPACE 3                                                        14600000
+* |                                                        |            14430000
+* +--------------------------------------------------------+            14440000
+         SPACE 1                                                        14450000
+         PUSH  USING                                                    14460000
+BLD77WNG DS    0H                                                       14470000
+         MVC   GRFCCW1(WNG77CPL),WNG77CP  Channel program               14480000
+         MVC   GRFXBUFF(WNG77DSL),WNG77DS Data stream                   14490000
+*                                                                       14500000
+         LA    R1,WNG77DSL             Set data stream length           14510000
+         STH   R1,GRFCCW2+6              into the write CCW             14520000
+         LA    R1,GRFXBUFF             Data stream goes here            14530000
+         STCM  R1,7,GRFCCW2+1          plug in CCW address              14540000
+         B     GOODEXIT                                                 14550000
+         SPACE 1                                                        14560000
+         POP   USING                                                    14570000
+         SPACE 3                                                        14580000
+*-------------------------------------------------------------          14590000
+*        WNG (warning) Channel Program template                         14600000
 *-------------------------------------------------------------          14610000
-*        WNG (warning) Channel Program template                         14620000
-*-------------------------------------------------------------          14630000
-         SPACE 1                                                        14640000
-WNG77CP  DS    0D                                                       14650000
-         CCW   CCWSEL,0,SILI+CC,1      Select                           14660000
-         CCW   CCWWRT,*-*,SILI,*-*     Write: WCC, etc                  14670000
-WNG77CPL EQU   *-WNG77CP                                                14680000
-         SPACE 1                                                        14690000
+         SPACE 1                                                        14620000
+WNG77CP  DS    0D                                                       14630000
+         CCW   CCWSEL,0,SILI+CC,1      Select                           14640000
+         CCW   CCWWRT,*-*,SILI,*-*     Write: WCC, etc                  14650000
+WNG77CPL EQU   *-WNG77CP                                                14660000
+         SPACE 1                                                        14670000
+*-------------------------------------------------------------          14680000
+*        Warning Data Stream template                                   14690000
 *-------------------------------------------------------------          14700000
-*        Warning Data Stream template                                   14710000
-*-------------------------------------------------------------          14720000
-         SPACE 1                                                        14730000
-WNG77DS  EQU   *                                                        14740000
-         DC    AL1(WCCBEEP)                                             14750000
-WNG77DSL EQU   *-WNG77DS                                                14760000
-         TITLE 'HDKGRC:HDKGRCRL  (CP)  VM370CE: VIRTUAL MACHINE/370 COMX14770000
-               MUNITY EDITION'                                          14780000
-***************************************************************         14790000
+         SPACE 1                                                        14710000
+WNG77DS  EQU   *                                                        14720000
+         DC    AL1(WCCBEEP)                                             14730000
+WNG77DSL EQU   *-WNG77DS                                                14740000
+         TITLE 'HDKGRC:HDKGRCRL  (CP)  VM370CE: VIRTUAL MACHINE/370 COMX14750000
+               MUNITY EDITION'                                          14760000
+***************************************************************         14770000
+*                                                                       14780000
+* METHOD NAME -                                                         14790000
 *                                                                       14800000
-* METHOD NAME -                                                         14810000
+*        HDKGRCRL                                                       14810000
 *                                                                       14820000
-*        HDKGRCRL                                                       14830000
+* FUNCTION -                                                            14830000
 *                                                                       14840000
-* FUNCTION -                                                            14850000
-*                                                                       14860000
-*        Release any RDEV resources used building 327x                  14870000
-*        channel programs                                               14880000
+*        Release any RDEV resources used building 327x                  14850000
+*        channel programs                                               14860000
+*                                                                       14870000
+* ENTRY CONDITIONS -                                                    14880000
 *                                                                       14890000
-* ENTRY CONDITIONS -                                                    14900000
-*                                                                       14910000
-*        R8  = Address of the RDEVBLOK                                  14920000
-*        R10 = IOBLOK pointer                                           14930000
-*        R12 = Address of HDKGRCRL entry point                          14940000
-*        R13 = Address of standard SAVEAREA                             14950000
+*        R8  = Address of the RDEVBLOK                                  14900000
+*        R10 = IOBLOK pointer                                           14910000
+*        R12 = Address of HDKGRCRL entry point                          14920000
+*        R13 = Address of standard SAVEAREA                             14930000
+*                                                                       14940000
+* EXIT CONDITIONS -                                                     14950000
 *                                                                       14960000
-* EXIT CONDITIONS -                                                     14970000
+*        R15 = 0 : All resources released                               14970000
 *                                                                       14980000
-*        R15 = 0 : All resources released                               14990000
-*                                                                       15000000
-***************************************************************         15010000
+***************************************************************         14990000
+         SPACE 3                                                        15000000
+HDKGRCRL RELOC ,                                                        15010000
          SPACE 3                                                        15020000
-HDKGRCRL RELOC ,                                                        15030000
-         SPACE 3                                                        15040000
+*-------------------------------------------------------------          15030000
+*        Clear any prior workareas, buffers, etc.                       15040000
 *-------------------------------------------------------------          15050000
-*        Clear any prior workareas, buffers, etc.                       15060000
-*-------------------------------------------------------------          15070000
-         SPACE 1                                                        15080000
-         ICM   R7,15,IOBCCWRK          Access the GRFCCWS               15090000
-         BZ    NOCCWRK                 do nothing if not there          15100000
-         BAL   R14,RELEASE             clean out large buffer           15110000
-         LA    R0,GRFCCWLD               and release IOBLOK linked      15120000
-         LR    R1,R7                       CCW build/work area          15130000
-         CALL  DMKFRET                 ...                              15140000
-         SR    R0,R0                   and clear IOBLOK link            15150000
-         ST    R0,IOBCCWRK             Chain it off the IOBLOK          15160000
-NOCCWRK  DS    0H                                                       15170000
-         SR    R15,R15                 CLean return code                15180000
-         EXIT  ,                                                        15190000
-         SPACE 3                                                        15200000
-*-------------------------------------------------------------          15210000
+         SPACE 1                                                        15060000
+         ICM   R7,15,IOBCCWRK          Access the GRFCCWS               15070000
+         BZ    NOCCWRK                 do nothing if not there          15080000
+         BAL   R14,RELEASE             clean out large buffer           15090000
+         LA    R0,GRFCCWLD               and release IOBLOK linked      15100000
+         LR    R1,R7                       CCW build/work area          15110000
+         CALL  DMKFRET                 ...                              15120000
+         SR    R0,R0                   and clear IOBLOK link            15130000
+         ST    R0,IOBCCWRK             Chain it off the IOBLOK          15140000
+NOCCWRK  DS    0H                                                       15150000
+         SR    R15,R15                 CLean return code                15160000
+         EXIT  ,                                                        15170000
+         SPACE 3                                                        15180000
+*-------------------------------------------------------------          15190000
+*                                                                       15200000
+*        RELEASE                                                        15210000
 *                                                                       15220000
-*        RELEASE                                                        15230000
-*                                                                       15240000
-*        Common routine to clean up any workareas or buffers            15250000
-*        left over from prior calls                                     15260000
-*                                                                       15270000
-*        Input:                                                         15280000
-*        R7  = GRFCCWs pointer                                          15290000
-*        R14 = return address                                           15300000
-*                                                                       15310000
-*        Exit:                                                          15320000
-*        R0-R1 = zeroes                                                 15330000
-*        GRFBUFFA = zeroes                                              15340000
-*                                                                       15350000
-*-------------------------------------------------------------          15360000
-         SPACE 1                                                        15370000
-RELEASE  DS    0H                                                       15380000
-         ICM   R1,15,GRFBUFFA          Release prior large buffer       15390000
-         BZR   R14                     not there.. just return          15400000
-         ST    R14,SAVEWRK2            Save return address              15410000
-         LH    R0,GRFBUFFL             Dword size                       15420000
-         CALL  DMKFRET                 Release the storage              15430000
-         SR    R0,R0                   Clear the pointer                15440000
-         LR    R1,R0                   and address                      15450000
-         ST    R0,GRFBUFFA             ...                              15460000
-         STH   R0,GRFBUFFL             and length                       15470000
-         L     R14,SAVEWRK2            Restore reurn address            15480000
-         BR    R14                     Return to caller                 15490000
-         TITLE 'HDKGRC           (CP)  VM370CE: VIRTUAL MACHINE/370 COMX15500000
-               MUNITY EDITION'                                          15510000
-         LTORG ,                                                        15520000
-         EJECT ,                                                        15530000
-         COPY  EQU                                                      15540000
-         COPY  DEVTYPES                                                 15550000
-         COPY  GRCWORK                                                  15560000
-         COPY  HDK3270                                                  15570000
-         COPY  VMBLOK                                                   15580000
-         COPY  RBLOKS                                                   15590000
-         COPY  GRFXBLOK                                                 15600000
-         COPY  IOBLOKS                                                  15610000
-         COPY  CONBUF                                                   15620000
-         COPY  SAVE                                                     15630000
-         COPY  TIMER                                                    15640000
-         PSA                                                            15650000
-         SPACE 3                                                        15660000
-HDKGRC   CSECT ,                                                        15670000
-         ORG   ,                                                        15680000
-MODEND   DS    0D                      *** Mark module's end ***        15690000
-         END                                                            15700000
+*        Common routine to clean up any workareas or buffers            15230000
+*        left over from prior calls                                     15240000
+*                                                                       15250000
+*        Input:                                                         15260000
+*        R7  = GRFCCWs pointer                                          15270000
+*        R14 = return address                                           15280000
+*                                                                       15290000
+*        Exit:                                                          15300000
+*        R0-R1 = zeroes                                                 15310000
+*        GRFBUFFA = zeroes                                              15320000
+*                                                                       15330000
+*-------------------------------------------------------------          15340000
+         SPACE 1                                                        15350000
+RELEASE  DS    0H                                                       15360000
+         ICM   R1,15,GRFBUFFA          Release prior large buffer       15370000
+         BZR   R14                     not there.. just return          15380000
+         ST    R14,SAVEWRK2            Save return address              15390000
+         LH    R0,GRFBUFFL             Dword size                       15400000
+         CALL  DMKFRET                 Release the storage              15410000
+         SR    R0,R0                   Clear the pointer                15420000
+         LR    R1,R0                   and address                      15430000
+         ST    R0,GRFBUFFA             ...                              15440000
+         STH   R0,GRFBUFFL             and length                       15450000
+         L     R14,SAVEWRK2            Restore reurn address            15460000
+         BR    R14                     Return to caller                 15470000
+         TITLE 'HDKGRC           (CP)  VM370CE: VIRTUAL MACHINE/370 COMX15480000
+               MUNITY EDITION'                                          15490000
+         LTORG ,                                                        15500000
+         EJECT ,                                                        15510000
+         COPY  EQU                                                      15520000
+         COPY  DEVTYPES                                                 15530000
+         COPY  GRCWORK                                                  15540000
+         COPY  HRC3270                                                  15550000
+         COPY  VMBLOK                                                   15560000
+         COPY  RBLOKS                                                   15570000
+         COPY  GRFXBLOK                                                 15580000
+         COPY  IOBLOKS                                                  15590000
+         COPY  CONBUF                                                   15600000
+         COPY  SAVE                                                     15610000
+         COPY  TIMER                                                    15620000
+         PSA                                                            15630000
+         SPACE 3                                                        15640000
+HDKGRC   CSECT ,                                                        15650000
+         ORG   ,                                                        15660000
+MODEND   DS    0D                      *** Mark module's end ***        15670000
+         END                                                            15680000

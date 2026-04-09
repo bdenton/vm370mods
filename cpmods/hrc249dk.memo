@@ -5,8 +5,8 @@ Common 3270 helper functions and support files
 Affected Files:
 ===============
 
-HDK3270  COPY    (new file)
-HDKSFLDS COPY    (new file)
+HRC3270  COPY    (new file)
+HRCSFLDS COPY    (new file)
 DMKCVT   ASSEMBLE
 DMKTBL   ASSEMBLE
 
@@ -27,20 +27,26 @@ stream equates and structured field definitions.
 Details:
 ========
 
-HDK3270 COPY (new file)
+HRC3270 COPY (new file)
 ------------
 This new file contains equates for all aspects of 3270                    
 data streams and channel programs. The intent is to have
 this file be the consolidated single source for all
 constants related to non-SNA 327x programming.
 
+This was previously named HDK3270 but was renamed to 
+show common use between CP and CMS
+
 ----------------------------------------------------------------------------
 
-HDKSFLDS COPY (new file)
+HRCSFLDS COPY (new file)
 -------------
 This new file contains structural definitions for all
-327x inbound and outbould structured fields and all
+327x inbound and outbound structured fields and all
 query reply field elements.
+
+This was previously named HDKSFLDS but was renamed to 
+show common use between CP and CMS
 
 ----------------------------------------------------------------------------
 

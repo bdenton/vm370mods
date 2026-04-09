@@ -16,53 +16,58 @@ GRFXBLOK DSECT ,                                                        00060000
 *        18   +-----------+-----+-----+-----+-----+-----+-----+         00160000
 *             | GRFXCUMD  | G*3 | GRFXDVMD  | G*4 | G*5 | G*6 |         00170000
 *        20   +-----+-----+-----+-----+-----+-----+-----------+         00180000
-*             | G*7 | G*8 | GRFXORGI  |       GRFXRSV1        |         00190000
-*        28   +-----+-----+-----------+-----------------------+         00200000
+*             | G*7 | G*8 | GRFXORGI  | G*9 |    GRFXRSV1     |         00190000
+*        28   +-----+-----+-----------+-----+-----------------+         00200000
 *             |                    GRFXSID                    |         00210000
 *        30   +-----------------------------------------------+         00220000
-*             |                                               |         00310000
-*             =                   GRFXBUFF                    =         00320000
-*             |                                               |         00330000
-*        70   +-----------------------------------------------+         00340000
-*                                                                       00350000
-***                GRFXBLOK - GRAF Device Extension Block               00360000
-         SPACE 1                                                        00370000
-GRFXROWS DS    H         Size of physical screen (rows)                 00380000
-GRFXCOLS DS    H         Size of physical screen (cols)                 00390000
-GRFXINPL DS    H         Input area length                              00400000
-GRFXOUTL DS    H         Output area length                             00410000
-GRFX@INP DS    XL2       Input area attr buffer addr                    00420000
-GRFX@STA DS    XL2       Status area attr buffer addr                   00430000
-GRFX@SYS DS    XL2       System ID attr buffer addr                     00440000
-GRFX@LST DS    XL2       Bottom-right buffer address                    00450000
-GRFXRPQA DS    A         WSF RPQ data CP virtual address                00460000
-GRFXRPQL DS    H          ''  ''  ''  length                            00470000
-GRFXERAS DS    XL1   G*1 EW/EWA opcode                                  00480000
-GRFXFLG1 DS    XL1   G*2 Flags                                          00490000
-GRFXCUOK EQU   X'80'     X--- ---- Valid SenseId Ctlunit info           00500000
-GRFXDVOK EQU   X'40'     -X-- ---- Valid SenseId Device info            00510000
-GRFXLGQR EQU   X'20'     --X- ---- RPQ whole page response
-*        EQU   X'10'     ---X ---- available
-*        EQU   X'08'     ---- X--- available
-*        EQU   X'04'     ---- -X-- available
-*        EQU   X'02'     ---- --X- available
-*        EQU   X'01'     ---- ---X available
-GRFXCUID DS    0XL3      SnsId Control Unit id:                         00520000
-GRFXCUTY DS    XL2            type                                      00530000
-GRFXCUMD DS    XL1   G*3      model                                     00540000
-GRFXDVID DS    0XL3      SnsId Device id:                               00550000
-GRFXDVTY DS    XL2            type                                      00560000
-GRFXDVMD DS    XL1   G*4      model                                     00570000
-GRFXINL1 DS    XL1   G*5 First input area line number                   00580000
-GRFXINL2 DS    XL1   G*6 Last input area line number                    00590000
-GRFXOALZ DS    XL1   G*7 Last output area line number                   00600000
-GRFXATOA DS    XL1   G*8 Attribute in lower right corner                00610000
-GRFXORGI DS    XL2       Input area origin                              00620000
-GRFXRSV1 DS    4XL1      (available)                                    00630000
-GRFXSID  DS    CL8       System Id                                      00640000
-GRFXBUFF DS    64XL1     Buffer for orders & data                       00690000
-         SPACE 1                                                        00700000
-GRFXLEN  EQU   *-GRFXBLOK     Control block length (bytes)              00710000
-GRFXLEND EQU   (GRFXLEN+7)/8                       (dwords)             00720000
-         EJECT ,                                                        00730000
-         POP   PRINT                                                    00740000
+*             |                                               |         00230000
+*             =                   GRFXBUFF                    =         00240000
+*             |                                               |         00250000
+*        70   +-----------------------------------------------+         00260000
+*                                                                       00270000
+***                GRFXBLOK - GRAF Device Extension Block               00280000
+         SPACE 1                                                        00290000
+GRFXROWS DS    H         Size of physical screen (rows)                 00300000
+GRFXCOLS DS    H         Size of physical screen (cols)                 00310000
+GRFXINPL DS    H         Input area length                              00320000
+GRFXOUTL DS    H         Output area length                             00330000
+GRFX@INP DS    XL2       Input area attr buffer addr                    00340000
+GRFX@STA DS    XL2       Status area attr buffer addr                   00350000
+GRFX@SYS DS    XL2       System ID attr buffer addr                     00360000
+GRFX@LST DS    XL2       Bottom-right buffer address                    00370000
+GRFXRPQA DS    A         WSF RPQ data CP virtual address                00380000
+GRFXRPQL DS    H          ''  ''  ''  length                            00390000
+GRFXERAS DS    XL1   G*1 EW/EWA opcode                                  00400000
+GRFXFLG1 DS    XL1   G*2 Flags                                          00410000
+GRFXCUOK EQU   X'80'     X--- ---- Valid SenseId Ctlunit info           00420000
+GRFXDVOK EQU   X'40'     -X-- ---- Valid SenseId Device info            00430000
+GRFXLGQR EQU   X'20'     --X- ---- RPQ whole page response              00440000
+*        EQU   X'10'     ---X ---- available                            00450000
+GRFXTSEL EQU   X'08'     ---- X--- extended selects supported           00460000
+*        EQU   X'04'     ---- -X-- available                            00470000
+*        EQU   X'02'     ---- --X- available                            00480000
+*        EQU   X'01'     ---- ---X available                            00490000
+GRFXCUID DS    0XL3      SnsId Control Unit id:                         00500000
+GRFXCUTY DS    XL2            type                                      00510000
+GRFXCUMD DS    XL1   G*3      model                                     00520000
+GRFXDVID DS    0XL3      SnsId Device id:                               00530000
+GRFXDVTY DS    XL2            type                                      00540000
+GRFXDVMD DS    XL1   G*4      model                                     00550000
+GRFXINL1 DS    XL1   G*5 First input area line number                   00560000
+GRFXINL2 DS    XL1   G*6 Last input area line number                    00570000
+GRFXOALZ DS    XL1   G*7 Last output area line number                   00580000
+GRFXATOA DS    XL1   G*8 Attribute in lower right corner                00590000
+GRFXORGI DS    XL2       Input area origin                              00600000
+GRFXTATT DS    XL1   G*9 Additional extended attributes                 00610000
+GRFXBGCO EQU   X'10'     ---X ---- has background color                 00620000
+GRFXTRAN EQU   X'08'     ---- X--- has transparency                     00630000
+GRFXFOUT EQU   X'04'     ---- -X-- has field outlining                  00640000
+GRFXFVAL EQU   X'02'     .... ..X. has field validation                 00650000
+GRFXRSV1 DS    3XL1      (available)                                    00660000
+GRFXSID  DS    CL8       System Id                                      00670000
+GRFXBUFF DS    64XL1     Buffer for orders & data                       00680000
+         SPACE 1                                                        00690000
+GRFXLEN  EQU   *-GRFXBLOK     Control block length (bytes)              00700000
+GRFXLEND EQU   (GRFXLEN+7)/8                       (dwords)             00710000
+         EJECT ,                                                        00720000
+         POP   PRINT                                                    00730000

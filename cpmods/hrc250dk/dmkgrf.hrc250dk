@@ -21,6 +21,7 @@
 ./ * 26-Jul-2025 WDENTON  Move AID table from DMKGRT
 ./ * 12-Aug-2025 WDENTON  Don't use IOBCAW as storage ptr
 ./ * 12-Aug-2025 WDENTON  Handle 12-bit cursor address
+./ *  7-Apr-2026 WDENTON  Rename HDK3270 to HRC3270
 ./ *
 ./ I 00029500 $ 00029600
 *        DMKGRFM2 - Static GRFXBLOK for vanilla 3270 Mdl 2     HRC250DK 00029600
@@ -439,4 +440,4 @@ COPYPRE  DS    0XL3                    WCC+cursor or SBA+addr  HRC250DK 02063221
 COPYPREL EQU   *-COPYBUFF              Length of prefix        HRC250DK 02063241
 COPYMIND EQU   (COPYPREL+7)/8          Base size in dwords     HRC250DK 02063251
          EJECT ,                                               HRC250DK 02063261
-         COPY  HDK3270                                         HRC250DK 02063271
+         COPY  HRC3270                                         HRC250DK 02063271

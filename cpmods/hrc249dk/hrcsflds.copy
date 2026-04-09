@@ -1,10 +1,10 @@
-*COPY HDKSFLDS                                                          00010000
+*COPY HRCSFLDS                                                          00010000
          PUSH PRINT                                                     00020000
          AIF   ('&SYSPARM' NE 'SUP').HSFO                               00030000
          PRINT OFF,NOGEN                                                00040000
 .HSFO    ANOP  ,                                                        00050000
 *                                                                       00060000
-***      HDKSFLDS = 3270-DS Structured Fields                           00070000
+***      HRCSFLDS = 3270-DS Structured Fields                           00070000
 *                                                                       00080000
          SPACE 1                                                        00090000
 * +---------------------------------------------+                       00100000
@@ -777,404 +777,419 @@ QRCOLLEN EQU   *-SFLD      Base length                                  07750000
 QRCOLCAV DS    XL1         6+    1st color pair: Attr value accepted    07770000
 QRCOLCI  DS    XL1         7+     ''   ''   ''   Color displayed        07780000
 *                                                                       07790000
-*        Cooperative Processing Requestor                               07800000
+QRCSDPID EQU   X'02'             BG Color Self-Defining Parameter Id    07800000
 *                                                                       07810000
-         ORG   QRDATA                                                   07820000
-QRCPRID  DS    AL1(QRCPR)  3     QCODE                                  07830000
-QRCPRFLG DS    XL2         4-5   reserved                               07840000
-QRCPRLIN DS    XL2         6-7   Max CPR bytes inbound                  07850000
-QRCPRLOT DS    XL2         8-9   Max CPR bytes outbound                 07860000
-QRCPRFLN DS    XL1         10    Length of feature info                 07870000
-QRCPRFTR DS    0XL2        11-n  CPR length & feature flags             07880000
-QRCPRLEN EQU   *-SFLD                                                   07890000
-*                                                                       07900000
-*        Data Chaining                                                  07910000
+*        Cooperative Processing Requestor                               07820000
+*                                                                       07830000
+         ORG   QRDATA                                                   07840000
+QRCPRID  DS    AL1(QRCPR)  3     QCODE                                  07850000
+QRCPRFLG DS    XL2         4-5   reserved                               07860000
+QRCPRLIN DS    XL2         6-7   Max CPR bytes inbound                  07870000
+QRCPRLOT DS    XL2         8-9   Max CPR bytes outbound                 07880000
+QRCPRFLN DS    XL1         10    Length of feature info                 07890000
+QRCPRFTR DS    0XL2        11-n  CPR length & feature flags             07900000
+QRCPRLEN EQU   *-SFLD                                                   07910000
 *                                                                       07920000
-         ORG   QRDATA                                                   07930000
-QRCNID   DS    AL1(QRCN)   3     QCODE                                  07940000
-QRCNDIR  DS    XL1         4     Directions of use                      07950000
-QRCNBOTH EQU   X'00'             -- Both                                07960000
-QRCNFROM EQU   X'40'             -- From device                         07970000
-QRCNTODV EQU   X'80'             -- To device                           07980000
-QRCNRSV  DS    XL1         5     reserved                               07990000
-QRCNLEN  EQU   *-SFLD                                                   08000000
-*                                                                       08010000
-*        Data Streams                                                   08020000
+*        Data Chaining                                                  07930000
+*                                                                       07940000
+         ORG   QRDATA                                                   07950000
+QRCNID   DS    AL1(QRCN)   3     QCODE                                  07960000
+QRCNDIR  DS    XL1         4     Directions of use                      07970000
+QRCNBOTH EQU   X'00'             -- Both                                07980000
+QRCNFROM EQU   X'40'             -- From device                         07990000
+QRCNTODV EQU   X'80'             -- To device                           08000000
+QRCNRSV  DS    XL1         5     reserved                               08010000
+QRCNLEN  EQU   *-SFLD                                                   08020000
 *                                                                       08030000
-         ORG   QRDATA                                                   08040000
-QRDSID   DS    AL1(QRDS)   3     QCODE                                  08050000
-QRDSDSID DS    0XL1        4-n   List of supported data streams         08060000
-QRDSSCS  EQU   X'00'             -- SCS Data Stream                     08070000
-QRDSDCA  EQU   X'01'             -- DCA Level 2                         08080000
-QRDSIPDS EQU   X'02'             -- IPDS                                08090000
-QRDSLEN  EQU   *-SFLD                                                   08100000
-*                                                                       08110000
-*        DBCS-Asia                                                      08120000
+*        Data Streams                                                   08040000
+*                                                                       08050000
+         ORG   QRDATA                                                   08060000
+QRDSID   DS    AL1(QRDS)   3     QCODE                                  08070000
+QRDSDSID DS    0XL1        4-n   List of supported data streams         08080000
+QRDSSCS  EQU   X'00'             -- SCS Data Stream                     08090000
+QRDSDCA  EQU   X'01'             -- DCA Level 2                         08100000
+QRDSIPDS EQU   X'02'             -- IPDS                                08110000
+QRDSLEN  EQU   *-SFLD                                                   08120000
 *                                                                       08130000
-         ORG   QRDATA                                                   08140000
-QRDBCID  DS    AL1(QRDBC)  3     QCODE                                  08150000
-QRDBCFLG DS    XL1         4     reserved                               08160000
-QRDBCLEN EQU   *-SFLD                                                   08170000
-*                                                                       08180000
-*        Device Characteristics                                         08190000
+*        DBCS-Asia                                                      08140000
+*                                                                       08150000
+         ORG   QRDATA                                                   08160000
+QRDBCID  DS    AL1(QRDBC)  3     QCODE                                  08170000
+QRDBCFLG DS    XL1         4     reserved                               08180000
+QRDBCLEN EQU   *-SFLD                                                   08190000
 *                                                                       08200000
-         ORG   QRDATA                                                   08210000
-QRDCID   DS    AL1(QRDC)   3     QCODE                                  08220000
-QRDCDESC DS    0X          4-n   Descriptors                            08230000
-QRDCLEN  EQU   *-SFLD                                                   08240000
-*                                                                       08250000
-*        Distributed Data Management                                    08260000
+*        Device Characteristics                                         08210000
+*                                                                       08220000
+         ORG   QRDATA                                                   08230000
+QRDCID   DS    AL1(QRDC)   3     QCODE                                  08240000
+QRDCDESC DS    0X          4-n   Descriptors                            08250000
+QRDCLEN  EQU   *-SFLD                                                   08260000
 *                                                                       08270000
-         ORG   QRDATA                                                   08280000
-QRDDMID  DS    AL1(QRDDM)  3     QCODE                                  08290000
-QRDDMFLG DS    XL2         4-5   reserved                               08300000
-QRDDMLIN DS    XL2         6-7   Max DDM bytes per xmit inbound         08310000
-QRDDMLOT DS    XL2         8-9   Max DDM bytes per xmit outbound        08320000
-QRDDMNSS DS    XL1         10    Number of subsets supported            08330000
-QRDDMSS  DS    0XL1        11-n  DDM subset identifiers                 08340000
-QRDDMLEN EQU   *-SFLD                                                   08350000
-*                                                                       08360000
-*        Document Interchange Architecture                              08370000
+*        Distributed Data Management                                    08280000
+*                                                                       08290000
+         ORG   QRDATA                                                   08300000
+QRDDMID  DS    AL1(QRDDM)  3     QCODE                                  08310000
+QRDDMFLG DS    XL2         4-5   reserved                               08320000
+QRDDMLIN DS    XL2         6-7   Max DDM bytes per xmit inbound         08330000
+QRDDMLOT DS    XL2         8-9   Max DDM bytes per xmit outbound        08340000
+QRDDMNSS DS    XL1         10    Number of subsets supported            08350000
+QRDDMSS  DS    0XL1        11-n  DDM subset identifiers                 08360000
+QRDDMLEN EQU   *-SFLD                                                   08370000
 *                                                                       08380000
-         ORG   QRDATA                                                   08390000
-QRDIAID  DS    AL1(QRDIA)  3     QCODE                                  08400000
-QRDIAFLG DS    XL2         4-5   reserved                               08410000
-QRDIALIN DS    XL2         6-7   Max DIA bytes per xmit inbound         08420000
-QRDIALOT DS    XL2         8-9   Max DIA bytes per xmit outbound        08430000
-QRDDMNFS DS    XL1         10    Number of 3-byte function set ids      08440000
-QRDIAFSI DS    0XL3        11-n  DIA function set identifiers           08450000
-QRDIALEN EQU   *-SFLD                                                   08460000
-*                                                                       08470000
-*        Extended Drawing Routine                                       08480000
+*        Document Interchange Architecture                              08390000
+*                                                                       08400000
+         ORG   QRDATA                                                   08410000
+QRDIAID  DS    AL1(QRDIA)  3     QCODE                                  08420000
+QRDIAFLG DS    XL2         4-5   reserved                               08430000
+QRDIALIN DS    XL2         6-7   Max DIA bytes per xmit inbound         08440000
+QRDIALOT DS    XL2         8-9   Max DIA bytes per xmit outbound        08450000
+QRDDMNFS DS    XL1         10    Number of 3-byte function set ids      08460000
+QRDIAFSI DS    0XL3        11-n  DIA function set identifiers           08470000
+QRDIALEN EQU   *-SFLD                                                   08480000
 *                                                                       08490000
-         ORG   QRDATA                                                   08500000
-QRXDRID  DS    AL1(QRXDR)  3     QCODE                                  08510000
-QRXDRDTA DS    0X          4-n   Data                                   08520000
-QRXDRLEN EQU   *-SFLD                                                   08530000
-*                                                                       08540000
-*        Field Validation                                               08550000
+*        Extended Drawing Routine                                       08500000
+*                                                                       08510000
+         ORG   QRDATA                                                   08520000
+QRXDRID  DS    AL1(QRXDR)  3     QCODE                                  08530000
+QRXDRDTA DS    0X          4-n   Data                                   08540000
+QRXDRLEN EQU   *-SFLD                                                   08550000
 *                                                                       08560000
-         ORG   QRDATA                                                   08570000
-QRFVID   DS    AL1(QRFV)   3     QCODE                                  08580000
-QRFVTYPE DS    XL1         4     Type flags                             08590000
-QRFVFILL EQU   X'04'             -- Manditory fill supported            08600000
-QRFVENTR EQU   X'02'             -- Manditory entry supported           08610000
-QRFVTRIG EQU   X'01'             -- Trigger supported                   08620000
-QRFVLEN  EQU   *-SFLD                                                   08630000
-*                                                                       08640000
-*        Format Presentation                                            08650000
-*                                                                       08660000
-         ORG   QRDATA                                                   08670000
-QRFPID   DS    AL1(QRFP)   3     QCODE                                  08680000
-QRFPLEN  EQU   *-SFLD                                                   08690000
+*        Field Outlining                                                08570000
+*                                                                       08580000
+         ORG   QRDATA                                                   08590000
+QRFOID   DS    AL1(QRFO)   3     QCODE                                  08600000
+QRFOFLAG DS    XL1         4     Reserved                               08610000
+QRFOLINE DS    XL1         5     Underlining/Overlining flag            08620000
+QRFOSEP  EQU   X'80'             -- Separation supported                08630000
+QRFOVPOS DS    XL1         6     Location of vertical line              08640000
+QRFOHPOS DS    XL1         7     Location of overline/underline         08650000
+QRFOHPO0 DS    XL1         8     Location of overline (if SEP)          08660000
+QRFOHPO1 DS    XL1         9     Location of underline (if SEP)         08670000
+*                                                                       08680000
+*        Field Validation                                               08690000
 *                                                                       08700000
-*        Format Storage Auxiliary Device                                08710000
-*                                                                       08720000
-         ORG   QRDATA                                                   08730000
-QRFSAID  DS    AL1(QRFSA)  3     QCODE                                  08740000
-QRFSAFLG DS    XL1         4     Flags                                  08750000
-QRFSAMUL EQU   X'80'             -- Multiple formats per xmit allowed   08760000
-QRFSASTA EQU   X'40'             -- Format(s) currently loaded          08770000
-QRFSASEL EQU   X'20'             -- User-selected fmt default enabled   08780000
-QRFSASHR EQU   X'10'             -- Host Format Mgmt Shared             08790000
-QRFSARSV DS    XL1         5     reserved                               08800000
-QRFSALIN DS    XL2         6-7   reserved for LIMIN parameter           08810000
-QRFSALOT DS    XL2         8-9   Max bytes of FSA data outbound         08820000
-QRFSALEN EQU   *-SFLD                                                   08830000
-*                                                                       08840000
-*        Graphic Color                                                  08850000
-*                                                                       08860000
-         ORG   QRDATA                                                   08870000
-QRGCID   DS    AL1(QRGC)   3     QCODE                                  08880000
-QRGCDATA DS    0X          4-n   Data                                   08890000
-QRGCLEN  EQU   *-SFLD                                                   08900000
-*                                                                       08910000
-*        Graphic Symbol Sets                                            08920000
-*                                                                       08930000
-         ORG   QRDATA                                                   08940000
-QRGSSID  DS    AL1(QRGSS)  3     QCODE                                  08950000
-QRGSSDTA DS    0X          4-n   Data                                   08960000
-QRGSSLEN EQU   *-SFLD                                                   08970000
-*                                                                       08980000
-*        Highlighting                                                   08990000
-*                                                                       09000000
-         ORG   QRDATA                                                   09010000
-QRHIID   DS    AL1(QRHI)   3     QCODE                                  09020000
-QRHINP   DS    XL1         4     Number of value/action pairs           09030000
-QRHILEN  EQU   *-SFLD      Base length                                  09040000
-*                                                                       09050000
-QRHIVAL  DS    XL1         5+    Attr value accepted                    09060000
-QRHIACT  DS    XL1         6+    Action performed                       09070000
+         ORG   QRDATA                                                   08710000
+QRFVID   DS    AL1(QRFV)   3     QCODE                                  08720000
+QRFVTYPE DS    XL1         4     Type flags                             08730000
+QRFVFILL EQU   X'04'             -- Manditory fill supported            08740000
+QRFVENTR EQU   X'02'             -- Manditory entry supported           08750000
+QRFVTRIG EQU   X'01'             -- Trigger supported                   08760000
+QRFVANY  EQU   X'07'             -- any of these                        08770000
+QRFVLEN  EQU   *-SFLD                                                   08780000
+*                                                                       08790000
+*        Format Presentation                                            08800000
+*                                                                       08810000
+         ORG   QRDATA                                                   08820000
+QRFPID   DS    AL1(QRFP)   3     QCODE                                  08830000
+QRFPLEN  EQU   *-SFLD                                                   08840000
+*                                                                       08850000
+*        Format Storage Auxiliary Device                                08860000
+*                                                                       08870000
+         ORG   QRDATA                                                   08880000
+QRFSAID  DS    AL1(QRFSA)  3     QCODE                                  08890000
+QRFSAFLG DS    XL1         4     Flags                                  08900000
+QRFSAMUL EQU   X'80'             -- Multiple formats per xmit allowed   08910000
+QRFSASTA EQU   X'40'             -- Format(s) currently loaded          08920000
+QRFSASEL EQU   X'20'             -- User-selected fmt default enabled   08930000
+QRFSASHR EQU   X'10'             -- Host Format Mgmt Shared             08940000
+QRFSARSV DS    XL1         5     reserved                               08950000
+QRFSALIN DS    XL2         6-7   reserved for LIMIN parameter           08960000
+QRFSALOT DS    XL2         8-9   Max bytes of FSA data outbound         08970000
+QRFSALEN EQU   *-SFLD                                                   08980000
+*                                                                       08990000
+*        Graphic Color                                                  09000000
+*                                                                       09010000
+         ORG   QRDATA                                                   09020000
+QRGCID   DS    AL1(QRGC)   3     QCODE                                  09030000
+QRGCDATA DS    0X          4-n   Data                                   09040000
+QRGCLEN  EQU   *-SFLD                                                   09050000
+*                                                                       09060000
+*        Graphic Symbol Sets                                            09070000
 *                                                                       09080000
-*        IBM Auxiliary Device                                           09090000
-*                                                                       09100000
-         ORG   QRDATA                                                   09110000
-QRIADID  DS    AL1(QRIAD)  3     QCODE                                  09120000
-QRIADFLG DS    XL1         4     Flags                                  09130000
-QRIADQRY EQU   X'80'             -- Device supports Query               09140000
-QRIADRSV DS    XL1         5     reserved                               09150000
-QRIADLIN DS    XL2         6-7   Inbound message size limit             09160000
-QRIADLOT DS    XL2         8-9   Outbound message size limit            09170000
-QRIADTYP DS    XL1         10    Type of IBM auxiliary device           09180000
-QRIADDSP EQU   X'01'             -- Display                             09190000
-QRIADPRT EQU   X'02'             -- Printer                             09200000
-QRIADLEN EQU   *-SFLD                                                   09210000
-*                                                                       09220000
-*        Image                                                          09230000
-*                                                                       09240000
-         ORG   QRDATA                                                   09250000
-QRIMGID  DS    AL1(QRIMG)  3     QCODE                                  09260000
-QRIMGDTA DS    0X          4-n   Command                                09270000
-QRIMGLEN EQU   *-SFLD                                                   09280000
-*                                                                       09290000
-*        Implicit Partition                                             09300000
-*                                                                       09310000
-         ORG   QRDATA                                                   09320000
-QRIPID   DS    AL1(QRIP)   3     QCODE                                  09330000
-QRIPRSV  DS    XL2         4-5   reserved                               09340000
-QRIPSDPS EQU   *           6-n   Self-Defining Parameters               09350000
-QRIPLEN  EQU   *-SFLD                                                   09360000
+         ORG   QRDATA                                                   09090000
+QRGSSID  DS    AL1(QRGSS)  3     QCODE                                  09100000
+QRGSSDTA DS    0X          4-n   Data                                   09110000
+QRGSSLEN EQU   *-SFLD                                                   09120000
+*                                                                       09130000
+*        Highlighting                                                   09140000
+*                                                                       09150000
+         ORG   QRDATA                                                   09160000
+QRHIID   DS    AL1(QRHI)   3     QCODE                                  09170000
+QRHINP   DS    XL1         4     Number of value/action pairs           09180000
+QRHILEN  EQU   *-SFLD      Base length                                  09190000
+*                                                                       09200000
+QRHIVAL  DS    XL1         5+    Attr value accepted                    09210000
+QRHIACT  DS    XL1         6+    Action performed                       09220000
+*                                                                       09230000
+*        IBM Auxiliary Device                                           09240000
+*                                                                       09250000
+         ORG   QRDATA                                                   09260000
+QRIADID  DS    AL1(QRIAD)  3     QCODE                                  09270000
+QRIADFLG DS    XL1         4     Flags                                  09280000
+QRIADQRY EQU   X'80'             -- Device supports Query               09290000
+QRIADRSV DS    XL1         5     reserved                               09300000
+QRIADLIN DS    XL2         6-7   Inbound message size limit             09310000
+QRIADLOT DS    XL2         8-9   Outbound message size limit            09320000
+QRIADTYP DS    XL1         10    Type of IBM auxiliary device           09330000
+QRIADDSP EQU   X'01'             -- Display                             09340000
+QRIADPRT EQU   X'02'             -- Printer                             09350000
+QRIADLEN EQU   *-SFLD                                                   09360000
 *                                                                       09370000
-SDPIPSD  EQU   X'01'       Implicit Partition Sizes (Display)           09380000
-         ORG   QRIPSDPS                                                 09390000
-IPSDL    DS    XL1         0     Length of this SDP                     09400000
-IPSDID   DS    XL1         1     SDPID (SDPIPSD=X'01')                  09410000
-IPSDRSV  DS    XL1         2     reserved                               09420000
-IPSDWD   DS    XL2         3-4   Default screen width (cells)           09430000
-IPSDHD   DS    XL2         5-6   Default screen height (cells)          09440000
-IPSDWA   DS    XL2         7-8   Alternate screen width (cells)         09450000
-IPSDHA   DS    XL2         9-10  Alternate screen height (cells)        09460000
-IPSDLEN  EQU   *-QRIPSDPS                                               09470000
-*                                                                       09480000
-SDPICCD  EQU   X'02'       Implicit Ptn Char Cell Dimensions            09490000
-         ORG   QRIPSDPS                                                 09500000
-ICCDL    DS    XL1         0     Length of this SDP                     09510000
-ICCDID   DS    XL1         1     SDPID (SDPICCD=X'02')                  09520000
-ICCDRSV  DS    XL1         2     reserved                               09530000
-ICCDWCD  DS    XL2         3-4   Char cell width (dflt scr size)        09540000
-ICCDHCD  DS    XL2         5-6   Char cell height (dflt scr size)       09550000
-ICCDWCA  DS    XL2         7-8   Char cell width (alt scr size)         09560000
-ICCDHCA  DS    XL2         9-10  Char cell height (alt scr size)        09570000
-ICCDLEN  EQU   *-QRIPSDPS                                               09580000
-*                                                                       09590000
-SDPIPSP  EQU   X'03'       Implicit Partition Sizes (Printer)           09600000
-         ORG   QRIPSDPS                                                 09610000
-IPSPL    DS    XL1         0     Length of this SDP                     09620000
-IPSPID   DS    XL1         1     SDPID (SDPIPSP=X'03')                  09630000
-IPSPRSV  DS    XL1         2     reserved                               09640000
-IPSPPBSD DS    XL4         3-6   Default printer buffer size (cells)    09650000
-IPSPPBSA DS    XL4         7-10  Alternate printer buffer size (cells)  09660000
-IPSPLEN  EQU   *-QRIPSDPS                                               09670000
-*                                                                       09680000
-*        IOCA Auxiliary Device                                          09690000
-*                                                                       09700000
-         ORG   QRDATA                                                   09710000
-QRIOCID  DS    AL1(QRIOC)  3     QCODE                                  09720000
-QRIOCRSV DS    XL2         4-5   reserved                               09730000
-QRIOCLIN DS    XL2         6-7   Max IOCA bytes per xmit inbound        09740000
-QRIOCLOT DS    XL2         8-9   Max IOCA bytes per xmit outbound       09750000
-QRIOCTYP DS    XL1         10    Type of auxiliary device               09760000
-QRIOCINT EQU   X'01'             -- Input device                        09770000
-QRIOCOUT EQU   X'02'             -- Output device                       09780000
-QRIOCLEN EQU   *-SFLD                                                   09790000
-*                                                                       09800000
-*        Line Type                                                      09810000
-*                                                                       09820000
-         ORG   QRDATA                                                   09830000
-QRLTID   DS    AL1(QRLT)   3     QCODE                                  09840000
-QRLTDATA DS    0X          4-n   Command                                09850000
-QRLTLEN  EQU   *-SFLD                                                   09860000
-*                                                                       09870000
-*        MSR Control                                                    09880000
-*                                                                       09890000
-         ORG   QRDATA                                                   09900000
-QRMSRID  DS    AL1(QRMSR)  3     QCODE                                  09910000
-QRMSRRSV DS    XL1         4     reserved                               09920000
-QRMSRND  DS    XL1         5     Number of MSR types                    09930000
-QRMSRTYP DS    0X          4-n   MSR Types                              09940000
-QRMSRRDR EQU   X'01'             -- Magnetic reader                     09950000
-QRMSRLEN EQU   *-SFLD                                                   09960000
+*        Image                                                          09380000
+*                                                                       09390000
+         ORG   QRDATA                                                   09400000
+QRIMGID  DS    AL1(QRIMG)  3     QCODE                                  09410000
+QRIMGDTA DS    0X          4-n   Command                                09420000
+QRIMGLEN EQU   *-SFLD                                                   09430000
+*                                                                       09440000
+*        Implicit Partition                                             09450000
+*                                                                       09460000
+         ORG   QRDATA                                                   09470000
+QRIPID   DS    AL1(QRIP)   3     QCODE                                  09480000
+QRIPRSV  DS    XL2         4-5   reserved                               09490000
+QRIPSDPS EQU   *           6-n   Self-Defining Parameters               09500000
+QRIPLEN  EQU   *-SFLD                                                   09510000
+*                                                                       09520000
+SDPIPSD  EQU   X'01'       Implicit Partition Sizes (Display)           09530000
+         ORG   QRIPSDPS                                                 09540000
+IPSDL    DS    XL1         0     Length of this SDP                     09550000
+IPSDID   DS    XL1         1     SDPID (SDPIPSD=X'01')                  09560000
+IPSDRSV  DS    XL1         2     reserved                               09570000
+IPSDWD   DS    XL2         3-4   Default screen width (cells)           09580000
+IPSDHD   DS    XL2         5-6   Default screen height (cells)          09590000
+IPSDWA   DS    XL2         7-8   Alternate screen width (cells)         09600000
+IPSDHA   DS    XL2         9-10  Alternate screen height (cells)        09610000
+IPSDLEN  EQU   *-QRIPSDPS                                               09620000
+*                                                                       09630000
+SDPICCD  EQU   X'02'       Implicit Ptn Char Cell Dimensions            09640000
+         ORG   QRIPSDPS                                                 09650000
+ICCDL    DS    XL1         0     Length of this SDP                     09660000
+ICCDID   DS    XL1         1     SDPID (SDPICCD=X'02')                  09670000
+ICCDRSV  DS    XL1         2     reserved                               09680000
+ICCDWCD  DS    XL2         3-4   Char cell width (dflt scr size)        09690000
+ICCDHCD  DS    XL2         5-6   Char cell height (dflt scr size)       09700000
+ICCDWCA  DS    XL2         7-8   Char cell width (alt scr size)         09710000
+ICCDHCA  DS    XL2         9-10  Char cell height (alt scr size)        09720000
+ICCDLEN  EQU   *-QRIPSDPS                                               09730000
+*                                                                       09740000
+SDPIPSP  EQU   X'03'       Implicit Partition Sizes (Printer)           09750000
+         ORG   QRIPSDPS                                                 09760000
+IPSPL    DS    XL1         0     Length of this SDP                     09770000
+IPSPID   DS    XL1         1     SDPID (SDPIPSP=X'03')                  09780000
+IPSPRSV  DS    XL1         2     reserved                               09790000
+IPSPPBSD DS    XL4         3-6   Default printer buffer size (cells)    09800000
+IPSPPBSA DS    XL4         7-10  Alternate printer buffer size (cells)  09810000
+IPSPLEN  EQU   *-QRIPSDPS                                               09820000
+*                                                                       09830000
+*        IOCA Auxiliary Device                                          09840000
+*                                                                       09850000
+         ORG   QRDATA                                                   09860000
+QRIOCID  DS    AL1(QRIOC)  3     QCODE                                  09870000
+QRIOCRSV DS    XL2         4-5   reserved                               09880000
+QRIOCLIN DS    XL2         6-7   Max IOCA bytes per xmit inbound        09890000
+QRIOCLOT DS    XL2         8-9   Max IOCA bytes per xmit outbound       09900000
+QRIOCTYP DS    XL1         10    Type of auxiliary device               09910000
+QRIOCINT EQU   X'01'             -- Input device                        09920000
+QRIOCOUT EQU   X'02'             -- Output device                       09930000
+QRIOCLEN EQU   *-SFLD                                                   09940000
+*                                                                       09950000
+*        Line Type                                                      09960000
 *                                                                       09970000
-*        Null                                                           09980000
-*                                                                       09990000
-         ORG   QRDATA                                                   10000000
-QRNULID  DS    AL1(QRNUL)  3     QCODE                                  10010000
-QRNULLEN EQU   *-SFLD                                                   10020000
-*                                                                       10030000
-*        OEM Auxiliary Device                                           10040000
-*                                                                       10050000
-         ORG   QRDATA                                                   10060000
-QROADID  DS    AL1(QROAD)  3     QCODE                                  10070000
-QROADRSV DS    XL1         4     reserved                               10080000
-QROADREF DS    XL1         5     Data stream refernce id                10090000
-QROADTYP DS    XL8         6-13  Device type                            10100000
-QROADNAM DS    XL8         14-21 User assigned name                     10110000
-QROADLEN EQU   *-SFLD                                                   10120000
-*                                                                       10130000
-*        Paper Feed Techniques                                          10140000
-*                                                                       10150000
-         ORG   QRDATA                                                   10160000
-QRPFTID  DS    AL1(QRPFT)  3     QCODE                                  10170000
-QRPFTFLG DS    XL1         4     Flags                                  10180000
-QRPFTMSK EQU   B'11100000'       Feed Mechanism Mask                    10190000
-QRPFTMAN EQU   B'00100000'       -- Cut sheet manual                    10200000
-QRPFTFRM EQU   B'01000000'       -- Continuous form                     10210000
-QRPFTATO EQU   B'01100000'       -- Cut sheet automatic                 10220000
-QRPFTDOD EQU   B'10000000'       -- Document on demand                  10230000
-QRPFTTMO DS    XL2         5-6   Top margin offset (1/1400")            10240000
-QRPFTBMO DS    XL2         7-8   Bottom margin offset                   10250000
-QRPFTLEN EQU   *-SFLD                                                   10260000
-*                                                                       10270000
-*        Partition Characteristics                                      10280000
-*                                                                       10290000
-         ORG   QRDATA                                                   10300000
-QRPCID   DS    AL1(QRPC)   3     QCODE                                  10310000
-QRPCSDPS EQU   *           4-n   Self-Defining Parameters               10320000
-QRPCLEN  EQU   *-SFLD                                                   10330000
-*                                                                       10340000
-*        Port                                                           10350000
-*                                                                       10360000
-         ORG   QRDATA                                                   10370000
-QRPORID  DS    AL1(QRPOR)  3     QCODE                                  10380000
-QRPORDTA EQU   *           4-n   Data                                   10390000
-QRPORLEN EQU   *-SFLD                                                   10400000
-*                                                                       10410000
-*        Procedure                                                      10420000
-*                                                                       10430000
-         ORG   QRDATA                                                   10440000
-QRPRCID  DS    AL1(QRPRC)  3     QCODE                                  10450000
-QRPRCDTA EQU   *           4-n   Data                                   10460000
-QRPRCLEN EQU   *-SFLD                                                   10470000
-*                                                                       10480000
-*        Product Defined Data Stream                                    10490000
-*                                                                       10500000
-         ORG   QRDATA                                                   10510000
-QRPDSID  DS    AL1(QRPDS)  3     QCODE                                  10520000
-QRPDSRSV DS    XL2         4-5   reserved                               10530000
-QRPDSREF DS    XL1         6     Reference identifier                   10540000
-QRPDSSS  DS    XL1         7     Subset identifier                      10550000
-QRPDSLEN EQU   *-SFLD                                                   10560000
-*                                                                       10570000
-*        Reply Modes                                                    10580000
-*                                                                       10590000
-         ORG   QRDATA                                                   10600000
-QRRMID   DS    AL1(QRRM)   3     QCODE                                  10610000
-QRRMODES DS    0XL1        4-n   Modes supported                        10620000
-QRRMFLD  EQU   X'00'             -- Field mode                          10630000
-QRRMXFLD EQU   X'01'             -- Extended field mode                 10640000
-QRRMCHAR EQU   X'02'             -- Character mode                      10650000
-QRRMLEN  EQU   *-SFLD                                                   10660000
-*                                                                       10670000
-*        RPQ Names                                                      10680000
-*                                                                       10690000
-         ORG   QRDATA                                                   10700000
-QRRNMID  DS    AL1(QRRNM)  3     QCODE                                  10710000
-QRRNMTYP DS    XL4         4-7   Device type identifier                 10720000
-QRRNMMDL DS    XL4         8-11  Model type identifier                  10730000
-QRRNMNML DS    XL1         12    RPQ length                             10740000
-QRRNMNAM DS    0XL1        13-n  RPQ name                               10750000
-QRRNMLEN EQU   *-SFLD                                                   10760000
-*                                                                       10770000
-*        Save/Restore Format                                            10780000
-*                                                                       10790000
-         ORG   QRDATA                                                   10800000
-QRSRFID  DS    AL1(QRSRF)  3     QCODE                                  10810000
-QRSRFCBL DS    XL2         4-5   FPCB length                            10820000
-QRSRFLEN EQU   *-SFLD                                                   10830000
+         ORG   QRDATA                                                   09980000
+QRLTID   DS    AL1(QRLT)   3     QCODE                                  09990000
+QRLTDATA DS    0X          4-n   Command                                10000000
+QRLTLEN  EQU   *-SFLD                                                   10010000
+*                                                                       10020000
+*        MSR Control                                                    10030000
+*                                                                       10040000
+         ORG   QRDATA                                                   10050000
+QRMSRID  DS    AL1(QRMSR)  3     QCODE                                  10060000
+QRMSRRSV DS    XL1         4     reserved                               10070000
+QRMSRND  DS    XL1         5     Number of MSR types                    10080000
+QRMSRTYP DS    0X          4-n   MSR Types                              10090000
+QRMSRRDR EQU   X'01'             -- Magnetic reader                     10100000
+QRMSRLEN EQU   *-SFLD                                                   10110000
+*                                                                       10120000
+*        Null                                                           10130000
+*                                                                       10140000
+         ORG   QRDATA                                                   10150000
+QRNULID  DS    AL1(QRNUL)  3     QCODE                                  10160000
+QRNULLEN EQU   *-SFLD                                                   10170000
+*                                                                       10180000
+*        OEM Auxiliary Device                                           10190000
+*                                                                       10200000
+         ORG   QRDATA                                                   10210000
+QROADID  DS    AL1(QROAD)  3     QCODE                                  10220000
+QROADRSV DS    XL1         4     reserved                               10230000
+QROADREF DS    XL1         5     Data stream refernce id                10240000
+QROADTYP DS    XL8         6-13  Device type                            10250000
+QROADNAM DS    XL8         14-21 User assigned name                     10260000
+QROADLEN EQU   *-SFLD                                                   10270000
+*                                                                       10280000
+*        Paper Feed Techniques                                          10290000
+*                                                                       10300000
+         ORG   QRDATA                                                   10310000
+QRPFTID  DS    AL1(QRPFT)  3     QCODE                                  10320000
+QRPFTFLG DS    XL1         4     Flags                                  10330000
+QRPFTMSK EQU   B'11100000'       Feed Mechanism Mask                    10340000
+QRPFTMAN EQU   B'00100000'       -- Cut sheet manual                    10350000
+QRPFTFRM EQU   B'01000000'       -- Continuous form                     10360000
+QRPFTATO EQU   B'01100000'       -- Cut sheet automatic                 10370000
+QRPFTDOD EQU   B'10000000'       -- Document on demand                  10380000
+QRPFTTMO DS    XL2         5-6   Top margin offset (1/1400")            10390000
+QRPFTBMO DS    XL2         7-8   Bottom margin offset                   10400000
+QRPFTLEN EQU   *-SFLD                                                   10410000
+*                                                                       10420000
+*        Partition Characteristics                                      10430000
+*                                                                       10440000
+         ORG   QRDATA                                                   10450000
+QRPCID   DS    AL1(QRPC)   3     QCODE                                  10460000
+QRPCSDPS EQU   *           4-n   Self-Defining Parameters               10470000
+QRPCLEN  EQU   *-SFLD                                                   10480000
+*                                                                       10490000
+*        Port                                                           10500000
+*                                                                       10510000
+         ORG   QRDATA                                                   10520000
+QRPORID  DS    AL1(QRPOR)  3     QCODE                                  10530000
+QRPORDTA EQU   *           4-n   Data                                   10540000
+QRPORLEN EQU   *-SFLD                                                   10550000
+*                                                                       10560000
+*        Procedure                                                      10570000
+*                                                                       10580000
+         ORG   QRDATA                                                   10590000
+QRPRCID  DS    AL1(QRPRC)  3     QCODE                                  10600000
+QRPRCDTA EQU   *           4-n   Data                                   10610000
+QRPRCLEN EQU   *-SFLD                                                   10620000
+*                                                                       10630000
+*        Product Defined Data Stream                                    10640000
+*                                                                       10650000
+         ORG   QRDATA                                                   10660000
+QRPDSID  DS    AL1(QRPDS)  3     QCODE                                  10670000
+QRPDSRSV DS    XL2         4-5   reserved                               10680000
+QRPDSREF DS    XL1         6     Reference identifier                   10690000
+QRPDSSS  DS    XL1         7     Subset identifier                      10700000
+QRPDSLEN EQU   *-SFLD                                                   10710000
+*                                                                       10720000
+*        Reply Modes                                                    10730000
+*                                                                       10740000
+         ORG   QRDATA                                                   10750000
+QRRMID   DS    AL1(QRRM)   3     QCODE                                  10760000
+QRRMODES DS    0XL1        4-n   Modes supported                        10770000
+QRRMFLD  EQU   X'00'             -- Field mode                          10780000
+QRRMXFLD EQU   X'01'             -- Extended field mode                 10790000
+QRRMCHAR EQU   X'02'             -- Character mode                      10800000
+QRRMLEN  EQU   *-SFLD                                                   10810000
+*                                                                       10820000
+*        RPQ Names                                                      10830000
 *                                                                       10840000
-*        Segment                                                        10850000
-*                                                                       10860000
-         ORG   QRDATA                                                   10870000
-QRSEGID  DS    AL1(QRSEG)  3     QCODE                                  10880000
-QRSEGDTA EQU   *           4-n   Data                                   10890000
-QRSEGLEN EQU   *-SFLD                                                   10900000
-*                                                                       10910000
-*        Settable Printer Characteristics                               10920000
-*                                                                       10930000
-         ORG   QRDATA                                                   10940000
-QRSPCID  DS    AL1(QRSPC)  3     QCODE                                  10950000
-QRSPCRSV DS    XL2         4-5   reserved                               10960000
-QRSPCLEN EQU   *-SFLD                                                   10970000
-*                                                                       10980000
-*        Storage Pools                                                  10990000
-*                                                                       11000000
-         ORG   QRDATA                                                   11010000
-QRSTPID  DS    AL1(QRSTP)  3     QCODE                                  11020000
-QRSTPSDF EQU   *           4-n   Self-Defining Parameters               11030000
-QRSTPLEN EQU   *-SFLD                                                   11040000
-*                                                                       11050000
-*        Summary                                                        11060000
-*                                                                       11070000
-         ORG   QRDATA                                                   11080000
-QRSUMID  DS    AL1(QRSUM)  3     QCODE                                  11090000
-QRSUMLST DS    0XL1        4-n   List of supported QCODEs               11100000
-QRSUMLEN EQU   *-SFLD                                                   11110000
-*                                                                       11120000
-*        Text Partitions                                                11130000
-*                                                                       11140000
-         ORG   QRDATA                                                   11150000
-QRTXPID  DS    AL1(QRTXP)  3     QCODE                                  11160000
-QRTXPNT  DS    XL1         4     Max number of text partitions          11170000
-QRTXPMSZ DS    XL2         5-6   Max partition size                     11180000
-QRTXPFLG DS    XL1         7     Flags                                  11190000
-QRTXPVSC EQU   X'80'             -- Vertical scrolling supported        11200000
-QRTXPAPA EQU   X'10'             -- AP addressability supported         11210000
-QRTXPPRO EQU   X'08'             -- Partition protection supported      11220000
-QRTXPMPS EQU   X'02'             -- Modify partition supported          11230000
-QRTXPNTT DS    XL1         8     Number of text types supported         11240000
-QRTXPTXT DS    0XL1        9-n   List of types supported                11250000
-QRTXPLEN EQU   *-SFLD                                                   11260000
+         ORG   QRDATA                                                   10850000
+QRRNMID  DS    AL1(QRRNM)  3     QCODE                                  10860000
+QRRNMTYP DS    XL4         4-7   Device type identifier                 10870000
+QRRNMMDL DS    XL4         8-11  Model type identifier                  10880000
+QRRNMNML DS    XL1         12    RPQ length                             10890000
+QRRNMNAM DS    0XL1        13-n  RPQ name                               10900000
+QRRNMLEN EQU   *-SFLD                                                   10910000
+*                                                                       10920000
+*        Save/Restore Format                                            10930000
+*                                                                       10940000
+         ORG   QRDATA                                                   10950000
+QRSRFID  DS    AL1(QRSRF)  3     QCODE                                  10960000
+QRSRFCBL DS    XL2         4-5   FPCB length                            10970000
+QRSRFLEN EQU   *-SFLD                                                   10980000
+*                                                                       10990000
+*        Segment                                                        11000000
+*                                                                       11010000
+         ORG   QRDATA                                                   11020000
+QRSEGID  DS    AL1(QRSEG)  3     QCODE                                  11030000
+QRSEGDTA EQU   *           4-n   Data                                   11040000
+QRSEGLEN EQU   *-SFLD                                                   11050000
+*                                                                       11060000
+*        Settable Printer Characteristics                               11070000
+*                                                                       11080000
+         ORG   QRDATA                                                   11090000
+QRSPCID  DS    AL1(QRSPC)  3     QCODE                                  11100000
+QRSPCRSV DS    XL2         4-5   reserved                               11110000
+QRSPCLEN EQU   *-SFLD                                                   11120000
+*                                                                       11130000
+*        Storage Pools                                                  11140000
+*                                                                       11150000
+         ORG   QRDATA                                                   11160000
+QRSTPID  DS    AL1(QRSTP)  3     QCODE                                  11170000
+QRSTPSDF EQU   *           4-n   Self-Defining Parameters               11180000
+QRSTPLEN EQU   *-SFLD                                                   11190000
+*                                                                       11200000
+*        Summary                                                        11210000
+*                                                                       11220000
+         ORG   QRDATA                                                   11230000
+QRSUMID  DS    AL1(QRSUM)  3     QCODE                                  11240000
+QRSUMLST DS    0XL1        4-n   List of supported QCODEs               11250000
+QRSUMLEN EQU   *-SFLD                                                   11260000
 *                                                                       11270000
-*        Transparency                                                   11280000
+*        Text Partitions                                                11280000
 *                                                                       11290000
          ORG   QRDATA                                                   11300000
-QRTRNID  DS    AL1(QRTRN)  3     QCODE                                  11310000
-QRTRNNP  DS    XL1         4     Number of pairs                        11320000
-QRTRNLEN EQU   *-SFLD      Base length                                  11330000
-*                                                                       11340000
-QRTRNV   DS    XL1         6+    1st pair: Attr value accepted          11350000
-QRTRNA   DS    XL1         7+     ''  ''   Action displayed             11360000
-*                                                                       11370000
-*        Usable Area                                                    11380000
-*                                                                       11390000
-         ORG   QRDATA                                                   11400000
-QRUAID   DS    AL1(QRUA)   3     QCODE                                  11410000
-QRUAFLG1 DS    XL1         4     Flags                                  11420000
-QRUAPGPR EQU   X'40'             -- Page printer                        11430000
-QRUAHC   EQU   X'10'             -- Hard copy device                    11440000
-QRUAMODE EQU   X'0F'             Addressing mode mask                   11450000
-QRUA1214 EQU   X'01'             -- 12/14 bit addressing                11460000
-QRUAAM16 EQU   X'03'             -- 12/14/16 bit addressing             11470000
-QRUAFLG2 DS    XL1         5     Mode flags                             11480000
-QRUAVCP  EQU   X'80'             -- Variable cells supported            11490000
-QRUANMTX EQU   X'40'             -- Non-matrix characters               11500000
-QRUAPELS EQU   X'20'             -- W/H are in pells                    11510000
-QRUAW    DS    XL2         6-7   Usable area width                      11520000
-QRUAH    DS    XL2         8-9   Usable area height                     11530000
-QRUAUOM  DS    XL1         10    Units of measure                       11540000
-QRUAUOMI EQU   X'00'             -- pels per inch                       11550000
-QRUAUOMM EQU   X'01'             -- pels per mm                         11560000
-QRUADBPX DS    0XL4        11-14 X Distance between points              11570000
-QRUADXNM DS    XL2         11-12 -- numerator                           11580000
-QRUADXDM DS    XL2         13-14 -- demoninator                         11590000
-QRUADBPY DS    0XL4        15-18 Y Distance between points              11600000
-QRUADYNM DS    XL2         15-16 -- numerator                           11610000
-QRUADYDM DS    XL2         17-18 -- demoninator                         11620000
-QRUAAW   DS    XL1         19    Default cell width                     11630000
-QRUAAH   DS    XL1         20    Default cell height                    11640000
-QRUASIZE DS    XL2         21-22 Character buffer size                  11650000
-QRUAXMIN DS    XL1         23    Min X units in variable cell           11660000
-QRUAYMIN DS    XL1         24    Min Y units in variable cell           11670000
-QRUAXMAX DS    XL1         25    Max X units in variable cell           11680000
-QRUAYMAX DS    XL1         26    Max Y units in variable cell           11690000
-QRUSLEN  EQU   *-SFLD                                                   11700000
-*                                                                       11710000
-*        3270 IPDS                                                      11720000
-*                                                                       11730000
-         ORG   QRDATA                                                   11740000
-QRIPDID  DS    AL1(QRIPD)  3     QCODE                                  11750000
-QRIPDRSV DS    XL2         4-5   reserved                               11760000
-QRIPDLIM DS    XL2         6-7   Max IPDS data bytes outbound           11770000
-QRIPDLEN EQU   *-SFLD                                                   11780000
-         EJECT ,                                                        11790000
-         POP   PRINT                                                    11800000
+QRTXPID  DS    AL1(QRTXP)  3     QCODE                                  11310000
+QRTXPNT  DS    XL1         4     Max number of text partitions          11320000
+QRTXPMSZ DS    XL2         5-6   Max partition size                     11330000
+QRTXPFLG DS    XL1         7     Flags                                  11340000
+QRTXPVSC EQU   X'80'             -- Vertical scrolling supported        11350000
+QRTXPAPA EQU   X'10'             -- AP addressability supported         11360000
+QRTXPPRO EQU   X'08'             -- Partition protection supported      11370000
+QRTXPMPS EQU   X'02'             -- Modify partition supported          11380000
+QRTXPNTT DS    XL1         8     Number of text types supported         11390000
+QRTXPTXT DS    0XL1        9-n   List of types supported                11400000
+QRTXPLEN EQU   *-SFLD                                                   11410000
+*                                                                       11420000
+*        Transparency                                                   11430000
+*                                                                       11440000
+         ORG   QRDATA                                                   11450000
+QRTRNID  DS    AL1(QRTRN)  3     QCODE                                  11460000
+QRTRNNP  DS    XL1         4     Number of pairs                        11470000
+QRTRNLEN EQU   *-SFLD      Base length                                  11480000
+*                                                                       11490000
+QRTRNV   DS    XL1         6+    1st pair: Attr value accepted          11500000
+QRTRNA   DS    XL1         7+     ''  ''   Action displayed             11510000
+*                                                                       11520000
+*        Usable Area                                                    11530000
+*                                                                       11540000
+         ORG   QRDATA                                                   11550000
+QRUAID   DS    AL1(QRUA)   3     QCODE                                  11560000
+QRUAFLG1 DS    XL1         4     Flags                                  11570000
+QRUAPGPR EQU   X'40'             -- Page printer                        11580000
+QRUAHC   EQU   X'10'             -- Hard copy device                    11590000
+QRUAMODE EQU   X'0F'             Addressing mode mask                   11600000
+QRUA1214 EQU   X'01'             -- 12/14 bit addressing                11610000
+QRUAAM16 EQU   X'03'             -- 12/14/16 bit addressing             11620000
+QRUAFLG2 DS    XL1         5     Mode flags                             11630000
+QRUAVCP  EQU   X'80'             -- Variable cells supported            11640000
+QRUANMTX EQU   X'40'             -- Non-matrix characters               11650000
+QRUAPELS EQU   X'20'             -- W/H are in pells                    11660000
+QRUAW    DS    XL2         6-7   Usable area width                      11670000
+QRUAH    DS    XL2         8-9   Usable area height                     11680000
+QRUAUOM  DS    XL1         10    Units of measure                       11690000
+QRUAUOMI EQU   X'00'             -- pels per inch                       11700000
+QRUAUOMM EQU   X'01'             -- pels per mm                         11710000
+QRUADBPX DS    0XL4        11-14 X Distance between points              11720000
+QRUADXNM DS    XL2         11-12 -- numerator                           11730000
+QRUADXDM DS    XL2         13-14 -- demoninator                         11740000
+QRUADBPY DS    0XL4        15-18 Y Distance between points              11750000
+QRUADYNM DS    XL2         15-16 -- numerator                           11760000
+QRUADYDM DS    XL2         17-18 -- demoninator                         11770000
+QRUAAW   DS    XL1         19    Default cell width                     11780000
+QRUAAH   DS    XL1         20    Default cell height                    11790000
+QRUASIZE DS    XL2         21-22 Character buffer size                  11800000
+QRUAXMIN DS    XL1         23    Min X units in variable cell           11810000
+QRUAYMIN DS    XL1         24    Min Y units in variable cell           11820000
+QRUAXMAX DS    XL1         25    Max X units in variable cell           11830000
+QRUAYMAX DS    XL1         26    Max Y units in variable cell           11840000
+QRUSLEN  EQU   *-SFLD                                                   11850000
+*                                                                       11860000
+*        3270 IPDS                                                      11870000
+*                                                                       11880000
+         ORG   QRDATA                                                   11890000
+QRIPDID  DS    AL1(QRIPD)  3     QCODE                                  11900000
+QRIPDRSV DS    XL2         4-5   reserved                               11910000
+QRIPDLIM DS    XL2         6-7   Max IPDS data bytes outbound           11920000
+QRIPDLEN EQU   *-SFLD                                                   11930000
+         EJECT ,                                                        11940000
+         POP   PRINT                                                    11950000

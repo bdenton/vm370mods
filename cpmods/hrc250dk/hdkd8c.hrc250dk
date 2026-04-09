@@ -14,6 +14,8 @@
 ./ * 29-Jul-2025 WDENTON  Add support for Logical Devices
 ./ * 20-Aug-2025 WDENTON  Move small RPQ response to free storage
 ./ * 13-Oct-2025 WDENTON  Fix hang enabling not connected device
+./ *  7-Apr-2026 WDENTON  Rename 3270 related copy files
+./ * 10-Apr-2026 WDENTON  Add more advanced attribute support
 ./ *
 ./ R 00022000 00024000 $ 00022010 200 
 *        HDKD8CEN - Build and initialize the display device    HRC250DK 00022010
@@ -59,6 +61,17 @@ ISGRAF   DS    0H                                              HRC250DK 00148100
          USING GRFXBLOK,R9             Accessing the GRFXBLOK  HRC250DK 00148200
          ICM   R9,15,RDEVGRFX          ...                     HRC250DK 00148300
          BZ    NOTGRAF                 not there.. bad         HRC250DK 00148400
+./ D 00157000
+./ I 00158000 $ 00158030 30
+*                                                              HRC250DK 00158030
+*------ in GRFXTATT <---------------------------->             HRC250DK 00158060
+*..BGCO    ...1 ....    background color           ...1 ....   HRC250DK 00158090
+*..TRAN    .... 1...    transparency               .... 1...   HRC250DK 00158120
+*..FOUT    .... .1..    field outlining            .... .1..   HRC250DK 00158150
+*..FVAL    .... ..1.    field validation           .... ..1.   HRC250DK 00158180
+./ I 00165000 $ 00165050 20
+         IC    R0,GRFXTATT             Get the extra flags     HRC250DK 00165050
+         OR    R1,R0                   Put them together       HRC250DK 00165150
 ./ R 00169000 00186000 $ 00169100 200
 *                                                              HRC250DK 00169100
          LH   R1,GRFXCOLS              Screen width (columns)  HRC250DK 00169300
@@ -467,7 +480,7 @@ SETXSEL  DS    0H                                              HRC250DK 00362105
          BNE   SIDRET0                 no, don't do ext selectsHRC250DK 00362155   
          SPACE 1                                               HRC250DK 00362165
 EXTSEL   DS    0H                                              HRC250DK 00362175
-         OI    RDEVGRIC,RDEVXSEL       CU handles ext selects  HRC250DK 00362185 
+         OI    GRFXFLG1,GRFXTSEL       CU handles ext selects  HRC250DK 00362185 
          SPACE 3                                               HRC250DK 00362195
 SIDRET0  DS    0H                                              HRC250DK 00362205
          SR    R15,R15                 RC = 0                  HRC250DK 00362215
@@ -684,6 +697,13 @@ RPQBIG   DS    0H                                              HRC250DK 00401805
          CLI   QRQCODE,QRANP           Alphanumeric partitions?HRC250DK 00420005
 ./ R 00422000 $ 00422005
          CLI   QRQCODE,QRIP            Implicit oaartition?    HRC250DK 00422005
+./ I 00423000 $ 00423030 30
+         CLI   QRQCODE,QRFO            Field outlining?        HRC250DK 00423030
+         BE    FLDOUT                  Yes                     HRC250DK 00423060
+         CLI   QRQCODE,QRFV            Field validation?       HRC250DK 00423090
+         BE    FLDVAL                  Yes                     HRC250DK 00423120
+         CLI   QRQCODE,QRTRN           Transparency?           HRC250DK 00423150
+         BE    TRANSP                  Yes                     HRC250DK 00423180
 ./ R 00424000 00431000 $ 00424005 100
          SPACE 3                                               HRC250DK 00424005
 *--------------------------------------------------------------HRC250DK 00424105
@@ -746,17 +766,29 @@ MOVERPQ  MVC   0(*-*,R1),0(R2)         *** Executed ***        HRC250DK 00426305
          SR    R0,R0                   Get the color pair countHRC250DK 00439605
          ICM   R0,1,QRCOLNP            ...                     HRC250DK 00439705
          BZ    NEXTID                  Ignore if zero pairs    HRC250DK 00439805
+         LR    R4,R0                   Save for later          HRC250DK
          LA    R5,QRCOLCAV             => 1st pair             HRC250DK 00439905
 COLLP    DS    0H                                              HRC250DK 00440005
          CLI   0(R5),0                 Default CAV?            HRC250DK 00440105
          BE    COLNX                   yes, try next one       HRC250DK 00440205
          CLI   1(R5),0                 Non-default CID?        HRC250DK 00440305
-         BE    COLSET                  yes, set flag           HRC250DK 00440405
+         BNE   COLSET                  yes, set flag           HRC250DK 00440405
 COLNX    DS    0H                                              HRC250DK 00440505
          LA    R5,2(,R5)               next pair               HRC250DK 00440605
          BCT   R0,COLLP                and look at them all    HRC250DK 00440705
          B     NEXTID                  next field              HRC250DK 00440805
 COLSET   DS    0H                                              HRC250DK 00440905
+./ I 00443000 $ 00443030 30
+         SLL   R4,2                    Length of CAV/CID pairs HRC250DK 00443030
+         LA    R4,QRCOLLEN(,R4)        + fixed field length    HRC250DK 00443060
+         CH    R4,SFLEN                Any Self-Defining Parms?HRC250DK 00443090
+         BNH   NEXTID                  ..no, done with color   HRC250DK 00443120
+         LA    R4,SFLD(R4)             -> 1st self-def parm    HRC250DK 00443150
+         CLI   0(R4),4                 right length?           HRC250DK 00443180
+         BNE   NEXTID                  ..no, can't be bg color HRC250DK 00443210
+         CLI   1(R4),QRCSDPID          right field id?         HRC250DK 00443240
+         BNE   NEXTID                  ..no, not interested    HRC250DK 00443270
+         OI    GRFXTATT,GRFXBGCO       ..yes, set BG Color Ftr HRC250DK 00443300
 ./ R 00445000 $ 00445050 50
          SPACE 3                                               HRC250DK 00445050
 *                                                              HRC250DK 00445100
@@ -777,7 +809,7 @@ HILP     DS    0H                                              HRC250DK 00448005
          CLI   0(R5),0                 Default VAL?            HRC250DK 00448105
          BE    HINX                    yes, try next one       HRC250DK 00448205
          CLI   1(R5),0                 Non-default ACT?        HRC250DK 00448305
-         BE    HISET                   yes, set flag           HRC250DK 00448405
+         BNE   HISET                   yes, set flag           HRC250DK 00448405
 HINX     DS    0H                                              HRC250DK 00448505
          LA    R5,2(,R5)               next pair               HRC250DK 00448605
          BCT   R0,HILP                 and look at them all    HRC250DK 00448705
@@ -861,6 +893,43 @@ IPPRT    DS    0H                                              HRC250DK 00467800
          BNE   IPNEXT                  ..no, try next          HRC250DK 00468000
          MVI   RDEVTYPE,TYP3287        ..yes, set RDEV to prt  HRC250DK 00468100
          B     IPNEXT                  and look at next parm   HRC250DK 00468200
+         SPACE 3                                               HRC250DK
+*                                                              HRC250DK
+*        Field Outlining (x'8c') Query Reply Field             HRC250DK
+*                                                              HRC250DK
+         SPACE 1                                               HRC250DK
+FLDOUT   DS    0H                                              HRC250DK
+         OI    GRFXTATT,GRFXFOUT       Field Outlining feature HRC250DK
+         B     NEXTID                                          HRC250DK
+         SPACE 3                                               HRC250DK
+*                                                              HRC250DK
+*        Field Validation (x'8a') Query Reply Field            HRC250DK
+*                                                              HRC250DK
+         SPACE 1                                               HRC250DK
+FLDVAL   DS    0H                                              HRC250DK
+         TM    QRFVTYPE,QRFVANY        Any types supported?    HRC250DK
+         BZ    NEXTID                  ..nope, ignore          HRC250DK
+         OI    GRFXTATT,GRFXFVAL       Field Validation ftr    HRC250DK
+         B     NEXTID                                          HRC250DK
+         SPACE 3                                               HRC250DK
+*                                                              HRC250DK
+*        Transparency (x'a8') Query Reply Field                HRC250DK
+*                                                              HRC250DK
+         SPACE 1                                               HRC250DK
+TRANSP   DS    0H                                              HRC250DK
+         SR    R0,R0                   Get value/action        HRC250DK 00447605
+         ICM   R0,1,QRTRNNP               pair count.          HRC250DK 00447705
+         BZ    NEXTID                  Ignore if zero pairs    HRC250DK 00447805
+         LA    R5,QRTRNV               => 1st pair             HRC250DK 00447905
+TRNLP    DS    0H                                              HRC250DK 00448005
+         CLI   1(R5),0                 Non-default ACT?        HRC250DK 00448305
+         BNE   TRNSET                  yes, set flag           HRC250DK 00448405 
+         LA    R5,2(,R5)               next pair               HRC250DK 00448605
+         BCT   R0,TRNLP                and look at them all    HRC250DK 00448705
+         B     NEXTID                  next field              HRC250DK 00448805
+TRNSET   DS    0H                                              HRC250DK 00448905
+         OI    GRFXTATT,GRFXTRAN       Set transparency ftr    HRC250DK 00451000
+         B     NEXTID                                          HRC250DK 00452000
          SPACE 1                                               HRC250DK 00468300
          DROP  R2,R4                                           HRC250DK 00468400
          EJECT ,                                               HRC250DK 00468500
@@ -1095,6 +1164,7 @@ NORPQPG  DS    0H                                              HRC250DK 00485300
          MVC   GRFXROWS,TUBEROWS       Default row count       HRC250DK 00485500
          MVC   GRFXCOLS,TUBECOLS       Default column count    HRC250DK 00485600
          NI    RDEVGRIC,255-RDEVEXTC-RDEVEXTH-RDEVPSS-RDEVAD14 HRC250DK 00485785
+         MVI   GRFXTATT,0              Clear advanced ftrs     HRC250DK
          SPACE 1                                               HRC250DK 00485800
 GEOMGOT  DS    0H                                              HRC250DK 00485900
          MVC   RDEVMDL,TUBEMDL         Set model for Diag24    HRC250DK 00486000
@@ -1282,7 +1352,7 @@ WSFKBRS  EQU   *                         SF to restore the kbd HRC250DK 00556600
          DC    AL2(WSFKBRSL)               Field length        HRC250DK 00556700
          DC    AL1(SFO3DS)                 SFID: 3270DS Outbnd HRC250DK 00556800
          DC    X'00'                       PID                 HRC250DK 00556900
-         DC    AL1(CMDW)                   Command: write      HRC250DK 00557000
+         DC    AL1(CC@W)                   Command: write      HRC250DK 00557000
          DC    AL1(WCCUNLK)                3270 WCC: restore kbHRC250DK 00557100
 WSFKBRSL EQU   *-WSFKBRS                                       HRC250DK 00557200
          SPACE 1                                               HRC250DK 00557300
@@ -1358,8 +1428,8 @@ BUFF3066 DC    64XL1'00'  Buffer for orders & data             HRC250DK 00565000
 ./ I 00579000 $ 00579100 100
          COPY  GRFXBLOK           327x device extensions       HRC250DK 00579100
          COPY  GRCWORK            For status area layout       HRC250DK 00579200
-         COPY  HDK3270            327x equates                 HRC250DK 00579300
-         COPY  HDKSFLDS           327x structured fields       HRC250DK 00579400
+         COPY  HRC3270            327x equates                 HRC250DK 00579300
+         COPY  HRCSFLDS           327x structured fields       HRC250DK 00579400
 ./ R 00587000 00592000 $ 00587005 500 
 IOWCCW1  DS    D                       CCW #1                  HRC250DK 00587005
 IOWCCW2  DS    D                       CCW #2                  HRC250DK 00587505

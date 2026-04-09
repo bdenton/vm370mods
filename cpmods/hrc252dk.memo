@@ -6,6 +6,7 @@ Affected Files:
 ===============
 
 IOBLOKS  COPY
+HRC3270  COPY
 DMKGRF   ASSEMBLE
 DMKQCN   ASSEMBLE
 DMKVCN   ASSEMBLE
@@ -14,6 +15,7 @@ Prerequisites:
 ==============
 
 HRC101DK V02 TERMINAL ENHANCEMENTS LIKE Z/VM
+HRC249DK - Add common 3270 support files
 HRC250DK - Dynamic 327x screen size support
 
 Description:
@@ -37,6 +39,14 @@ This update updates the CONTASK control block by adding a new flag
 (CONDIAG) to the CONFSS flags. This is used instead of the CONDWC
 flag that was part of the Diagnose 58 CCW (x'19') stored in the
 CONTASK. This flag is also used in the VCONFSS field of the VCONCTL
+
+----------------------------------------------------------------------------
+
+HRC3270  COPY
+-------------
+
+This update updates CCW X'19' starting line number mask from X'3F'
+to X'7F' to reflect the larger allowed value with this update.
 
 ----------------------------------------------------------------------------
 

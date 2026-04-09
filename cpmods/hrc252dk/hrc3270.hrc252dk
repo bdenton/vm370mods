@@ -1,0 +1,11 @@
+./ * HRC252DK - Extend Diag58 CCW19 to 128 lines 
+./ *
+./ * This update changes the starting line number mask
+./ * defined for Diagnose 58, X'19' CCW to reflect the   
+./ * limit changed by this update   
+./ *
+./ * HISTORY:
+./ * 07-Apr-2026 WDENTON  Initial version for VM370CE V1 R1.2
+./ *
+./ R 02480000 $ 02480010
+D58FLNO  EQU   X'7F'     -- Starting line number mask          HRC252DK 02480010
