@@ -61,17 +61,22 @@ ISGRAF   DS    0H                                              HRC250DK 00148100
          USING GRFXBLOK,R9             Accessing the GRFXBLOK  HRC250DK 00148200
          ICM   R9,15,RDEVGRFX          ...                     HRC250DK 00148300
          BZ    NOTGRAF                 not there.. bad         HRC250DK 00148400
-./ D 00157000
+./ * not doing this due to public objections         
+./ * ./ D 00157000
+./ * 
 ./ I 00158000 $ 00158030 30
 *                                                              HRC250DK 00158030
 *------ in GRFXTATT <---------------------------->             HRC250DK 00158060
 *..BGCO    ...1 ....    background color           ...1 ....   HRC250DK 00158090
 *..TRAN    .... 1...    transparency               .... 1...   HRC250DK 00158120
 *..FOUT    .... .1..    field outlining            .... .1..   HRC250DK 00158150
-*..FVAL    .... ..1.    field validation           .... ..1.   HRC250DK 00158180
+./ * not doing this due to public objections         
+./ * *..FVAL    .... ..1.    field validation           .... ..1.   HRC250DK
+./ *
 ./ I 00165000 $ 00165050 20
          IC    R0,GRFXTATT             Get the extra flags     HRC250DK 00165050
-         OR    R1,R0                   Put them together       HRC250DK 00165150
+         N     R0,=A(255-GRFXFVAL)     conflicts with EMUL3270 HRC250DK 00165070
+         OR    R1,R0                   Put them together       HRC250DK 00165090
 ./ R 00169000 00186000 $ 00169100 200
 *                                                              HRC250DK 00169100
          LH   R1,GRFXCOLS              Screen width (columns)  HRC250DK 00169300
